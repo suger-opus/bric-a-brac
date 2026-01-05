@@ -49,47 +49,55 @@ Exit conditions:
         - (POST, PATCH) the data doesn't follow the schema of `schema_node_id` (in body)
     - endpoint `/graphs/:graph_id/data/edges` or `/graphs/:graph_id/data/edges/:edge_id`
         - (POST, PATCH) the data doesn't follow the schema of `schema_edge_id` (in body)
+    - endpoint `/graphs/:graph_id/schema/nodes/:node_id/properties` or `/graphs/:graph_id/schema/edges/:edge_id/properties` or `/graphs/:graph_id/schema/nodes/:node_id/properties/:property_id` or `/graphs/:graph_id/schema/edges/:edge_id/properties/:property_id`
+        - (POST, PATCH) the property is not correct (ex: range misses a min value)
 
 ## Endpoints
 
 > All endpoints can return a **500** response status
 
-| Method    | Middlewares   | URL                                                           | Request body      | Response status   | Response body     |
-| :-------- | :------------ | :------------------------------------------------------------ | :---------------- | :---------------- | :---------------- |
-| POST      |               | /auth/register?service={gmail,reddit}                         | ???               | ???               | ???               |
-| POST      |               | /auth/register?service={gmail,reddit}                         | ???               | ???               | ???               |
-| POST      |               | /auth/login?service={gmail,reddit}                            | ???               | ???               | ???               |
-| DELETE    |               | /auth/logout                                                  | None              | 204               | None              |
-| GET       |               | /graphs/search?keyword=""                                     | None              | 200               | `Graph[]`         |
-| GET       | ACC           | /graphs/:graph_id                                             | None              | 200               | `Graph`           |
-| GET       | ACC           | /graphs/:graph_id/schema                                      | None              | 200               | `Schema`          |
-| GET       | ACC           | /graphs/:graph_id/data                                        | None              | 200               | `Data`            |
-| GET       | AUT,ACC       | /users/me                                                     | None              | 200               | `User`            |
-| DELETE    | AUT,ACC       | /users/me                                                     | None              | 204               | None              |
-| POST      | AUT,ACC       | /graphs                                                       | `PostGraph`       | 201,400           | `Graph`           |
-| GET       | AUT,ACC       | /graphs/filter?role=[r,w,a]&bookmarked={t,f}&cheered={t,f}    | None              | 200               | `Graph[]`         |
-| PATCH     | AUT,ACC       | /graphs/:graph_id                                             | `PatchGraph`      | 200,400           | `Graph`           |
-| DELETE    | AUT,ACC       | /graphs/:graph_id                                             | None              | 204               | None              |
-| POST      | AUT,ACC       | /graphs/:graph_id/schema/nodes                                | `PostSchemaNode`  | 201,400           | `SchemaNode`      |
-| PATCH     | AUT,ACC       | /graphs/:graph_id/schema/nodes/:node_id                       | `PatchSchemaNode` | 200,400,404       | `SchemaNode`      |
-| DELETE    | AUT,ACC       | /graphs/:graph_id/schema/nodes/:node_id                       | None              | 204,404           | None              |
-| POST      | AUT,ACC       | /graphs/:graph_id/schema/edges                                | `PostSchemaEdge`  | 201,400           | `SchemaEdge`      |
-| PATCH     | AUT,ACC       | /graphs/:graph_id/schema/edges/:edge_id                       | `PatchSchemaEdge` | 200,400,404       | `SchemaEdge`      |
-| DELETE    | AUT,ACC       | /graphs/:graph_id/schema/edges/:edge_id                       | None              | 204,404           | None              |
-| POST      | AUT,ACC,VAL   | /graphs/:graph_id/data/nodes                                  | `PostDataNode`    | 201,400           | `DataNode`        |
-| PATCH     | AUT,ACC,VAL   | /graphs/:graph_id/data/nodes/:node_id                         | `PatchDataNode`   | 200,400,404       | `DataNode`        |
-| DELETE    | AUT,ACC       | /graphs/:graph_id/data/nodes/:node_id                         | None              | 204,404           | None              |
-| POST      | AUT,ACC,VAL   | /graphs/:graph_id/data/edges                                  | `PostDataEdge`    | 201,400           | `DataEdge`        |
-| PATCH     | AUT,ACC,VAL   | /graphs/:graph_id/data/edges/:edge_id                         | `PatchDataEdge`   | 200,400,404       | `DataEdge`        |
-| DELETE    | AUT,ACC       | /graphs/:graph_id/data/edges/:edge_id                         | None              | 204,404           | None              |
-| GET       | AUT,ACC       | /graphs/:graph_id/accesses                                    | None              | 200               | `Access[]`        |
-| POST      | AUT,ACC       | /graphs/:graph_id/accesses                                    | `PostAccess`      | 201,400           | `Access`          |
-| PATCH     | AUT,ACC       | /graphs/:graph_id/accesses/:access_id                         | `PatchAccess`     | 200,400,404       | `Access`          |
-| DELETE    | AUT,ACC       | /graphs/:graph_id/accesses/:access_id                         | None              | 204,404           | None              |
-| POST      | AUT,ACC       | /graphs/:graph_id/bookmarks                                   | None              | 201               | None              |
-| DELETE    | AUT,ACC       | /graphs/:graph_id/bookmarks                                   | None              | 204               | None              |
-| POST      | AUT,ACC       | /graphs/:graph_id/cheers                                      | None              | 201               | None              |
-| DELETE    | AUT,ACC       | /graphs/:graph_id/cheers                                      | None              | 204               | None              |
+| Method    | Middlewares   | URL                                                               | Request body      | Response status   | Response body     |
+| :-------- | :------------ | :---------------------------------------------------------------- | :---------------- | :---------------- | :---------------- |
+| POST      |               | /auth/register?service={gmail,reddit}                             | ???               | ???               | ???               |
+| POST      |               | /auth/register?service={gmail,reddit}                             | ???               | ???               | ???               |
+| POST      |               | /auth/login?service={gmail,reddit}                                | ???               | ???               | ???               |
+| DELETE    |               | /auth/logout                                                      | None              | 204               | None              |
+| GET       |               | /graphs/search?keyword=""                                         | None              | 200               | `Graph[]`         |
+| GET       | ACC           | /graphs/:graph_id                                                 | None              | 200               | `Graph`           |
+| GET       | ACC           | /graphs/:graph_id/schema                                          | None              | 200               | `Schema`          |
+| GET       | ACC           | /graphs/:graph_id/data                                            | None              | 200               | `Data`            |
+| GET       | AUT,ACC       | /users/me                                                         | None              | 200               | `User`            |
+| DELETE    | AUT,ACC       | /users/me                                                         | None              | 204               | None              |
+| POST      | AUT,ACC       | /graphs                                                           | `PostGraph`       | 201,400           | `Graph`           |
+| GET       | AUT,ACC       | /graphs/filter?role=[r,w,a]&bookmarked={t,f}&cheered={t,f}        | None              | 200               | `Graph[]`         |
+| PATCH     | AUT,ACC       | /graphs/:graph_id                                                 | `PatchGraph`      | 200,400           | `Graph`           |
+| DELETE    | AUT,ACC       | /graphs/:graph_id                                                 | None              | 204               | None              |
+| POST      | AUT,ACC       | /graphs/:graph_id/schema/nodes                                    | `PostSchemaNode`  | 201,400           | `SchemaNode`      |
+| PATCH     | AUT,ACC       | /graphs/:graph_id/schema/nodes/:node_id                           | `PatchSchemaNode` | 200,400,404       | `SchemaNode`      |
+| DELETE    | AUT,ACC       | /graphs/:graph_id/schema/nodes/:node_id                           | None              | 204,404           | None              |
+| POST      | AUT,ACC,VAL   | /graphs/:graph_id/schema/nodes/:node_id/properties                | `PostProperty`    | 201,400           | `Property`        |
+| PATCH     | AUT,ACC,VAL   | /graphs/:graph_id/schema/nodes/:node_id/properties/:property_id   | `PatchProperty`   | 200,400,404       | `Property`        |
+| DELETE    | AUT,ACC,VAL   | /graphs/:graph_id/schema/nodes/:node_id/properties/:property_id   | None              | 204,404           | None              |
+| POST      | AUT,ACC       | /graphs/:graph_id/schema/edges                                    | `PostSchemaEdge`  | 201,400           | `SchemaEdge`      |
+| PATCH     | AUT,ACC       | /graphs/:graph_id/schema/edges/:edge_id                           | `PatchSchemaEdge` | 200,400,404       | `SchemaEdge`      |
+| DELETE    | AUT,ACC       | /graphs/:graph_id/schema/edges/:edge_id                           | None              | 204,404           | None              |
+| POST      | AUT,ACC,VAL   | /graphs/:graph_id/schema/edges/:edge_id/properties                | `PostProperty`    | 201,400           | `Property`        |
+| PATCH     | AUT,ACC,VAL   | /graphs/:graph_id/schema/edges/:edge_id/properties/:property_id   | `PatchProperty`   | 200,400,404       | `Property`        |
+| DELETE    | AUT,ACC,VAL   | /graphs/:graph_id/schema/edges/:edge_id/properties/:property_id   | None              | 204,404           | None              |
+| POST      | AUT,ACC,VAL   | /graphs/:graph_id/data/nodes                                      | `PostDataNode`    | 201,400           | `DataNode`        |
+| PATCH     | AUT,ACC,VAL   | /graphs/:graph_id/data/nodes/:node_id                             | `PatchDataNode`   | 200,400,404       | `DataNode`        |
+| DELETE    | AUT,ACC       | /graphs/:graph_id/data/nodes/:node_id                             | None              | 204,404           | None              |
+| POST      | AUT,ACC,VAL   | /graphs/:graph_id/data/edges                                      | `PostDataEdge`    | 201,400           | `DataEdge`        |
+| PATCH     | AUT,ACC,VAL   | /graphs/:graph_id/data/edges/:edge_id                             | `PatchDataEdge`   | 200,400,404       | `DataEdge`        |
+| DELETE    | AUT,ACC       | /graphs/:graph_id/data/edges/:edge_id                             | None              | 204,404           | None              |
+| GET       | AUT,ACC       | /graphs/:graph_id/accesses                                        | None              | 200               | `Access[]`        |
+| POST      | AUT,ACC       | /graphs/:graph_id/accesses                                        | `PostAccess`      | 201,400           | `Access`          |
+| PATCH     | AUT,ACC       | /graphs/:graph_id/accesses/:access_id                             | `PatchAccess`     | 200,400,404       | `Access`          |
+| DELETE    | AUT,ACC       | /graphs/:graph_id/accesses/:access_id                             | None              | 204,404           | None              |
+| POST      | AUT,ACC       | /graphs/:graph_id/bookmarks                                       | None              | 201               | None              |
+| DELETE    | AUT,ACC       | /graphs/:graph_id/bookmarks                                       | None              | 204               | None              |
+| POST      | AUT,ACC       | /graphs/:graph_id/cheers                                          | None              | 201               | None              |
+| DELETE    | AUT,ACC       | /graphs/:graph_id/cheers                                          | None              | 204               | None              |
 
 ## Types
 
@@ -154,6 +162,24 @@ Exit conditions:
 ```
 
 **PatchSchemaEdge**:
+```json
+{
+}
+```
+
+**Property**:
+```json
+{
+}
+```
+
+**PostProperty**:
+```json
+{
+}
+```
+
+**PatchProperty**:
 ```json
 {
 }

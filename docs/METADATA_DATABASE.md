@@ -61,7 +61,7 @@
 | :--------     | :---------------------------- | :------------ |
 | node_id       | ???                           | ???           |
 | name          | ???                           | ???           |
-| properties    | JSON                          | ???           |
+| properties    | PROPERTY[]                    | ???           |
 | schema_id     | ???                           | ???           |
 
 **EDGE**
@@ -69,8 +69,50 @@
 | :--------     | :---------------------------- | :------------ |
 | edge_id       | ???                           | ???           |
 | name          | ???                           | ???           |
-| properties    | JSON                          | ???           |
+| properties    | PROPERTY[]                    | ???           |
 | schema_id     | ???                           | ???           |
+
+**PROPERTY**
+| NAME          | TYPE                          | CONSTRAINTS   |
+| :--------     | :---------------------------- | :------------ |
+| property_id   | ???                           | ???           |
+| metadata      | JSON                          | ???           |
+| node_id       | ???                           | NULL          |
+| edge_id       | ???                           | NULL          |
+
+Here is the list of all the handled properties types:
+```json
+[
+    "integer",
+    "float",
+    "string",
+    "boolean",
+    "date",
+    "time",
+    // "datetime",
+    // "localdatetime",
+    // "duration",
+    // "2d_point",
+    // "3d_point",
+    "range",
+    "select",
+    "multi-select",
+]
+```
+
+Here is the structure of `metadata`:
+```json
+{
+    "property_type": "integer", // or any other property type
+    "details": {
+        "min": null, // default value, required for range
+        "max": null, // default value, required for range
+        "options": null, // default value required for select/multi-select
+        "required": false, // default value
+        "default_value": null, // default value, required if required is false
+    }
+}
+```
 
 ## Types
 
