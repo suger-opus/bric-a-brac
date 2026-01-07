@@ -1,12 +1,12 @@
 "use client";
 
-import { createEdge } from "@/lib/api";
+import { createNode } from "@/lib/api";
 import { useState } from "react";
 
-interface EdgeFormProps {
+type NodeFormProps = {
   graphId: string;
-  onEdgeCreated: () => void;
-}
+  onNodeCreated: () => void;
+};
 
 type PropertyValue = {
   key: string;
@@ -14,9 +14,7 @@ type PropertyValue = {
   type: "String" | "Integer" | "Float" | "Boolean";
 };
 
-export function EdgeForm({ graphId, onEdgeCreated }: EdgeFormProps) {
-  const [fromId, setFromId] = useState("");
-  const [toId, setToId] = useState("");
+const NodeForm = ({ graphId, onNodeCreated }: NodeFormProps) => {
   const [label, setLabel] = useState("");
   const [properties, setProperties] = useState<PropertyValue[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,21 +60,17 @@ export function EdgeForm({ graphId, onEdgeCreated }: EdgeFormProps) {
         }
       }
 
-      await createEdge({
+      await createNode({
         graph_id: graphId,
-        from_id: fromId,
-        to_id: toId,
         label,
-        properties: parsedProperties
+        properties: parsedProperties,
       });
 
-      setFromId("");
-      setToId("");
       setLabel("");
       setProperties([]);
-      onEdgeCreated();
+      onNodeCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create edge");
+      setError(err instanceof Error ? err.message : "Failed to create node");
     } finally {
       setIsLoading(false);
     }
@@ -86,41 +80,13 @@ export function EdgeForm({ graphId, onEdgeCreated }: EdgeFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-zinc-300 mb-1">
-          From Node ID
-        </label>
-        <input
-          type="text"
-          value={fromId}
-          onChange={(e) => setFromId(e.target.value)}
-          placeholder="Node ID"
-          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none font-mono text-sm"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-zinc-300 mb-1">
-          To Node ID
-        </label>
-        <input
-          type="text"
-          value={toId}
-          onChange={(e) => setToId(e.target.value)}
-          placeholder="Node ID"
-          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none font-mono text-sm"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-zinc-300 mb-1">
-          Edge Label
+          Node Label
         </label>
         <input
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="WORKS_AT, KNOWS, etc."
+          placeholder="Person, Company, etc."
           className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
           required
         />
@@ -139,7 +105,7 @@ export function EdgeForm({ graphId, onEdgeCreated }: EdgeFormProps) {
             + Add Property
           </button>
         </div>
-        
+
         {properties.length === 0 ? (
           <p className="text-xs text-zinc-500 italic">No properties added</p>
         ) : (
@@ -155,7 +121,9 @@ export function EdgeForm({ graphId, onEdgeCreated }: EdgeFormProps) {
                 />
                 <select
                   value={prop.type}
-                  onChange={(e) => updateProperty(index, "type", e.target.value)}
+                  onChange={(e) =>
+                    updateProperty(index, "type", e.target.value)
+                  }
                   className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
                 >
                   <option value="String">Text</option>
@@ -164,10 +132,20 @@ export function EdgeForm({ graphId, onEdgeCreated }: EdgeFormProps) {
                   <option value="Boolean">True/False</option>
                 </select>
                 <input
-                  type={prop.type === "Boolean" ? "text" : prop.type === "Integer" || prop.type === "Float" ? "number" : "text"}
+                  type={
+                    prop.type === "Boolean"
+                      ? "text"
+                      : prop.type === "Integer" || prop.type === "Float"
+                      ? "number"
+                      : "text"
+                  }
                   value={prop.value}
-                  onChange={(e) => updateProperty(index, "value", e.target.value)}
-                  placeholder={prop.type === "Boolean" ? "true or false" : "Value"}
+                  onChange={(e) =>
+                    updateProperty(index, "value", e.target.value)
+                  }
+                  placeholder={
+                    prop.type === "Boolean" ? "true or false" : "Value"
+                  }
                   step={prop.type === "Float" ? "any" : undefined}
                   className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
                 />
@@ -193,10 +171,12 @@ export function EdgeForm({ graphId, onEdgeCreated }: EdgeFormProps) {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isLoading ? "Creating..." : "Create Edge"}
+        {isLoading ? "Creating..." : "Create Node"}
       </button>
     </form>
   );
-}
+};
+
+export default NodeForm;

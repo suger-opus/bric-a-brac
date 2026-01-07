@@ -55,6 +55,8 @@ pub async fn insert_edge(
 ) -> anyhow::Result<GraphData> {
     let edge_id = Uuid::new_v4();
     properties.insert("id".to_string(), edge_id.to_string().into());
+    properties.insert("from_node_id".to_string(), from_id.to_string().into());
+    properties.insert("to_node_id".to_string(), to_id.to_string().into());
 
     let prop_keys: Vec<String> = properties
         .keys()
@@ -135,7 +137,7 @@ pub async fn search(
 
         (
             format!(
-                "MATCH (n{}{}) OPTIONAL MATCH (n)-[e{}{}]-(m) RETURN n, e, m",
+                "MATCH (n{}{}) OPTIONAL MATCH (n)-[e{}{}]->(m) RETURN n, e, m",
                 label_clause, node_where, edge_label_clause, edge_where
             ),
             true,

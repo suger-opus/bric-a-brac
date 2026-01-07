@@ -93,11 +93,23 @@ impl From<&neo4rs::Relation> for EdgeData {
             .unwrap_or("")
             .to_string();
 
+        let from_id = properties
+            .get("from_node_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        let to_id = properties
+            .get("to_node_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
         EdgeData {
             id,
             label: edge.typ().to_string(),
-            from_id: edge.start_node_id().to_string(),
-            to_id: edge.end_node_id().to_string(),
+            from_id,
+            to_id,
             properties,
         }
     }

@@ -1,11 +1,13 @@
 "use client";
 
-import { createNode } from "@/lib/api";
 import { useState } from "react";
+import { GraphData } from "@/types/graph";
+import { createEdge } from "@/lib/api";
 
-interface NodeFormProps {
+interface EdgeFormProps {
   graphId: string;
-  onNodeCreated: () => void;
+  graphData: GraphData;
+  onEdgeCreated: () => void;
 }
 
 type PropertyValue = {
@@ -14,7 +16,9 @@ type PropertyValue = {
   type: "String" | "Integer" | "Float" | "Boolean";
 };
 
-export function NodeForm({ graphId, onNodeCreated }: NodeFormProps) {
+const EdgeForm = ({ graphId, graphData, onEdgeCreated }: EdgeFormProps) => {
+  const [fromId, setFromId] = useState("");
+  const [toId, setToId] = useState("");
   const [label, setLabel] = useState("");
   const [properties, setProperties] = useState<PropertyValue[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,17 +64,21 @@ export function NodeForm({ graphId, onNodeCreated }: NodeFormProps) {
         }
       }
 
-      await createNode({
+      await createEdge({
         graph_id: graphId,
+        from_id: fromId,
+        to_id: toId,
         label,
-        properties: parsedProperties
+        properties: parsedProperties,
       });
 
+      setFromId("");
+      setToId("");
       setLabel("");
       setProperties([]);
-      onNodeCreated();
+      onEdgeCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create node");
+      setError(err instanceof Error ? err.message : "Failed to create edge");
     } finally {
       setIsLoading(false);
     }
@@ -80,13 +88,53 @@ export function NodeForm({ graphId, onNodeCreated }: NodeFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-zinc-300 mb-1">
-          Node Label
+          From Node ID
+        </label>
+        <select
+          value={fromId}
+          onChange={(e) => setFromId(e.target.value)}
+          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none font-mono text-sm"
+        >
+          <option value="" disabled>
+            Select a node
+          </option>
+          {graphData.nodes.map((node) => (
+            <option key={node.id} value={node.id}>
+              {node.label} (ID: {node.id})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-zinc-300 mb-1">
+          To Node ID
+        </label>
+        <select
+          value={toId}
+          onChange={(e) => setToId(e.target.value)}
+          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none font-mono text-sm"
+        >
+          <option value="" disabled>
+            Select a node
+          </option>
+          {graphData.nodes.map((node) => (
+            <option key={node.id} value={node.id}>
+              {node.label} (ID: {node.id})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-zinc-300 mb-1">
+          Edge Label
         </label>
         <input
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="Person, Company, etc."
+          placeholder="WORKS_AT, KNOWS, etc."
           className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
           required
         />
@@ -136,8 +184,8 @@ export function NodeForm({ graphId, onNodeCreated }: NodeFormProps) {
                     prop.type === "Boolean"
                       ? "text"
                       : prop.type === "Integer" || prop.type === "Float"
-                        ? "number"
-                        : "text"
+                      ? "number"
+                      : "text"
                   }
                   value={prop.value}
                   onChange={(e) =>
@@ -171,10 +219,12 @@ export function NodeForm({ graphId, onNodeCreated }: NodeFormProps) {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isLoading ? "Creating..." : "Create Node"}
+        {isLoading ? "Creating..." : "Create Edge"}
       </button>
     </form>
   );
-}
+};
+
+export default EdgeForm;
