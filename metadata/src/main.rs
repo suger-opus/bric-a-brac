@@ -15,7 +15,6 @@ use state::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize tracing
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -28,7 +27,6 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Metadata service starting...");
     tracing::info!("Server will listen on {}", config.server_address());
 
-    // Connect to Knowledge service
     tracing::info!(
         "Connecting to Knowledge service at {}...",
         config.knowledge_uri()
@@ -36,13 +34,8 @@ async fn main() -> anyhow::Result<()> {
     let knowledge_client = KnowledgeClient::connect(config.knowledge_uri()).await?;
     tracing::info!("✓ Connected to Knowledge service");
 
-    // Create shared application state (KnowledgeClient is Clone + thread-safe)
     let state = AppState { knowledge_client };
-
-    // Build the router
     let app = routes::create_router(state);
-
-    // Start the server
     let listener = tokio::net::TcpListener::bind(&config.server_address()).await?;
     tracing::info!(
         "✓ Metadata REST API listening on {}",
@@ -50,6 +43,5 @@ async fn main() -> anyhow::Result<()> {
     );
 
     axum::serve(listener, app).await?;
-
     Ok(())
 }

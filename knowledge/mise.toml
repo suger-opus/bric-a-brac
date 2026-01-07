@@ -11,9 +11,9 @@
 # DATABASE_NAME=""
 
 [tasks]
-server-start = "docker compose -f compose.server.yaml up -d"
+server-start = "docker compose -f compose.server.yaml up --build -d"
 server-stop = "docker compose -f compose.server.yaml down"
 server-config = "docker compose -f compose.server.yaml config"
-db-start = "docker compose -f compose.db.yaml up -d"
+db-start = "docker compose -f compose.db.yaml up --build -d"
 db-stop = "docker compose -f compose.db.yaml down"
 db-config = "docker compose -f compose.db.yaml config"

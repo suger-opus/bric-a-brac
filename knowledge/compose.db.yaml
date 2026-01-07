@@ -19,7 +19,7 @@ services:
     image: memgraph/lab:latest
     container_name: knowledge-database-lab
     ports:
-      - "3000:3000"
+      - "7777:3000"
     environment:
       - QUICK_CONNECT_IS_DISABLED=true
     depends_on:

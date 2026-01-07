@@ -8,6 +8,6 @@
 # KNOWLEDGE_PORT=""
 
 [tasks]
-server-start = "docker compose -f compose.server.yaml up -d"
+server-start = "docker compose -f compose.server.yaml up --build -d"
 server-stop = "docker compose -f compose.server.yaml down"
 server-config = "docker compose -f compose.server.yaml config"

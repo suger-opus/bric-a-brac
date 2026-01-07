@@ -3,9 +3,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+
 use crate::dto::ErrorResponse;
 
-// Custom error type for better error handling
 pub enum AppError {
     KnowledgeService(String),
 }

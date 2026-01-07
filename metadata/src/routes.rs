@@ -1,4 +1,5 @@
 use axum::{routing::post, Router};
+use tower_http::cors::{CorsLayer, Any};
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::Level;
 
@@ -10,6 +11,12 @@ pub fn create_router(state: AppState) -> Router {
         .route("/nodes", post(create_node))
         .route("/edges", post(create_edge))
         .route("/search", post(search_graph))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
+        )
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
