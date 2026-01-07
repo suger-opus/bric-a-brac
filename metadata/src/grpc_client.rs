@@ -6,6 +6,7 @@ use bric_a_brac_protos::knowledge::{
     GraphDataResponse, InsertEdgeRequest, InsertNodeRequest, PropertyValue, SearchRequest,
 };
 
+#[derive(Clone)]
 pub struct KnowledgeClient {
     client: KnowledgeServiceClient<tonic::transport::Channel>,
 }

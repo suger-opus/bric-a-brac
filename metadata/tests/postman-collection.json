@@ -1,0 +1,447 @@
+{
+	"info": {
+		"_postman_id": "bric-a-brac-metadata-api",
+		"name": "Bric-à-brac Metadata API",
+		"description": "REST API for metadata microservice - manages graph data via knowledge service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "graph_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "person_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "company_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Create Node - Person",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parse response",
+							"const response = pm.response.json();",
+							"",
+							"// Save person_id for later requests",
+							"if (response.nodes && response.nodes.length > 0) {",
+							"    pm.collectionVariables.set('person_id', response.nodes[0].id);",
+							"    console.log('Saved person_id:', response.nodes[0].id);",
+							"}",
+							"",
+							"// Test status code",
+							"pm.test('Status code is 200', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// Test response structure",
+							"pm.test('Response has nodes array', function () {",
+							"    pm.expect(response).to.have.property('nodes');",
+							"    pm.expect(response.nodes).to.be.an('array');",
+							"    pm.expect(response.nodes.length).to.be.greaterThan(0);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Generate a new UUID v4 for graph_id if not set",
+							"if (!pm.collectionVariables.get('graph_id')) {",
+							"    const graphId = pm.variables.replaceIn('{{$randomUUID}}');",
+							"    pm.collectionVariables.set('graph_id', graphId);",
+							"    console.log('Generated graph_id (UUID):', graphId);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"graph_id\": \"{{graph_id}}\",\n  \"label\": \"Person\",\n  \"properties\": {\n    \"name\": \"Alice Johnson\",\n    \"age\": 30,\n    \"email\": \"alice@example.com\",\n    \"active\": true\n  }\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/nodes",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"nodes"
+					]
+				},
+				"description": "Create a Person node with properties"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Node - Company",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parse response",
+							"const response = pm.response.json();",
+							"",
+							"// Save company_id for later requests",
+							"if (response.nodes && response.nodes.length > 0) {",
+							"    pm.collectionVariables.set('company_id', response.nodes[0].id);",
+							"    console.log('Saved company_id:', response.nodes[0].id);",
+							"}",
+							"",
+							"// Test status code",
+							"pm.test('Status code is 200', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// Test response structure",
+							"pm.test('Response has nodes array', function () {",
+							"    pm.expect(response).to.have.property('nodes');",
+							"    pm.expect(response.nodes).to.be.an('array');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"graph_id\": \"{{graph_id}}\",\n  \"label\": \"Company\",\n  \"properties\": {\n    \"name\": \"TechCorp\",\n    \"industry\": \"Technology\",\n    \"founded\": 2015,\n    \"public\": false\n  }\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/nodes",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"nodes"
+					]
+				},
+				"description": "Create a Company node with properties"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Edge - WORKS_AT",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parse response",
+							"const response = pm.response.json();",
+							"",
+							"// Test status code",
+							"pm.test('Status code is 200', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// Test response structure",
+							"pm.test('Response has edges array', function () {",
+							"    pm.expect(response).to.have.property('edges');",
+							"    pm.expect(response.edges).to.be.an('array');",
+							"    pm.expect(response.edges.length).to.be.greaterThan(0);",
+							"});",
+							"",
+							"// Test edge properties",
+							"pm.test('Edge has correct relationship', function () {",
+							"    const edge = response.edges[0];",
+							"    pm.expect(edge.label).to.equal('WORKS_AT');",
+							"    pm.expect(edge.from_id).to.equal(pm.collectionVariables.get('person_id'));",
+							"    pm.expect(edge.to_id).to.equal(pm.collectionVariables.get('company_id'));",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Verify we have the required IDs",
+							"const personId = pm.collectionVariables.get('person_id');",
+							"const companyId = pm.collectionVariables.get('company_id');",
+							"",
+							"if (!personId || !companyId) {",
+							"    throw new Error('Please run \"Create Node - Person\" and \"Create Node - Company\" first');",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"from_id\": \"{{person_id}}\",\n  \"to_id\": \"{{company_id}}\",\n  \"label\": \"WORKS_AT\",\n  \"properties\": {\n    \"role\": \"Senior Engineer\",\n    \"since\": 2020,\n    \"department\": \"Engineering\",\n    \"remote\": true\n  }\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/edges",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"edges"
+					]
+				},
+				"description": "Create a WORKS_AT edge between Person and Company"
+			},
+			"response": []
+		},
+		{
+			"name": "Search - All Nodes in Graph",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parse response",
+							"const response = pm.response.json();",
+							"",
+							"// Test status code",
+							"pm.test('Status code is 200', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// Test response structure",
+							"pm.test('Response has nodes array', function () {",
+							"    pm.expect(response).to.have.property('nodes');",
+							"    pm.expect(response.nodes).to.be.an('array');",
+							"});",
+							"",
+							"// Test we found nodes",
+							"pm.test('Found at least 2 nodes', function () {",
+							"    pm.expect(response.nodes.length).to.be.at.least(2);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"graph_id\": \"{{graph_id}}\",\n  \"include_edges\": false\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/search",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"search"
+					]
+				},
+				"description": "Search for all nodes in the graph"
+			},
+			"response": []
+		},
+		{
+			"name": "Search - Person Nodes Only",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parse response",
+							"const response = pm.response.json();",
+							"",
+							"// Test status code",
+							"pm.test('Status code is 200', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// Test only Person nodes returned",
+							"pm.test('All nodes are Person type', function () {",
+							"    response.nodes.forEach(node => {",
+							"        pm.expect(node.label).to.equal('Person');",
+							"    });",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"graph_id\": \"{{graph_id}}\",\n  \"node_label\": \"Person\",\n  \"include_edges\": false\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/search",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"search"
+					]
+				},
+				"description": "Search for Person nodes only"
+			},
+			"response": []
+		},
+		{
+			"name": "Search - With Edges",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parse response",
+							"const response = pm.response.json();",
+							"",
+							"// Test status code",
+							"pm.test('Status code is 200', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// Test response has both nodes and edges",
+							"pm.test('Response has nodes and edges', function () {",
+							"    pm.expect(response).to.have.property('nodes');",
+							"    pm.expect(response).to.have.property('edges');",
+							"    pm.expect(response.nodes).to.be.an('array');",
+							"    pm.expect(response.edges).to.be.an('array');",
+							"});",
+							"",
+							"// Test we found edges",
+							"pm.test('Found at least 1 edge', function () {",
+							"    pm.expect(response.edges.length).to.be.at.least(1);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"graph_id\": \"{{graph_id}}\",\n  \"include_edges\": true\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/search",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"search"
+					]
+				},
+				"description": "Search for all nodes and edges in the graph"
+			},
+			"response": []
+		},
+		{
+			"name": "Search - By Node Property",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parse response",
+							"const response = pm.response.json();",
+							"",
+							"// Test status code",
+							"pm.test('Status code is 200', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// Test we found the specific node",
+							"pm.test('Found node with matching property', function () {",
+							"    pm.expect(response.nodes.length).to.be.greaterThan(0);",
+							"    const node = response.nodes[0];",
+							"    pm.expect(node.properties.name).to.equal('Alice Johnson');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"graph_id\": \"{{graph_id}}\",\n  \"node_label\": \"Person\",\n  \"node_properties\": {\n    \"name\": \"Alice Johnson\"\n  },\n  \"include_edges\": false\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/search",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"search"
+					]
+				},
+				"description": "Search for nodes by specific property values"
+			},
+			"response": []
+		}
+	]
+}
