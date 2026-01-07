@@ -1,4 +1,4 @@
-# Metadata micro-service
+# Metadata microservice
 
 > Rest API
 

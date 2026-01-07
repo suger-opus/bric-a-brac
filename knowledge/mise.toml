@@ -1,0 +1,19 @@
+[env]
+# Knowledge Server Configuration
+# KNOWLEDGE_HOST=""
+# KNOWLEDGE_PORT=""
+
+# Graph Database Configuration
+# DATABASE_HOST=""
+# DATABASE_PORT=""
+# DATABASE_USER=""
+# DATABASE_PASSWORD=""
+# DATABASE_NAME=""
+
+[tasks]
+server-start = "docker compose -f compose.server.yaml up -d"
+server-stop = "docker compose -f compose.server.yaml down"
+server-config = "docker compose -f compose.server.yaml config"
+db-start = "docker compose -f compose.db.yaml up -d"
+db-stop = "docker compose -f compose.db.yaml down"
+db-config = "docker compose -f compose.db.yaml config"

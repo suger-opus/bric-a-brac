@@ -1,0 +1,37 @@
+services:
+  database:
+    image: memgraph/memgraph-mage:latest
+    container_name: knowledge-database
+    ports:
+      - "${DATABASE_PORT}:7687" # instance connection
+      - "7444:7444" # logs
+    volumes:
+      - memgraph_dev_data:/var/lib/memgraph
+    environment:
+      - MEMGRAPH_LOG_LEVEL=DEBUG
+      - MEMGRAPH_USER=${DATABASE_USER}
+      - MEMGRAPH_PASSWORD=${DATABASE_PASSWORD}
+    restart: on-failure
+    networks:
+      - bric-a-brac-network
+
+  database-lab:
+    image: memgraph/lab:latest
+    container_name: knowledge-database-lab
+    ports:
+      - "3000:3000"
+    environment:
+      - QUICK_CONNECT_IS_DISABLED=true
+    depends_on:
+      - database
+    restart: on-failure
+    networks:
+      - bric-a-brac-network
+
+volumes:
+  memgraph_dev_data:
+
+networks:
+  bric-a-brac-network:
+    name: bric-a-brac-network
+    driver: bridge

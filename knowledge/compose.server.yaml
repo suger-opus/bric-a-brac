@@ -1,0 +1,24 @@
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: knowledge/Dockerfile
+    container_name: knowledge-service
+    ports:
+      - "${KNOWLEDGE_PORT}:50051"
+    environment:
+      - KNOWLEDGE_HOST=${KNOWLEDGE_HOST}
+      - KNOWLEDGE_PORT=${KNOWLEDGE_PORT}
+      - DATABASE_HOST=${DATABASE_HOST}
+      - DATABASE_PORT=${DATABASE_PORT}
+      - DATABASE_USER=${DATABASE_USER}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_NAME=${DATABASE_NAME}
+    restart: on-failure
+    networks:
+      - bric-a-brac-network
+
+networks:
+  bric-a-brac-network:
+    external: true
+    name: bric-a-brac-network

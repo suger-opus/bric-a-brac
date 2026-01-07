@@ -1,0 +1,21 @@
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: metadata/Dockerfile
+    container_name: metadata-service
+    ports:
+      - "${METADATA_PORT}:8080"
+    environment:
+      - METADATA_HOST=${METADATA_HOST}
+      - METADATA_PORT=${METADATA_PORT}
+      - KNOWLEDGE_HOST=${KNOWLEDGE_HOST}
+      - KNOWLEDGE_PORT=${KNOWLEDGE_PORT}
+    restart: on-failure
+    networks:
+      - bric-a-brac-network
+
+networks:
+  bric-a-brac-network:
+    external: true
+    name: bric-a-brac-network

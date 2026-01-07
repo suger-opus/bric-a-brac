@@ -1,0 +1,13 @@
+[env]
+# Metdata Server Configuration
+# METADATA_HOST=""
+# METADATA_PORT=""
+
+# Knowledge Service Configuration
+# KNOWLEDGE_HOST=""
+# KNOWLEDGE_PORT=""
+
+[tasks]
+server-start = "docker compose -f compose.server.yaml up -d"
+server-stop = "docker compose -f compose.server.yaml down"
+server-config = "docker compose -f compose.server.yaml config"

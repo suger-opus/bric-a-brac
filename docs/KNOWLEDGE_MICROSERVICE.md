@@ -1,6 +1,6 @@
-# Knowledge micro-service
+# Knowledge microservice
 
-> Communicates via RPC with the metadata micro-service
+> Communicates via RPC with the metadata microservice
 > Un-accessible from the oustide
 
 ## Auth middleware

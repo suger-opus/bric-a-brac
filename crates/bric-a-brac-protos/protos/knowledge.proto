@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package knowledge;
+
+service KnowledgeService {
+  rpc InsertNode(InsertNodeRequest) returns (GraphDataResponse);
+  rpc InsertEdge(InsertEdgeRequest) returns (GraphDataResponse);
+  rpc Search(SearchRequest) returns (GraphDataResponse);
+}
+
+message InsertNodeRequest {
+  string graph_id = 1;
+  string label = 2;
+  map<string, PropertyValue> properties = 3;
+}
+
+message InsertEdgeRequest {
+  string from_id = 1;
+  string to_id = 2;
+  string label = 3;
+  map<string, PropertyValue> properties = 4;
+}
+
+message SearchRequest {
+  optional string graph_id = 1;
+  optional string node_label = 2;
+  map<string, PropertyValue> node_properties = 3;
+  optional string edge_label = 4;
+  map<string, PropertyValue> edge_properties = 5;
+  bool include_edges = 6;
+}
+
+message PropertyValue {
+  oneof value {
+    string string_value = 1;
+    int64 int_value = 2;
+    double float_value = 3;
+    bool bool_value = 4;
+  }
+}
+
+message Node {
+  string id = 1;
+  string label = 2;
+  string properties_json = 3;
+}
+
+message Edge {
+  string id = 1;
+  string label = 2;
+  string from_id = 3;
+  string to_id = 4;
+  string properties_json = 5;
+}
+
+message GraphDataResponse {
+  repeated Node nodes = 1;
+  repeated Edge edges = 2;
+}
