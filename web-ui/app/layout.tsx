@@ -17,19 +17,23 @@ export const metadata: Metadata = {
   description: "Interactive 3D knowledge graph visualization"
 };
 
-export default function RootLayout({
+const RootLayout = ({
   children
 }: Readonly<{
   children: React.ReactNode;
-}>) {
+}>) => {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        {children}
+        <main>
+          {children}
+        </main>
       </body>
     </html>
   );
-}
+};
+
+export default RootLayout;

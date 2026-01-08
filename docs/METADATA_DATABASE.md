@@ -26,12 +26,14 @@
 | :--------     | :---------------------------- | :------------ |
 | user_id       | ???                           | ???           |
 | graph_id      | ???                           | ???           |
+| created_at    | ???                           | ???           |
 
 **CHEER**
 | NAME          | TYPE                          | CONSTRAINTS   |
 | :--------     | :---------------------------- | :------------ |
 | user_id       | ???                           | ???           |
 | graph_id      | ???                           | ???           |
+| created_at    | ???                           | ???           |
 
 **GRAPH**
 | NAME          | TYPE                          | CONSTRAINTS   |
