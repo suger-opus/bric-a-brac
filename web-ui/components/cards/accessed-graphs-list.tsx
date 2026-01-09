@@ -116,7 +116,7 @@ const AccessedGraphsList = () => {
         <CardDescription>List of the graphs you have access to</CardDescription>
         <CardAction>
           <Tooltip>
-            <TooltipTrigger>
+            <TooltipTrigger asChild>
               <Button size="icon-sm">
                 <ExpandIcon />
               </Button>

@@ -121,7 +121,7 @@ const BookmarkedGraphsList = () => {
         <CardDescription>The list of graphs you have bookmarked</CardDescription>
         <CardAction>
           <Tooltip>
-            <TooltipTrigger>
+            <TooltipTrigger asChild>
               <Button size="icon-sm">
                 <ExpandIcon />
               </Button>
@@ -179,8 +179,10 @@ const BookmarkedGraphsList = () => {
                                 className="data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-black data-[state=on]:*:[svg]:stroke-black"
                                 asChild
                               >
-                                <TooltipTrigger>
-                                  <BookmarkIcon />
+                                <TooltipTrigger asChild>
+                                  <Button variant="outline" size="icon-sm">
+                                    <BookmarkIcon />
+                                  </Button>
                                 </TooltipTrigger>
                               </Toggle>
                               <TooltipContent>
@@ -188,7 +190,7 @@ const BookmarkedGraphsList = () => {
                               </TooltipContent>
                             </Tooltip>
                             <Tooltip>
-                              <TooltipTrigger>
+                              <TooltipTrigger asChild>
                                 <Button variant="outline" size="icon-sm">
                                   <ArrowUpRightIcon />
                                 </Button>

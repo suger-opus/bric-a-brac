@@ -24,7 +24,7 @@ const QuickSearchGraph = () => {
         <CardDescription>Search for a public graph</CardDescription>
         <CardAction>
           <Tooltip>
-            <TooltipTrigger>
+            <TooltipTrigger asChild>
               <Button size="icon-sm">
                 <ExpandIcon />
               </Button>
@@ -41,7 +41,7 @@ const QuickSearchGraph = () => {
           <div className="flex w-full items-center gap-2">
             <Input id="search-keyword" type="text" placeholder="Napoleon" />
             <Tooltip>
-              <TooltipTrigger>
+              <TooltipTrigger asChild>
                 <Button>
                   <SearchIcon />
                 </Button>
