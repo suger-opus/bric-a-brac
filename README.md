@@ -80,6 +80,13 @@
 - sort graphs lists by nb of relationships
 - sort graphs lists by nb of subreddit discussions
 - graph topics
+- list graphs people like
+- propose graphs based on what user likes
+- user profiles
+- change username
+- organisations (for entreprises, schools, ...)
 - pay to use features / ratings/limits (plans, pricing, pay)
 - analytics
+- Not only web app, also PWA
+- MCP server
 - separate database per project (very very large graphs - enterprise plan)

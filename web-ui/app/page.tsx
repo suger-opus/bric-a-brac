@@ -1,8 +1,10 @@
 "use client";
 
-import AccessedGraphsListCard from "@/components/cards/accessed-graphs-list";
-import BookmarkedGraphsListCard from "@/components/cards/bookmarked-graphs-list";
-import QuickSearchGraphCard from "@/components/cards/quick-search-graph";
+import AccessesCard from "@/components/cards/accesses";
+import BookmarksCard from "@/components/cards/bookmarks";
+import CheersCard from "@/components/cards/cheers";
+import SearchCard from "@/components/cards/search";
+import SettingsCard from "@/components/cards/settings";
 
 const Home = () => {
   // const [graphs, setGraphs] = useState<{ id: string; name: string }[]>([]);
@@ -45,11 +47,13 @@ const Home = () => {
   return (
     <div className="mx-40 my-20">
       <div className="grid grid-cols-2 gap-4 p-4">
-        <QuickSearchGraphCard />
-        <BookmarkedGraphsListCard />
+        <SearchCard />
+        <BookmarksCard />
         <div className="col-span-2">
-          <AccessedGraphsListCard />
+          <AccessesCard />
         </div>
+        <CheersCard />
+        <SettingsCard />
       </div>
     </div>
   );

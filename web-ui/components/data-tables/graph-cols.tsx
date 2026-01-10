@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpRightIcon, BanIcon, BookmarkCheckIcon, HandHeartIcon } from "lucide-react";
+import { BanIcon, BookmarkCheckIcon, ChartNoAxesGanttIcon, HandHeartIcon } from "lucide-react";
 
 export type Graph = {
   id: string;
@@ -192,10 +192,10 @@ export const columns: ColumnDef<Graph>[] = [
       return (
         <Tooltip>
           <TooltipTrigger>
-            <ArrowUpRightIcon size={16} />
+            <ChartNoAxesGanttIcon size={16} />
           </TooltipTrigger>
           <TooltipContent>
-            Open graph {row.original.id}
+            Manage graph {row.original.id}
           </TooltipContent>
         </Tooltip>
       );

@@ -10,6 +10,7 @@
 | user_id       | ???                           | ???           |
 | created_at    | ???                           | ???           |
 | email         | ???                           | ???           |
+| username      | ???                           | UNIQUE        |
 | accesses      | ???                           | ???           |
 | bookmarks     | ???                           | ???           |
 | cheers        | ???                           | ???           |
@@ -45,12 +46,15 @@
 | description   | ???                           | ???           |
 | is_public     | BOOLEAN                       | ???           |
 | reddit        | JSON                          | ???           |
+| nb_nodes      | ???                           | ???           |
+| nb_edges      | ???                           | ???           |
 | schema        | SCHEMA                        | ???           |
 | accesses      | ACCESS[]                      | ???           |
 | bookmarks     | BOOKMARK[]                    | ???           |
 | cheers        | CHEER[]                       | ???           |
 
 **SCHEMA**
+> Think about removing this table
 | NAME          | TYPE                          | CONSTRAINTS   |
 | :--------     | :---------------------------- | :------------ |
 | schema_id     | ???                           | ???           |

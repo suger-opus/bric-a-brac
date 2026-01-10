@@ -24,7 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ExpandIcon, PlusIcon, VectorSquareIcon } from "lucide-react";
 
-const AccessedGraphsList = () => {
+const Accesses = () => {
   const data: {
     id: string;
     name: string;
@@ -130,14 +130,14 @@ const AccessedGraphsList = () => {
       <CardContent className="grow">
         {data.length === 0
           ? (
-            <Empty>
+            <Empty className="h-full">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <VectorSquareIcon />
                 </EmptyMedia>
                 <EmptyTitle>No Graphs Yet</EmptyTitle>
                 <EmptyDescription>
-                  You haven&apos;t created any graphs yet. Get started by creating your first graph.
+                  You have no access to any graphs yet. Get started by creating your first graph.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -150,7 +150,7 @@ const AccessedGraphsList = () => {
       {data.length > 0 && (
         <CardFooter className="flex flex-col items-start space-y-4">
           <Separator />
-          <Button variant="outline">
+          <Button variant="outline" size="sm">
             <PlusIcon /> Create a new graph
           </Button>
         </CardFooter>
@@ -159,4 +159,4 @@ const AccessedGraphsList = () => {
   );
 };
 
-export default AccessedGraphsList;
+export default Accesses;
