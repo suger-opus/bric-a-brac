@@ -27,24 +27,58 @@ import {
   InfoIcon,
   LogOutIcon,
   PenIcon,
+  ShrinkIcon,
   UserRoundXIcon
 } from "lucide-react";
 
-const Settings = () => {
+type SettingsProps = {
+  is_expanded: boolean;
+  expand: () => void;
+  un_expand: () => void;
+};
+
+const Settings = ({ is_expanded, expand, un_expand }: SettingsProps) => {
+  const scrollToElement = () => {
+    requestAnimationFrame(() => {
+      const element = document.getElementById("settings-card");
+      if (element) {
+        const elementPosition = element.getBoundingClientRect().top
+          + window.scrollY;
+        window.scrollTo({
+          top: elementPosition - 16,
+          behavior: "smooth"
+        });
+      }
+    });
+  };
+
   return (
-    <Card>
+    <Card id="settings-card" className="h-full">
       <CardHeader>
         <CardTitle>Settings</CardTitle>
         <CardDescription>Manage your account</CardDescription>
         <CardAction>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon-sm">
-                <ExpandIcon />
+              <Button
+                size="icon-sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (is_expanded) {
+                    un_expand();
+                  } else {
+                    expand();
+                  }
+                  setTimeout(() => {
+                    scrollToElement();
+                  }, 300);
+                }}
+              >
+                {is_expanded ? <ShrinkIcon /> : <ExpandIcon />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              Expand this view
+              {is_expanded ? "Collapse this view" : "Expand this view"}
             </TooltipContent>
           </Tooltip>
         </CardAction>

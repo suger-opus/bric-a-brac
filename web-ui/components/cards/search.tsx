@@ -28,10 +28,16 @@ import {
 } from "@/components/ui/pagination";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowUpRightIcon, ExpandIcon, PlusIcon } from "lucide-react";
+import { ArrowUpRightIcon, ExpandIcon, PlusIcon, ShrinkIcon } from "lucide-react";
 import { useState } from "react";
 
-const Search = () => {
+type SearchProps = {
+  is_expanded: boolean;
+  expand: () => void;
+  un_expand: () => void;
+};
+
+const Search = ({ is_expanded, expand, un_expand }: SearchProps) => {
   const [search, setSearch] = useState("");
 
   const [currentPage, setCurrentPage] = useState(0);
@@ -128,20 +134,47 @@ const Search = () => {
     currentPage * itemsPerPage + itemsPerPage
   );
 
+  const scrollToElement = () => {
+    requestAnimationFrame(() => {
+      const element = document.getElementById("quick-search-card");
+      if (element) {
+        const elementPosition = element.getBoundingClientRect().top
+          + window.scrollY;
+        window.scrollTo({
+          top: elementPosition - 16,
+          behavior: "smooth"
+        });
+      }
+    });
+  };
+
   return (
-    <Card>
+    <Card id="quick-search-card" className="h-full">
       <CardHeader>
         <CardTitle>Quick Search</CardTitle>
         <CardDescription>Search for a public graph</CardDescription>
         <CardAction>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon-sm">
-                <ExpandIcon />
+              <Button
+                size="icon-sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (is_expanded) {
+                    un_expand();
+                  } else {
+                    expand();
+                  }
+                  setTimeout(() => {
+                    scrollToElement();
+                  }, 300);
+                }}
+              >
+                {is_expanded ? <ShrinkIcon /> : <ExpandIcon />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              Expand this view
+              {is_expanded ? "Shrink this view" : "Expand this view"}
             </TooltipContent>
           </Tooltip>
         </CardAction>
@@ -208,7 +241,7 @@ const Search = () => {
       <CardFooter className="flex flex-col items-start space-y-4">
         <Separator />
         <div className="flex w-full">
-          <Button variant="outline" size="sm" className="mr-auto">
+          <Button variant="outline" size="sm" className="mr-auto" disabled>
             <PlusIcon /> Advanced Search
           </Button>
           {search.length >= 5 && data.length > 0 && (

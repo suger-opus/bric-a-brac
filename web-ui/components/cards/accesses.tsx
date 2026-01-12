@@ -22,9 +22,15 @@ import {
 } from "@/components/ui/empty";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ExpandIcon, PlusIcon, VectorSquareIcon } from "lucide-react";
+import { ExpandIcon, PlusIcon, ShrinkIcon, VectorSquareIcon } from "lucide-react";
 
-const Accesses = () => {
+type AccessesProps = {
+  is_expanded: boolean;
+  expand: () => void;
+  un_expand: () => void;
+};
+
+const Accesses = ({ is_expanded, expand, un_expand }: AccessesProps) => {
   const data: {
     id: string;
     name: string;
@@ -109,20 +115,47 @@ const Accesses = () => {
   //   nb_bookmarks: number;
   // }[] = [];
 
+  const scrollToElement = () => {
+    requestAnimationFrame(() => {
+      const element = document.getElementById("accesses-card");
+      if (element) {
+        const elementPosition = element.getBoundingClientRect().top
+          + window.scrollY;
+        window.scrollTo({
+          top: elementPosition - 16,
+          behavior: "smooth"
+        });
+      }
+    });
+  };
+
   return (
-    <Card>
+    <Card id="accesses-card" className="h-full">
       <CardHeader>
         <CardTitle>Your Graphs ({data.length})</CardTitle>
         <CardDescription>List of the graphs you have access to</CardDescription>
         <CardAction>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon-sm">
-                <ExpandIcon />
+              <Button
+                size="icon-sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (is_expanded) {
+                    un_expand();
+                  } else {
+                    expand();
+                  }
+                  setTimeout(() => {
+                    scrollToElement();
+                  }, 300);
+                }}
+              >
+                {is_expanded ? <ShrinkIcon /> : <ExpandIcon />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              Expand this view
+              {is_expanded ? "Collapse this view" : "Expand this view"}
             </TooltipContent>
           </Tooltip>
         </CardAction>

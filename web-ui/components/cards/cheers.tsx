@@ -26,12 +26,18 @@ import {
   PaginationNext,
   PaginationPrevious
 } from "@/components/ui/pagination";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowUpRightIcon, ExpandIcon, HandHeartIcon } from "lucide-react";
-import { useState } from "react";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ArrowUpRightIcon, ExpandIcon, HandHeartIcon, ShrinkIcon } from "lucide-react";
+import { useState } from "react";
 
-const Cheers = () => {
+type CheersProps = {
+  is_expanded: boolean;
+  expand: () => void;
+  un_expand: () => void;
+};
+
+const Cheers = ({ is_expanded, expand, un_expand }: CheersProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 3;
 
@@ -126,20 +132,47 @@ const Cheers = () => {
     currentPage * itemsPerPage + itemsPerPage
   );
 
+  const scrollToElement = () => {
+    requestAnimationFrame(() => {
+      const element = document.getElementById("cheers-card");
+      if (element) {
+        const elementPosition = element.getBoundingClientRect().top
+          + window.scrollY;
+        window.scrollTo({
+          top: elementPosition - 16,
+          behavior: "smooth"
+        });
+      }
+    });
+  };
+
   return (
-    <Card>
+    <Card id="cheers-card" className="h-full">
       <CardHeader>
         <CardTitle>Cheers ({data.length})</CardTitle>
         <CardDescription>The list of the public graphs you have cheered</CardDescription>
         <CardAction>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon-sm">
-                <ExpandIcon />
+              <Button
+                size="icon-sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (is_expanded) {
+                    un_expand();
+                  } else {
+                    expand();
+                  }
+                  setTimeout(() => {
+                    scrollToElement();
+                  }, 300);
+                }}
+              >
+                {is_expanded ? <ShrinkIcon /> : <ExpandIcon />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              Expand this view
+              {is_expanded ? "Collapse this view" : "Expand this view"}
             </TooltipContent>
           </Tooltip>
         </CardAction>

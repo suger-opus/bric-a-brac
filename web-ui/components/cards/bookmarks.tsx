@@ -29,12 +29,18 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowUpRightIcon, BookmarkIcon, ExpandIcon } from "lucide-react";
+import { ArrowUpRightIcon, BookmarkIcon, ExpandIcon, ShrinkIcon } from "lucide-react";
 import { useState } from "react";
 
-const Bookmarks = () => {
+type BookmarksProps = {
+  is_expanded: boolean;
+  expand: () => void;
+  un_expand: () => void;
+};
+
+const Bookmarks = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
   const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 1;
+  const itemsPerPage = 2;
 
   const data: {
     id: string;
@@ -127,20 +133,47 @@ const Bookmarks = () => {
     currentPage * itemsPerPage + itemsPerPage
   );
 
+  const scrollToElement = () => {
+    requestAnimationFrame(() => {
+      const element = document.getElementById("bookmarks-card");
+      if (element) {
+        const elementPosition = element.getBoundingClientRect().top
+          + window.scrollY;
+        window.scrollTo({
+          top: elementPosition - 16,
+          behavior: "smooth"
+        });
+      }
+    });
+  };
+
   return (
-    <Card>
+    <Card id="bookmarks-card" className="h-full">
       <CardHeader>
         <CardTitle>Bookmarks ({data.length})</CardTitle>
         <CardDescription>The list of the public graphs you have bookmarked</CardDescription>
         <CardAction>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon-sm">
-                <ExpandIcon />
+              <Button
+                size="icon-sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (is_expanded) {
+                    un_expand();
+                  } else {
+                    expand();
+                  }
+                  setTimeout(() => {
+                    scrollToElement();
+                  }, 300);
+                }}
+              >
+                {is_expanded ? <ShrinkIcon /> : <ExpandIcon />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              Expand this view
+              {is_expanded ? "Shrink this view" : "Expand this view"}
             </TooltipContent>
           </Tooltip>
         </CardAction>
@@ -177,7 +210,7 @@ const Bookmarks = () => {
                         {graph.nb_edges} edge{graph.nb_edges !== 1 ? "s" : ""}
                       </Badge>
                     </ItemDescription>
-                    <ItemDescription className="grow mt-1 line-clamp-5">
+                    <ItemDescription className="grow mt-1 line-clamp-3">
                       {graph.description}
                     </ItemDescription>
                   </ItemContent>
