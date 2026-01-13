@@ -11,7 +11,7 @@ type Expandable = {
   is_expanded: boolean;
 };
 
-const Home = () => {
+const HomePage = () => {
   // const [graphs, setGraphs] = useState<{ id: string; name: string }[]>([]);
   // const [currentGraphId, setCurrentGraphId] = useState<string | undefined>(
   //   undefined
@@ -193,4 +193,4 @@ const Home = () => {
   );
 };
 
-export default Home;
+export default HomePage;
