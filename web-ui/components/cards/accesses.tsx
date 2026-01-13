@@ -2,6 +2,7 @@
 
 import DataTable from "@/components/data-tables/data-table";
 import { columns } from "@/components/data-tables/graph-cols";
+import NewGraphDialogContent from "@/components/dialogs/new-graph";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,6 +13,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import {
   Empty,
   EmptyContent,
@@ -183,9 +185,14 @@ const Accesses = ({ is_expanded, expand, un_expand }: AccessesProps) => {
       {data.length > 0 && (
         <CardFooter className="flex flex-col items-start space-y-4">
           <Separator />
-          <Button variant="outline" size="sm">
-            <PlusIcon /> Create a new graph
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <PlusIcon /> Create a new graph
+              </Button>
+            </DialogTrigger>
+            <NewGraphDialogContent />
+          </Dialog>
         </CardFooter>
       )}
     </Card>

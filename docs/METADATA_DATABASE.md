@@ -42,7 +42,7 @@
 | graph_id      | ???                           | ???           |
 | created_at    | ???                           | ???           |
 | updated_at    | ???                           | ???           |
-| name          | ???                           | ???           |
+| name          | ???                           | UNIQUE        |
 | description   | ???                           | ???           |
 | is_public     | BOOLEAN                       | ???           |
 | reddit        | JSON                          | ???           |
