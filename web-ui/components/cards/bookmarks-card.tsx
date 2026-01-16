@@ -27,10 +27,15 @@ import {
   PaginationPrevious
 } from "@/components/ui/pagination";
 import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
 import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ApiProvider } from "@/lib/api";
+import { pluralize, scrollToElement } from "@/lib/utils";
+import { GraphMetadata } from "@/types/graph";
 import { ArrowUpRightIcon, BookmarkIcon, ExpandIcon, ShrinkIcon } from "lucide-react";
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 type BookmarksProps = {
   is_expanded: boolean;
@@ -38,136 +43,59 @@ type BookmarksProps = {
   un_expand: () => void;
 };
 
-const Bookmarks = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
+const BookmarksPage = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
+  const { bookmarkService } = ApiProvider;
+  const [bookmarkedGraphs, setBookmarkedGraphs] = useState<GraphMetadata[]>([]);
+  const [isBookmarksLoading, setIsBookmarksLoading] = useState(true);
+
+  // Results pagination
   const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 2;
-
-  const data: {
-    id: string;
-    name: string;
-    description: string;
-    is_public: boolean;
-    user_access: "admin" | "writer" | "reader";
-    nb_nodes: number;
-    nb_edges: number;
-    nb_cheers: number;
-    nb_bookmarks: number;
-  }[] = [{
-    id: "graph-1",
-    name: "Graph One",
-    description: "This is the description for Graph One.",
-    is_public: true,
-    user_access: "admin",
-    nb_nodes: 150,
-    nb_edges: 300,
-    nb_cheers: 25,
-    nb_bookmarks: 10
-  }, {
-    id: "graph-2",
-    name: "Graph Two",
-    description: "This is the description for Graph Two.",
-    is_public: false,
-    user_access: "writer",
-    nb_nodes: 80,
-    nb_edges: 120,
-    nb_cheers: 0,
-    nb_bookmarks: 0
-  }, {
-    id: "graph-3",
-    name: "Graph Three",
-    description: "This is the description for Graph Three.",
-    is_public: true,
-    user_access: "reader",
-    nb_nodes: 200,
-    nb_edges: 450,
-    nb_cheers: 40,
-    nb_bookmarks: 20
-  }, {
-    id: "graph-4",
-    name: "Graph Four",
-    description: "This is the description for Graph Four.",
-    is_public: false,
-    user_access: "admin",
-    nb_nodes: 60,
-    nb_edges: 90,
-    nb_cheers: 0,
-    nb_bookmarks: 0
-  }, {
-    id: "graph-5",
-    name:
-      "Very very veeeeeeeeeery long name for Graph Five Very very veeeeeeeeeery long name for Graph Five",
-    description: "This is the description for Graph Five.",
-    is_public: true,
-    user_access: "writer",
-    nb_nodes: 120,
-    nb_edges: 250,
-    nb_cheers: 30,
-    nb_bookmarks: 15
-  }, {
-    id: "graph-6",
-    name: "Graph Six",
-    description:
-      "This is the description for Graph Six. This is the description for Graph Six. This is the description for Graph Six. This is the description for Graph Six. This is the description for Graph Six. This is the description for Graph Six. This is the description for Graph Six. This is the description for Graph Six.",
-    is_public: false,
-    user_access: "reader",
-    nb_nodes: 90,
-    nb_edges: 140,
-    nb_cheers: 0,
-    nb_bookmarks: 0
-  }];
-  // const data: {
-  //   id: string;
-  //   name: string;
-  //   description: string;
-  //   is_public: boolean;
-  //   user_access: "admin" | "writer" | "reader";
-  //   nb_nodes: number;
-  //   nb_edges: number;
-  //   nb_cheers: number;
-  //   nb_bookmarks: number;
-  // }[] = [];
-
-  const totalPages = Math.ceil(data.length / itemsPerPage);
-  const paginatedData = data.slice(
+  const itemsPerPage = 1;
+  const totalPages = Math.ceil(bookmarkedGraphs.length / itemsPerPage);
+  const paginatedData = bookmarkedGraphs.slice(
     currentPage * itemsPerPage,
     currentPage * itemsPerPage + itemsPerPage
   );
 
-  const scrollToElement = () => {
-    requestAnimationFrame(() => {
-      const element = document.getElementById("bookmarks-card");
-      if (element) {
-        const elementPosition = element.getBoundingClientRect().top
-          + window.scrollY;
-        window.scrollTo({
-          top: elementPosition - 16,
-          behavior: "smooth"
-        });
-      }
-    });
+  const handleExpand = () => {
+    if (is_expanded) {
+      un_expand();
+    } else {
+      expand();
+    }
+    setTimeout(() => {
+      scrollToElement("bookmarks-card");
+    }, 300);
   };
+
+  const getBookmarks = async () => {
+    try {
+      setIsBookmarksLoading(true);
+      const results = await bookmarkService.list();
+      setBookmarkedGraphs(results);
+      setCurrentPage(0);
+    } catch (error) {
+      console.error("Error during getBookmarks:", error);
+    } finally {
+      setIsBookmarksLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    getBookmarks();
+  }, []);
 
   return (
     <Card id="bookmarks-card" className="h-full">
       <CardHeader>
-        <CardTitle>Bookmarks ({data.length})</CardTitle>
+        <CardTitle>Bookmarks ({bookmarkedGraphs.length})</CardTitle>
         <CardDescription>The list of the public graphs you have bookmarked</CardDescription>
         <CardAction>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 size="icon-sm"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (is_expanded) {
-                    un_expand();
-                  } else {
-                    expand();
-                  }
-                  setTimeout(() => {
-                    scrollToElement();
-                  }, 300);
-                }}
+                onClick={handleExpand}
               >
                 {is_expanded ? <ShrinkIcon /> : <ExpandIcon />}
               </Button>
@@ -179,7 +107,13 @@ const Bookmarks = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
         </CardAction>
       </CardHeader>
       <CardContent className="grow">
-        {data.length === 0
+        {isBookmarksLoading
+          ? (
+            <div className="h-full flex items-center justify-center">
+              <Spinner />
+            </div>
+          )
+          : bookmarkedGraphs.length === 0
           ? (
             <Empty className="h-full">
               <EmptyHeader>
@@ -197,17 +131,17 @@ const Bookmarks = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
           : (
             <div className="w-full space-y-3 overflow-y-auto">
               {paginatedData.map((graph) => (
-                <Item key={graph.id} variant="outline" className="relative h-full">
+                <Item key={graph.graph_id} variant="outline" className="relative h-full">
                   <ItemContent className="h-full">
                     <ItemTitle className="line-clamp-1 max-w-50">
                       {graph.name}
                     </ItemTitle>
                     <ItemDescription className="space-x-1">
                       <Badge variant="outline">
-                        {graph.nb_nodes} node{graph.nb_nodes !== 1 ? "s" : ""}
+                        {graph.nb_data_nodes} {pluralize(graph.nb_data_nodes, "node", "nodes")}
                       </Badge>
                       <Badge variant="outline">
-                        {graph.nb_edges} edge{graph.nb_edges !== 1 ? "s" : ""}
+                        {graph.nb_data_edges} {pluralize(graph.nb_data_edges, "edge", "edges")}
                       </Badge>
                     </ItemDescription>
                     <ItemDescription className="grow mt-1 line-clamp-3">
@@ -223,7 +157,7 @@ const Bookmarks = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
                             size="sm"
                             variant="default"
                             pressed
-                            className="data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-black data-[state=on]:*:[svg]:stroke-black"
+                            className="cursor-pointer data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-black data-[state=on]:*:[svg]:stroke-black"
                           >
                             <BookmarkIcon />
                           </Toggle>
@@ -235,8 +169,10 @@ const Bookmarks = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon-sm">
-                          <ArrowUpRightIcon />
+                        <Button variant="ghost" size="icon-sm" asChild>
+                          <Link href={`/graph?id=${graph.graph_id}`}>
+                            <ArrowUpRightIcon />
+                          </Link>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -262,7 +198,7 @@ const Bookmarks = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
                     size="sm"
                     className={currentPage === 0
                       ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"}
+                      : ""}
                   />
                 </PaginationItem>
                 <PaginationItem>
@@ -277,7 +213,7 @@ const Bookmarks = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
                     aria-disabled={currentPage === totalPages - 1}
                     className={currentPage === totalPages - 1
                       ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"}
+                      : ""}
                   />
                 </PaginationItem>
               </PaginationContent>
@@ -289,4 +225,4 @@ const Bookmarks = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
   );
 };
 
-export default Bookmarks;
+export default BookmarksPage;

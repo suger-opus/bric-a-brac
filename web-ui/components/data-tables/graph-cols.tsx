@@ -2,21 +2,12 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { GraphMetadata, Role } from "@/types/graph";
 import { ColumnDef } from "@tanstack/react-table";
-import { BanIcon, BookmarkCheckIcon, ChartNoAxesGanttIcon, HandHeartIcon } from "lucide-react";
+import { ArrowUpRightIcon, BanIcon, BookmarkCheckIcon, HandHeartIcon } from "lucide-react";
+import Link from "next/link";
 
-export type Graph = {
-  id: string;
-  name: string;
-  is_public: boolean;
-  user_access: "admin" | "writer" | "reader";
-  nb_nodes: number;
-  nb_edges: number;
-  nb_cheers: number;
-  nb_bookmarks: number;
-};
-
-export const columns: ColumnDef<Graph>[] = [
+export const columns: ColumnDef<GraphMetadata>[] = [
   {
     accessorKey: "name",
     header: () => {
@@ -81,29 +72,31 @@ export const columns: ColumnDef<Graph>[] = [
       );
     },
     cell: ({ row }) => {
-      if (row.original.user_access === "admin") {
+      if (row.original.user_role === Role.ADMIN || row.original.user_role === Role.OWNER) {
         return (
           <Badge variant="secondary" className="bg-gray-300 text-black">
-            {row.original.user_access}
+            {row.original.user_role}
           </Badge>
         );
-      } else if (row.original.user_access === "writer") {
+      }
+      if (row.original.user_role === Role.EDITOR) {
         return (
           <Badge variant="secondary" className="bg-gray-200 text-black">
-            {row.original.user_access}
+            {row.original.user_role}
           </Badge>
         );
-      } else {
+      }
+      if (row.original.user_role === Role.VIEWER) {
         return (
           <Badge variant="secondary" className="bg-gray-100 text-black">
-            {row.original.user_access}
+            {row.original.user_role}
           </Badge>
         );
       }
     }
   },
   {
-    accessorKey: "nb_nodes",
+    accessorKey: "nb_data_nodes",
     header: () => {
       return (
         <Tooltip>
@@ -118,7 +111,7 @@ export const columns: ColumnDef<Graph>[] = [
     }
   },
   {
-    accessorKey: "nb_edges",
+    accessorKey: "nb_data_edges",
     header: () => {
       return (
         <Tooltip>
@@ -190,14 +183,19 @@ export const columns: ColumnDef<Graph>[] = [
     id: "actions",
     cell: ({ row }) => {
       return (
-        <Tooltip>
-          <TooltipTrigger>
-            <ChartNoAxesGanttIcon size={16} />
-          </TooltipTrigger>
-          <TooltipContent>
-            Manage graph {row.original.id}
-          </TooltipContent>
-        </Tooltip>
+        <Link
+          href={`/graph?id=${row.original.graph_id}`}
+          className="flex items-center justify-center"
+        >
+          <Tooltip>
+            <TooltipTrigger className="cursor-pointer">
+              <ArrowUpRightIcon size={14} />
+            </TooltipTrigger>
+            <TooltipContent>
+              Manage graph {row.original.graph_id}
+            </TooltipContent>
+          </Tooltip>
+        </Link>
       );
     }
   }

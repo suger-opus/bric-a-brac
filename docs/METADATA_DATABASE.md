@@ -84,9 +84,11 @@
 | NAME          | TYPE                          | CONSTRAINTS   |
 | :--------     | :---------------------------- | :------------ |
 | property_id   | ???                           | ???           |
+| name          | ???                           | ???           |
 | metadata      | JSON                          | ???           |
 | node_id       | ???                           | NULL          |
 | edge_id       | ???                           | NULL          |
+> property's name should be unique in the node/edge schema
 
 Here is the list of all the handled properties types:
 ```json

@@ -1,37 +1,53 @@
 "use client";
 
-import { GraphData } from "@/types/graph";
+import GraphSidebar from "@/components/sidebars/graph-sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Spinner } from "@/components/ui/spinner";
+import { ApiProvider } from "@/lib/api";
+import { GraphData, GraphMetadata, GraphSchema, ProcessedGraphData } from "@/types/graph";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
   ssr: false
 });
 
-const NODE_COLORS: Record<string, string> = {
-  Person: "#3b82f6",
-  Company: "#f59e0b",
-  default: "#6b7280"
-};
+// todo: move this in backend ?
+const processGraphData = (
+  { graphData, graphSchema }: { graphData: GraphData; graphSchema: GraphSchema; }
+): ProcessedGraphData => {
+  const nodes = graphData.nodes.map((node) => {
+    const nodeSchema = graphSchema.nodes.find((n) => n.formated_label === node.label);
+    const color = nodeSchema ? nodeSchema.color : "#888888";
+    return {
+      id: node.node_id,
+      label: node.label,
+      color
+    };
+  });
 
-const LINK_COLORS: Record<string, string> = {
-  WORKS_AT: "#10b981",
-  default: "#9ca3af"
-};
+  const links = graphData.edges.map((edge) => {
+    const edgeSchema = graphSchema.edges.find((e) => e.formated_label === edge.label);
+    const color = edgeSchema ? edgeSchema.color : "#888888";
+    return {
+      source: edge.from_id,
+      target: edge.to_id,
+      label: edge.label,
+      color
+    };
+  });
 
-const data: GraphData = {
-  nodes: [
-    { id: "1", label: "Person", properties: { name: "Alice" } },
-    { id: "2", label: "Company", properties: { name: "Acme Corp" } },
-    { id: "3", label: "Person", properties: { name: "Bob" } }
-  ],
-  edges: [
-    { id: "e1", from_id: "1", to_id: "2", label: "WORKS_AT", properties: {} },
-    { id: "e2", from_id: "3", to_id: "2", label: "WORKS_AT", properties: {} }
-  ]
+  return { nodes, links };
 };
 
 const GraphPage = () => {
+  const { graphService } = ApiProvider;
+  const [graphMetadata, setGraphMetadata] = useState<GraphMetadata | null>(null);
+  const [graphSchema, setGraphSchema] = useState<GraphSchema | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [graphData, setGraphData] = useState<GraphData | null>(null);
+  const [isGraphLoading, setIsGraphLoading] = useState(true);
+  const [processedGraphData, setProcessedGraphData] = useState<ProcessedGraphData | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
@@ -44,53 +60,65 @@ const GraphPage = () => {
         });
       }
     };
-
     updateDimensions();
-
     const resizeObserver = new ResizeObserver(updateDimensions);
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
     }
-
     return () => resizeObserver.disconnect();
   }, []);
 
-  const graphData = useMemo(() => {
-    const nodes = data.nodes.map((node) => {
-      const name = node.properties.name && typeof node.properties.name === "string"
-        ? node.properties.name
-        : node.id;
+  const getGraph = async () => {
+    try {
+      setIsGraphLoading(true);
+      const metadata = await graphService.getMetadata("graph-0");
+      setGraphMetadata(metadata);
+      const schema = await graphService.getSchema("graph-0");
+      setGraphSchema(schema);
+      const data = await graphService.getData("graph-0");
+      setGraphData(data);
+      setProcessedGraphData(processGraphData({ graphData: data, graphSchema: schema }));
+      setIsGraphLoading(false);
+    } catch (error) {
+      console.error("Error fetching graph data:", error);
+    } finally {
+      setIsGraphLoading(false);
+    }
+  };
 
-      return {
-        id: node.id,
-        name,
-        label: node.label,
-        color: NODE_COLORS[node.label] || NODE_COLORS.default,
-        val: 1
-      };
-    });
-
-    const links = data.edges.map((edge) => ({
-      source: edge.from_id,
-      target: edge.to_id,
-      label: edge.label,
-      color: LINK_COLORS[edge.label] || LINK_COLORS.default
-    }));
-
-    return { nodes, links };
-  }, [data]);
+  useEffect(() => {
+    getGraph();
+  }, []);
 
   return (
-    <div ref={containerRef} className="w-full h-full">
-      {dimensions.width > 0 && dimensions.height > 0 && (
-        <ForceGraph3D
-          graphData={graphData}
-          backgroundColor="white"
-          width={dimensions.width}
-          height={dimensions.height}
-        />
-      )}
-    </div>
+    <SidebarProvider
+      className="w-screen h-screen"
+      style={{
+        "--sidebar-width": "30rem",
+        "--sidebar-width-mobile": "16rem"
+      } as React.CSSProperties}
+    >
+      <div className="w-full h-full relative overflow-hidden">
+        <SidebarTrigger className="absolute right-2 top-2 z-900" />
+        <div ref={containerRef} className="w-full h-full">
+          {isGraphLoading && (
+            <div className="flex h-full items-center justify-center">
+              <Spinner />
+            </div>
+          )}
+          {dimensions.width > 0 && dimensions.height > 0 && !isGraphLoading && processedGraphData
+            && (
+              <ForceGraph3D
+                graphData={processedGraphData}
+                backgroundColor="white"
+                width={dimensions.width}
+                height={dimensions.height}
+              />
+            )}
+        </div>
+      </div>
+      <GraphSidebar graphMetadata={graphMetadata} graphSchema={graphSchema} />
+    </SidebarProvider>
   );
 };
 
