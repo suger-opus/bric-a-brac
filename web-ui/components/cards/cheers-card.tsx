@@ -29,9 +29,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api";
+import { ApiProvider } from "@/lib/api/provider";
 import { pluralize, scrollToElement } from "@/lib/utils";
-import { GraphMetadata } from "@/types/graph";
+import { GraphMetadata } from "@/types";
 import { ArrowUpRightIcon, ExpandIcon, HandHeartIcon, ShrinkIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";

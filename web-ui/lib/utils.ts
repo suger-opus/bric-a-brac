@@ -23,3 +23,14 @@ export const scrollToElement = (element_id: string, offset: number = -16) => {
 export const pluralize = (count: number, singular: string, plural: string) => {
   return count === 1 ? singular : plural;
 };
+
+export const filterLabel = (label: string) => label.replace(/[^a-zA-ZÀ-ÿ\s]/g, "");
+
+export const formatLabel = (label: string) =>
+  label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join("_");

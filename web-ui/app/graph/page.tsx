@@ -3,8 +3,8 @@
 import GraphSidebar from "@/components/sidebars/graph-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
-import { ApiProvider } from "@/lib/api";
-import { GraphData, GraphMetadata, GraphSchema, ProcessedGraphData } from "@/types/graph";
+import { ApiProvider } from "@/lib/api/provider";
+import { GraphData, GraphMetadata, GraphSchema, ProcessedGraphData } from "@/types";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 
@@ -17,7 +17,7 @@ const processGraphData = (
   { graphData, graphSchema }: { graphData: GraphData; graphSchema: GraphSchema; }
 ): ProcessedGraphData => {
   const nodes = graphData.nodes.map((node) => {
-    const nodeSchema = graphSchema.nodes.find((n) => n.formated_label === node.label);
+    const nodeSchema = graphSchema.nodes.find((n) => n.formatted_label === node.label);
     const color = nodeSchema ? nodeSchema.color : "#888888";
     return {
       id: node.node_id,
@@ -27,7 +27,7 @@ const processGraphData = (
   });
 
   const links = graphData.edges.map((edge) => {
-    const edgeSchema = graphSchema.edges.find((e) => e.formated_label === edge.label);
+    const edgeSchema = graphSchema.edges.find((e) => e.formatted_label === edge.label);
     const color = edgeSchema ? edgeSchema.color : "#888888";
     return {
       source: edge.from_id,

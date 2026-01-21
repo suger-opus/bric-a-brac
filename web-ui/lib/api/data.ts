@@ -1,5 +1,4 @@
-import { GraphData, GraphMetadata, GraphSchema, PropertyType, Role } from "@/types/graph";
-import { User } from "@/types/user";
+import { GraphData, GraphMetadata, GraphSchema, PropertyType, Role, User } from "@/types";
 
 export const users: User[] = [
   {
@@ -126,20 +125,17 @@ export const graphSchema: GraphSchema = {
     {
       node_id: "node-schema-1",
       label: "Person",
-      formated_label: "Person",
+      formatted_label: "Person",
       color: "#3b82f6",
       properties: [{
         property_id: "property_1",
-        name: "name",
-        formated_name: "name",
+        label: "label",
+        formatted_label: "label",
         metadata: {
           property_type: PropertyType.STRING,
           details: {
-            min: null,
-            max: null,
             options: null,
-            required: true,
-            default_value: null
+            required: true
           }
         }
       }]
@@ -147,20 +143,17 @@ export const graphSchema: GraphSchema = {
     {
       node_id: "node-schema-2",
       label: "Company",
-      formated_label: "Company",
+      formatted_label: "Company",
       color: "#f59e0b",
       properties: [{
         property_id: "p12",
-        name: "name",
-        formated_name: "name",
+        label: "label",
+        formatted_label: "label",
         metadata: {
           property_type: PropertyType.STRING,
           details: {
-            min: null,
-            max: null,
             options: null,
-            required: true,
-            default_value: null
+            required: true
           }
         }
       }]
@@ -170,7 +163,7 @@ export const graphSchema: GraphSchema = {
     {
       edge_id: "edge-schema-1",
       label: "WORKS_AT",
-      formated_label: "WORKS_AT",
+      formatted_label: "WORKS_AT",
       color: "#10b981",
       properties: []
     }

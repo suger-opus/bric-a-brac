@@ -25,9 +25,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api";
+import { ApiProvider } from "@/lib/api/provider";
 import { scrollToElement } from "@/lib/utils";
-import { GraphMetadata } from "@/types/graph";
+import { GraphMetadata } from "@/types";
 import { ExpandIcon, PlusIcon, ShrinkIcon, VectorSquareIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -126,7 +126,7 @@ const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
                 <PlusIcon /> Create a new graph
               </Button>
             </DialogTrigger>
-            <NewGraphDialogContent onClose={() => setIsDialogOpen(false)} />
+            <NewGraphDialogContent isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
           </Dialog>
         </CardFooter>
       )}

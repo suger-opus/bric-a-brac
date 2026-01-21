@@ -16,15 +16,18 @@ import {
 } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { graphMetadata } from "@/lib/data";
+import { graphMetadata } from "@/lib/api/data";
 import { pluralize } from "@/lib/utils";
-import { EdgeSchema, GraphMetadata, GraphSchema, NodeSchema } from "@/types/graph";
+import { EdgeSchema, GraphMetadata, GraphSchema, NodeSchema } from "@/types";
 import { ChevronDown, PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 const NewNodeItem = () => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   return (
-    <Dialog>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
         <Item
           variant="outline"
@@ -38,7 +41,7 @@ const NewNodeItem = () => {
           </ItemActions>
         </Item>
       </DialogTrigger>
-      <NewNodeDialogContent />
+      <NewNodeDialogContent isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
     </Dialog>
   );
 };
@@ -54,7 +57,7 @@ const NodeItem = ({ node }: { node: NodeSchema; }) => {
           />
           <ItemTitle>{node.label}</ItemTitle>
         </div>
-        <ItemDescription className="text-gray-800 text-xs cursor-pointer">
+        <ItemDescription className="text-gray-800 text-xs cursor-pointer w-fit">
           <u>
             {node.properties.length} {pluralize(node.properties.length, "property", "properties")}
           </u>{" "}
@@ -102,7 +105,7 @@ const EdgeItem = ({ edge }: { edge: EdgeSchema; }) => {
           />
           <ItemTitle>{edge.label}</ItemTitle>
         </div>
-        <ItemDescription className="text-gray-800 text-xs">
+        <ItemDescription className="text-gray-800 text-xs cursor-pointer w-fit">
           <u>
             {edge.properties.length} {pluralize(edge.properties.length, "property", "properties")}
           </u>{" "}

@@ -18,16 +18,19 @@ import {
 } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { ApiProvider, requestCreateGraphSchema } from "@/lib/api";
+import { ApiProvider } from "@/lib/api/provider";
+import { requestGraph } from "@/lib/api/schemas/request-schemas";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
+import * as v from "valibot";
 
 type NewGraphDialogContentProps = {
+  isOpen: boolean;
   onClose: () => void;
 };
 
-const NewGraphDialogContent = ({ onClose }: NewGraphDialogContentProps) => {
+const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) => {
   const { graphService } = ApiProvider;
   const router = useRouter();
 
@@ -37,22 +40,37 @@ const NewGraphDialogContent = ({ onClose }: NewGraphDialogContentProps) => {
   const [validationDescriptionError, setValidationDescriptionError] = useState<string | null>(null);
   const [isCreateLoading, setIsCreateLoading] = useState(false);
 
+  const resetState = useEffectEvent(() => {
+    setName("");
+    setDescription("");
+    setValidationNameError(null);
+    setValidationDescriptionError(null);
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      resetState();
+    }
+  }, [isOpen]);
+
   const createGraph = async () => {
     try {
       setIsCreateLoading(true);
       setValidationNameError(null);
       setValidationDescriptionError(null);
-      const validation = requestCreateGraphSchema.safeParse({ name, description });
+      const validation = v.safeParse(requestGraph, { name, description });
       if (validation.success) {
-        const newGraph = await graphService.create(validation.data);
+        const newGraph = await graphService.post(validation.output);
         onClose();
         router.push(`/graph?id=${newGraph.graph_id}`);
       } else {
         setValidationNameError(
-          validation.error.issues.find((issue) => issue.path.includes("name"))?.message || null
+          validation.issues.find((issue) => issue.path?.some((p) => p.key === "name"))?.message
+            || null
         );
         setValidationDescriptionError(
-          validation.error.issues.find((issue) => issue.path.includes("description"))?.message
+          validation.issues.find((issue) => issue.path?.some((p) => p.key === "description"))
+            ?.message
             || null
         );
       }

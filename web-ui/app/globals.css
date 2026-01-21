@@ -131,6 +131,10 @@
   }
 }
 
+@utility no-scrollbar {
+  @apply [scrollbar-width:none] [&::-webkit-scrollbar]:hidden;
+}
+
 html {
   scroll-behavior: smooth;
 }

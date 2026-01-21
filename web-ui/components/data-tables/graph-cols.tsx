@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { GraphMetadata, Role } from "@/types/graph";
+import { GraphMetadata, Role } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpRightIcon, BanIcon, BookmarkCheckIcon, HandHeartIcon } from "lucide-react";
 import Link from "next/link";

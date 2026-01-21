@@ -29,11 +29,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider, requestSearchSchema } from "@/lib/api";
+import { ApiProvider } from "@/lib/api/provider";
+import { requestSearch } from "@/lib/api/schemas/request-schemas";
 import { pluralize, scrollToElement } from "@/lib/utils";
-import { GraphMetadata } from "@/types/graph";
+import { GraphMetadata } from "@/types";
 import { ArrowUpRightIcon, ExpandIcon, PlusIcon, ShrinkIcon } from "lucide-react";
 import { useState } from "react";
+import * as v from "valibot";
 
 type SearchProps = {
   is_expanded: boolean;
@@ -75,16 +77,16 @@ const SearchCard = ({ is_expanded, expand, un_expand }: SearchProps) => {
     try {
       setIsSearchLoading(true);
       setValidationError(null);
-      const validation = requestSearchSchema.safeParse({ keyword: searchKeyword });
+      const validation = v.safeParse(requestSearch, { keyword: searchKeyword });
       if (validation.success) {
         setShowResults(false);
-        const results = await searchService.search(validation.data);
+        const results = await searchService.search(validation.output);
         setSearchGraphs(results);
         setCurrentPage(0);
         setShowResults(true);
       } else {
         setShowResults(false);
-        setValidationError(validation.error.issues[0].message);
+        setValidationError(validation.issues[0].message);
       }
     } catch (error) {
       setShowResults(false);

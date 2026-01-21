@@ -21,9 +21,9 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api";
+import { ApiProvider } from "@/lib/api/provider";
 import { scrollToElement } from "@/lib/utils";
-import { User } from "@/types/user";
+import { User } from "@/types";
 import {
   BadgeCheckIcon,
   CopyIcon,
