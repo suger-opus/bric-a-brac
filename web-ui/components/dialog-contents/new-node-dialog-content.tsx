@@ -248,7 +248,7 @@ const NewNodeDialogContent = ({ isOpen, onClose }: NewNodeDialogContentProps) =>
         </Tabs>
       </div>
       <DialogFooter className="h-fit">
-        <div className="flex flex-col w-full items-end space-y-2">
+        <div className="flex flex-col w-full items-end space-y-3">
           <div className="flex space-x-2">
             {currentStep === 0
               ? (

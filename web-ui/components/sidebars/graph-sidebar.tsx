@@ -16,9 +16,9 @@ import {
 } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { graphMetadata } from "@/lib/api/data";
+import { useGraph } from "@/contexts/graph-context";
 import { pluralize } from "@/lib/utils";
-import { EdgeSchema, GraphMetadata, GraphSchema, NodeSchema } from "@/types";
+import { EdgeSchema, NodeSchema } from "@/types";
 import { ChevronDown, PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -126,19 +126,15 @@ const EdgeItem = ({ edge }: { edge: EdgeSchema; }) => {
   );
 };
 
-type GraphSidebarProps = {
-  graphMetadata: GraphMetadata | null;
-  graphSchema: GraphSchema | null;
-};
-
-const GraphSidebar = ({ graphSchema }: GraphSidebarProps) => {
+const GraphSidebar = () => {
   const router = useRouter();
+  const { metadata, isLoading, schema } = useGraph();
 
   return (
     <Sidebar side="right">
       <SidebarHeader className="pt-2.75">
         <span className="text-base font-semibold">
-          {graphMetadata ? graphMetadata.name : "Loading..."}
+          {isLoading ? "Loading..." : metadata?.name || "Untitled Graph"}
         </span>
       </SidebarHeader>
       <SidebarContent className="gap-0">
@@ -152,7 +148,7 @@ const GraphSidebar = ({ graphSchema }: GraphSidebarProps) => {
             </SidebarGroupLabel>
             <CollapsibleContent>
               <SidebarGroupContent className="space-y-1">
-                {!graphSchema
+                {!schema
                   ? (
                     <div className="flex justify-center">
                       <Spinner />
@@ -160,7 +156,7 @@ const GraphSidebar = ({ graphSchema }: GraphSidebarProps) => {
                   )
                   : (
                     <>
-                      {graphSchema.nodes.map((node, index) => <NodeItem key={index} node={node} />)}
+                      {schema.nodes.map((node, index) => <NodeItem key={index} node={node} />)}
                       <NewNodeItem />
                     </>
                   )}
@@ -178,7 +174,7 @@ const GraphSidebar = ({ graphSchema }: GraphSidebarProps) => {
             </SidebarGroupLabel>
             <CollapsibleContent>
               <SidebarGroupContent className="space-y-1">
-                {!graphSchema
+                {!schema
                   ? (
                     <div className="flex justify-center">
                       <Spinner />
@@ -186,7 +182,7 @@ const GraphSidebar = ({ graphSchema }: GraphSidebarProps) => {
                   )
                   : (
                     <>
-                      {graphSchema.edges.map((edge, index) => <EdgeItem key={index} edge={edge} />)}
+                      {schema.edges.map((edge, index) => <EdgeItem key={index} edge={edge} />)}
                       <NewEdgeItem />
                     </>
                   )}
@@ -196,7 +192,9 @@ const GraphSidebar = ({ graphSchema }: GraphSidebarProps) => {
         </Collapsible>
       </SidebarContent>
       <SidebarFooter className="flex flex-row items-center justify-between">
-        <span className="text-sm text-gray-500">Graph ID: 1234567890</span>
+        <span className="text-sm text-gray-500">
+          Graph ID: {metadata?.graph_id || "Unknown"}
+        </span>
         <Button variant="outline" size="sm" onClick={() => router.push("/")}>
           Exit
         </Button>

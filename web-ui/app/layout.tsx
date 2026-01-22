@@ -17,11 +17,7 @@ export const metadata: Metadata = {
   description: "Interactive 3D knowledge graph visualization"
 };
 
-const RootLayout = ({
-  children
-}: Readonly<{
-  children: React.ReactNode;
-}>) => {
+const RootLayout = ({ children }: Readonly<{ children: React.ReactNode; }>) => {
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <body
