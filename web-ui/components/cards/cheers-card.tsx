@@ -130,7 +130,7 @@ const CheersCard = ({ is_expanded, expand, un_expand }: CheersProps) => {
             <div className="w-full space-y-3 overflow-y-auto">
               {paginatedData.map((graph) => (
                 <Item key={graph.graph_id} variant="outline" asChild>
-                  <Link href={`/graph?id=${graph.graph_id}`}>
+                  <Link href={`/graph?graph_id=${graph.graph_id}`}>
                     <ItemContent>
                       <ItemTitle className="line-clamp-1 max-w-80">
                         {graph.name}

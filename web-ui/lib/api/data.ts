@@ -127,36 +127,52 @@ export const graphSchema: GraphSchema = {
       label: "Person",
       formatted_label: "Person",
       color: "#3b82f6",
-      properties: [{
-        property_id: "property_1",
-        label: "label",
-        formatted_label: "label",
-        metadata: {
-          property_type: PropertyType.STRING,
-          details: {
-            options: null,
-            required: true
+      properties: [
+        {
+          property_id: "np11",
+          label: "name",
+          formatted_label: "Name",
+          metadata: {
+            property_type: PropertyType.STRING,
+            details: {
+              options: null,
+              required: true
+            }
+          }
+        },
+        {
+          property_id: "np12",
+          label: "Job Title",
+          formatted_label: "Job_Title",
+          metadata: {
+            property_type: PropertyType.SELECT,
+            details: {
+              options: ["Engineer", "Manager", "Director", "Intern"],
+              required: false
+            }
           }
         }
-      }]
+      ]
     },
     {
       node_id: "node-schema-2",
       label: "Company",
       formatted_label: "Company",
       color: "#f59e0b",
-      properties: [{
-        property_id: "p12",
-        label: "label",
-        formatted_label: "label",
-        metadata: {
-          property_type: PropertyType.STRING,
-          details: {
-            options: null,
-            required: true
+      properties: [
+        {
+          property_id: "np21",
+          label: "name",
+          formatted_label: "Name",
+          metadata: {
+            property_type: PropertyType.STRING,
+            details: {
+              options: null,
+              required: true
+            }
           }
         }
-      }]
+      ]
     }
   ],
   edges: [
@@ -165,7 +181,20 @@ export const graphSchema: GraphSchema = {
       label: "WORKS_AT",
       formatted_label: "WORKS_AT",
       color: "#10b981",
-      properties: []
+      properties: [
+        {
+          property_id: "ne11",
+          label: "Start Year",
+          formatted_label: "Start_Year",
+          metadata: {
+            property_type: PropertyType.NUMBER,
+            details: {
+              options: null,
+              required: true
+            }
+          }
+        }
+      ]
     }
   ]
 };
@@ -176,19 +205,19 @@ export const graphData: GraphData = {
       graph_id: "graph-0",
       node_id: "node-data-1",
       label: "Person",
-      properties: { name: "Alice" }
+      properties: { Name: "Alice", Job_Title: "Engineer" }
     },
     {
       graph_id: "graph-0",
       node_id: "node-data-2",
       label: "Company",
-      properties: { name: "Acme Corp" }
+      properties: { Name: "Acme Corp" }
     },
     {
       graph_id: "graph-0",
       node_id: "node-data-3",
       label: "Person",
-      properties: { name: "Bob" }
+      properties: { Name: "Bob" }
     }
   ],
   edges: [
@@ -198,7 +227,7 @@ export const graphData: GraphData = {
       from_id: "node-data-1",
       to_id: "node-data-2",
       label: "WORKS_AT",
-      properties: {}
+      properties: { Start_Year: 2020 }
     },
     {
       graph_id: "graph-0",
@@ -206,7 +235,7 @@ export const graphData: GraphData = {
       from_id: "node-data-3",
       to_id: "node-data-2",
       label: "WORKS_AT",
-      properties: {}
+      properties: { Start_Year: 2021 }
     }
   ]
 };

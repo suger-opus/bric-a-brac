@@ -170,7 +170,7 @@ const BookmarksPage = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon-sm" asChild>
-                          <Link href={`/graph?id=${graph.graph_id}`}>
+                          <Link href={`/graph?graph_id=${graph.graph_id}`}>
                             <ArrowUpRightIcon />
                           </Link>
                         </Button>

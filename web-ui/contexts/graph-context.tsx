@@ -4,6 +4,8 @@ import { ApiProvider } from "@/lib/api/provider";
 import { GraphData, GraphMetadata, GraphSchema, ProcessedGraphData } from "@/types";
 import { createContext, useContext, useEffect, useState } from "react";
 
+type DisplayedProperties = Record<string, string | undefined>;
+
 type GraphContextType = {
   metadata: GraphMetadata | null;
   schema: GraphSchema | null;
@@ -12,6 +14,10 @@ type GraphContextType = {
   isLoading: boolean;
   isLoaded: boolean;
   error: string | null;
+  displayedNodeProperties: DisplayedProperties;
+  displayedEdgeProperties: DisplayedProperties;
+  updateDisplayedNodeProperty: (label: string, property: string | undefined) => void;
+  updateDisplayedEdgeProperty: (label: string, property: string | undefined) => void;
 };
 
 const GraphContext = createContext<GraphContextType | undefined>(undefined);
@@ -31,7 +37,8 @@ const processGraphData = (
     return {
       id: node.node_id,
       label: node.label,
-      color
+      color,
+      properties: node.properties
     };
   });
 
@@ -42,7 +49,8 @@ const processGraphData = (
       source: edge.from_id,
       target: edge.to_id,
       label: edge.label,
-      color
+      color,
+      properties: edge.properties
     };
   });
 
@@ -58,6 +66,22 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [displayedNodeProperties, setDisplayedNodeProperties] = useState<DisplayedProperties>({});
+  const [displayedEdgeProperties, setDisplayedEdgeProperties] = useState<DisplayedProperties>({});
+
+  const updateDisplayedNodeProperty = (label: string, property: string | undefined) => {
+    setDisplayedNodeProperties((prev) => ({
+      ...prev,
+      [label]: property
+    }));
+  };
+
+  const updateDisplayedEdgeProperty = (label: string, property: string | undefined) => {
+    setDisplayedEdgeProperties((prev) => ({
+      ...prev,
+      [label]: property
+    }));
+  };
 
   useEffect(() => {
     const fetchGraph = async () => {
@@ -67,6 +91,8 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
         setData(null);
         setProcessedData(null);
         setIsLoading(false);
+        setDisplayedNodeProperties({});
+        setDisplayedEdgeProperties({});
         setError("No graph ID provided");
         return;
       }
@@ -74,6 +100,8 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
       try {
         setError(null);
         setIsLoading(true);
+        setDisplayedNodeProperties({});
+        setDisplayedEdgeProperties({});
         const metadata = await graphService.getMetadata(graphId);
         setMetadata(metadata);
         const schema = await graphService.getSchema(graphId);
@@ -100,7 +128,19 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
 
   return (
     <GraphContext.Provider
-      value={{ metadata, schema, data, processedData, isLoading, isLoaded, error }}
+      value={{
+        metadata,
+        schema,
+        data,
+        processedData,
+        isLoading,
+        isLoaded,
+        error,
+        displayedNodeProperties,
+        displayedEdgeProperties,
+        updateDisplayedNodeProperty,
+        updateDisplayedEdgeProperty
+      }}
     >
       {children}
     </GraphContext.Provider>

@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { useGraph } from "@/contexts/graph-context";
 import { CornerRightDownIcon, HomeIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useState } from "react";
 
 type LoadingGraphDialogContentProps = {
@@ -22,10 +23,12 @@ type LoadingGraphDialogContentProps = {
 const LoadingGraphDialogContent = ({ onClose }: LoadingGraphDialogContentProps) => {
   const [progress, setProgress] = useState(0);
   const { isLoading, isLoaded, error } = useGraph();
+  const router = useRouter();
 
   const handleClose = () => {
-    if (isLoaded) {
-      onClose();
+    onClose();
+    if (!isLoaded) {
+      router.push("/");
     }
   };
 

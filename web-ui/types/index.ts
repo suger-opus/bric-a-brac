@@ -47,10 +47,12 @@ export type ProcessedNodeData = {
   id: string;
   label: string;
   color: string;
+  properties: NodeData["properties"];
 };
 export type ProcessedEdgeData = {
   source: string;
   target: string;
   label: string;
   color: string;
+  properties: EdgeData["properties"];
 };

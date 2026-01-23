@@ -62,7 +62,7 @@ const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) 
       if (validation.success) {
         const newGraph = await graphService.post(validation.output);
         onClose();
-        router.push(`/graph?id=${newGraph.graph_id}`);
+        router.push(`/graph?graph_id=${newGraph.graph_id}`);
       } else {
         setValidationNameError(
           validation.issues.find((issue) => issue.path?.some((p) => p.key === "name"))?.message
