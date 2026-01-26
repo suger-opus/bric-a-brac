@@ -13,73 +13,74 @@ import {
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  requestColor,
-  requestFormattedLabel,
-  requestLabel,
-  requestProperty
-} from "@/lib/api/schemas/request-schemas";
-import { filterLabel, formatLabel } from "@/lib/utils";
-import { RequestProperty } from "@/types";
+import { filterLabel } from "@/lib/utils";
+import { FormInput, FormInputs, RequestProperty } from "@/types";
 import { defaultNewProperty } from "@/types/defaults";
 import { CheckIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
-import * as v from "valibot";
 
-type NewNodeDialogContentProps = {
+type NewElementSchemaDialogContentProps = {
+  kind: "node" | "edge";
   isOpen: boolean;
   onClose: () => void;
+  onSubmit: () => Promise<void>;
+  label: FormInput<string>;
+  formattedLabel: FormInput<string>;
+  color: FormInput<string>;
+  properties: FormInputs<RequestProperty>;
 };
 
 const steps = ["1. General", "2. Display", "3. Custom Properties"];
 
-const NewNodeDialogContent = ({ isOpen, onClose }: NewNodeDialogContentProps) => {
+const NewElementSchemaDialogContent = ({
+  kind,
+  isOpen,
+  onClose,
+  onSubmit,
+  label,
+  formattedLabel,
+  color,
+  properties
+}: NewElementSchemaDialogContentProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [label, setLabel] = useState("");
-  const [labelValidationError, setLabelValidationError] = useState<string | null>(null);
-  const formattedLabel = formatLabel(label);
-  const [formattedLabelValidationError, setFormattedLabelValidationError] = useState<string | null>(
-    null
-  );
-  const [color, setColor] = useState("#3b82f6");
-  const [colorValidationError, setColorValidationError] = useState<string | null>(null);
-  const [properties, setProperties] = useState<
-    { id: string; isSaved: boolean; property: RequestProperty; }[]
-  >([]);
-  const [propertyErrors, setPropertyErrors] = useState<Record<string, string | null>>({});
-  const unresolvedError = labelValidationError !== null
-    || formattedLabelValidationError !== null
-    || colorValidationError !== null
-    || Object.values(propertyErrors).some((error) => error !== null);
+  const [lastSavedPropertyId, setLastSavedPropertyId] = useState<string | null>(null);
+  const unresolvedError = label.error !== null
+    || formattedLabel.error !== null
+    || color.error !== null
+    || Object.values(properties.errors).some((error) => error !== null);
 
   const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLabel(filterLabel(e.target.value));
+    label.setValue(filterLabel(e.target.value));
+  };
+
+  const handleColorChange = (newColor: string) => {
+    color.setValue(newColor);
   };
 
   const handleAddProperty = () => {
-    setProperties([...properties, {
+    properties.setValue([...properties.value, {
       id: crypto.randomUUID(),
       isSaved: false,
-      property: defaultNewProperty
+      value: defaultNewProperty
     }]);
   };
 
   const handleDeleteProperty = (id: string) => {
-    setProperties(properties.filter((property) => property.id !== id));
+    properties.setValue(properties.value.filter((property) => property.id !== id));
   };
 
   const handleSaveProperty = (id: string, newProperty: RequestProperty) => {
-    setProperties(properties.map((property) => {
+    properties.setValue(properties.value.map((property) => {
       if (property.id === id) {
-        return { id, isSaved: true, property: newProperty };
+        return { id, isSaved: true, value: newProperty };
       }
       return property;
     }));
-    setPropertyErrors((prev) => ({ ...prev, [id]: null }));
+    setLastSavedPropertyId(id);
   };
 
   const handleUnsaveProperty = (id: string) => {
-    setProperties(properties.map((property) => {
+    properties.setValue(properties.value.map((property) => {
       if (property.id === id) {
         return { ...property, isSaved: false };
       }
@@ -91,64 +92,33 @@ const NewNodeDialogContent = ({ isOpen, onClose }: NewNodeDialogContentProps) =>
     setCurrentStep((prev) => Math.max(0, prev - 1));
   };
 
-  const handleNextPage = () => {
+  const handleNextPage = async () => {
     if (currentStep === 0) {
-      const validLabel = v.safeParse(requestLabel, label);
-      const validFormattedLabel = v.safeParse(requestFormattedLabel, formattedLabel);
-      if (!validLabel.success) {
-        setLabelValidationError(validLabel.issues[0].message);
-      } else {
-        setLabelValidationError(null);
-      }
-      if (!validFormattedLabel.success) {
-        setFormattedLabelValidationError(validFormattedLabel.issues[0].message);
-      } else {
-        setFormattedLabelValidationError(null);
-      }
-      if (validLabel.success && validFormattedLabel.success) {
+      if (label.validate() && formattedLabel.validate()) {
         setCurrentStep(1);
       }
     } else if (currentStep === 1) {
-      const validColor = v.safeParse(requestColor, color);
-      if (!validColor.success) {
-        setColorValidationError(validColor.issues[0].message);
-      }
-      if (validColor.success) {
-        setColorValidationError(null);
+      if (color.validate()) {
         setCurrentStep(2);
       }
     } else if (currentStep === 2) {
-      properties.forEach((property) => {
-        if (!property.isSaved) {
-          setPropertyErrors((prev) => ({
-            ...prev,
-            [property.id]: "Save this property to continue."
-          }));
-        } else {
-          const validProperty = v.safeParse(requestProperty, property.property);
-          if (!validProperty.success) {
-            setPropertyErrors((prev) => ({
-              ...prev,
-              [property.id]: validProperty.issues[0].message
-            }));
-          } else {
-            setPropertyErrors((prev) => ({ ...prev, [property.id]: null }));
-          }
+      if (properties.validateAll() && !unresolvedError) {
+        try {
+          await onSubmit();
+        } catch (error) {
+          console.error(error);
         }
-      });
+        onClose();
+      }
     }
   };
 
-  // todo: explain why useEffectEvent is needed here
   const resetState = useEffectEvent(() => {
     setCurrentStep(0);
-    setLabel("");
-    setLabelValidationError(null);
-    setFormattedLabelValidationError(null);
-    setColor("#3b82f6");
-    setColorValidationError(null);
-    setProperties([]);
-    setPropertyErrors({});
+    label.reset();
+    formattedLabel.reset();
+    color.reset();
+    properties.reset();
   });
 
   useEffect(() => {
@@ -157,11 +127,22 @@ const NewNodeDialogContent = ({ isOpen, onClose }: NewNodeDialogContentProps) =>
     }
   }, [isOpen]);
 
+  const validateLastSavedProperty = useEffectEvent(() => {
+    if (lastSavedPropertyId) {
+      properties.validateOne(lastSavedPropertyId);
+      setLastSavedPropertyId(null);
+    }
+  });
+
+  useEffect(() => {
+    validateLastSavedProperty();
+  }, [properties.value, lastSavedPropertyId]);
+
   return (
     <DialogContent className="flex flex-col justify-between">
       <DialogHeader className="h-fit">
-        <DialogTitle>New Node Type</DialogTitle>
-        <DialogDescription>Define the schema of a new node type.</DialogDescription>
+        <DialogTitle>New {kind[0].toUpperCase() + kind.slice(1)} Type</DialogTitle>
+        <DialogDescription>Define the schema of a new {kind} type.</DialogDescription>
       </DialogHeader>
       <div className="no-scrollbar h-[calc(100vh-20rem)] px-1 overflow-y-auto">
         <Tabs value={steps[currentStep]}>
@@ -183,7 +164,7 @@ const NewNodeDialogContent = ({ isOpen, onClose }: NewNodeDialogContentProps) =>
           <TabsContent value={steps[0]}>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="new-node-label">Label</FieldLabel>
+                <FieldLabel htmlFor="new-element-label">Label</FieldLabel>
                 <FieldDescription className="text-xs">
                   The label is the name of the node type.{" "}
                   <b>
@@ -191,49 +172,49 @@ const NewNodeDialogContent = ({ isOpen, onClose }: NewNodeDialogContentProps) =>
                   </b>
                 </FieldDescription>
                 <Input
-                  id="new-node-label"
-                  value={label}
+                  id="new-element-label"
+                  value={label.value}
                   onChange={handleLabelChange}
                   placeholder="Character"
                 />
-                <FieldError>{labelValidationError}</FieldError>
+                <FieldError>{label.error}</FieldError>
               </Field>
               <Field>
-                <FieldLabel htmlFor="new-node-formatted-label">Formatted Label</FieldLabel>
+                <FieldLabel htmlFor="new-element-formatted-label">Formatted Label</FieldLabel>
                 <FieldDescription className="text-xs">
                   The formatted label is generated automatically.{" "}
                   <b>
                     It should be unique among nodes and edges types of this graph.
                   </b>
                 </FieldDescription>
-                <Input id="new-node-formatted-label" value={formattedLabel} readOnly />
-                <FieldError>{formattedLabelValidationError}</FieldError>
+                <Input id="new-element-formatted-label" value={formattedLabel.value} readOnly />
+                <FieldError>{formattedLabel.error}</FieldError>
               </Field>
             </FieldGroup>
           </TabsContent>
           <TabsContent value={steps[1]}>
             <FieldGroup>
               <ColorPickerField
-                color={color}
-                setColor={setColor}
-                validationError={colorValidationError}
+                color={color.value}
+                setColor={handleColorChange}
+                validationError={color.error}
               />
             </FieldGroup>
           </TabsContent>
           <TabsContent value={steps[2]}>
             <FieldGroup>
-              <div className="space-y-4">
-                {properties.map((property, index) => (
+              <div className="space-y-2">
+                {properties.value.map((property, index) => (
                   <div key={index} className="space-y-1">
                     <PropertyForm
                       isSaved={property.isSaved}
-                      property={property.property}
+                      property={property.value}
                       saveProperty={(p) => handleSaveProperty(property.id, p)}
                       unSaveProperty={() => handleUnsaveProperty(property.id)}
                       deleteProperty={() => handleDeleteProperty(property.id)}
                     />
-                    {propertyErrors[property.id] && (
-                      <FieldError key={index}>{propertyErrors[property.id]}</FieldError>
+                    {properties.errors[property.id] && (
+                      <FieldError key={index}>{properties.errors[property.id]}</FieldError>
                     )}
                   </div>
                 ))}
@@ -257,16 +238,11 @@ const NewNodeDialogContent = ({ isOpen, onClose }: NewNodeDialogContentProps) =>
                 </Button>
               )
               : (
-                <Button
-                  variant="outline"
-                  onClick={handlePreviousPage}
-                >
+                <Button variant="outline" onClick={handlePreviousPage}>
                   Back
                 </Button>
               )}
-            <Button
-              onClick={handleNextPage}
-            >
+            <Button onClick={handleNextPage}>
               {currentStep === steps.length - 1 ? "Submit" : "Next"}
             </Button>
           </div>
@@ -279,4 +255,4 @@ const NewNodeDialogContent = ({ isOpen, onClose }: NewNodeDialogContentProps) =>
   );
 };
 
-export default NewNodeDialogContent;
+export default NewElementSchemaDialogContent;

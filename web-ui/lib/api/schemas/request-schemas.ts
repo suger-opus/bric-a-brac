@@ -125,6 +125,13 @@ export const requestNodeSchema = v.object({
   properties: v.array(requestProperty)
 });
 
+export const requestEdgeSchema = v.object({
+  label: requestLabel,
+  formatted_label: requestFormattedLabel,
+  color: requestColor,
+  properties: v.array(requestProperty)
+});
+
 export const requestGraph = v.object({
   name: requestGraphName,
   description: requestGraphDescription

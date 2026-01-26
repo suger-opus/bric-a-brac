@@ -1,3 +1,4 @@
+import PropertyTypeBadge from "@/components/badges/property-type-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   requestFormattedLabel,
   requestLabel,
@@ -27,7 +29,7 @@ import {
 } from "@/lib/api/schemas/request-schemas";
 import { filterLabel, formatLabel, pluralize } from "@/lib/utils";
 import { PropertyType, RequestProperty } from "@/types";
-import { XIcon } from "lucide-react";
+import { PenIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useState } from "react";
 import * as v from "valibot";
 
@@ -83,14 +85,14 @@ const PropertyFieldGroup = (
     }
   };
 
-  const handlePropertyOptionRemoved = (optionToRemove: string) => {
+  const handlePropertyOptionDelete = (optionToDelete: string) => {
     if (options) {
-      const filteredOptions = options.filter((option) => option !== optionToRemove);
+      const filteredOptions = options.filter((option) => option !== optionToDelete);
       setOptions(filteredOptions);
     }
   };
 
-  const handleAddProperty = () => {
+  const handleSaveProperty = () => {
     const validLabel = v.safeParse(requestLabel, label);
     const validFormattedLabel = v.safeParse(requestFormattedLabel, formattedLabel);
     const validMetadata = v.safeParse(requestPropertyMetadata, {
@@ -130,7 +132,7 @@ const PropertyFieldGroup = (
     }
   };
 
-  const handleRemoveProperty = () => {
+  const handleDeleteProperty = () => {
     deleteProperty();
   };
 
@@ -206,7 +208,7 @@ const PropertyFieldGroup = (
                       variant="ghost"
                       size="icon-sm"
                       className="cursor-pointer p-0 h-3 w-3"
-                      onClick={() => handlePropertyOptionRemoved(option)}
+                      onClick={() => handlePropertyOptionDelete(option)}
                     >
                       <XIcon />
                     </Button>
@@ -237,11 +239,11 @@ const PropertyFieldGroup = (
         </Field>
         <FieldSeparator />
         <Field orientation="horizontal">
-          <Button size="sm" variant="secondary" onClick={handleAddProperty}>
+          <Button size="sm" variant="secondary" onClick={handleSaveProperty}>
             Save Property
           </Button>
-          <Button size="sm" variant="ghost" onClick={handleRemoveProperty}>
-            Remove
+          <Button size="sm" variant="ghost" onClick={handleDeleteProperty}>
+            Delete
           </Button>
         </Field>
       </FieldGroup>
@@ -252,28 +254,68 @@ const PropertyFieldGroup = (
 type PropertyItemProps = {
   property: RequestProperty;
   updateProperty: () => void;
-  removeProperty: () => void;
+  deleteProperty: () => void;
 };
 
-const PropertyItem = ({ property, updateProperty, removeProperty }: PropertyItemProps) => {
+const PropertyItem = ({ property, updateProperty, deleteProperty }: PropertyItemProps) => {
+  const [hoveredSection, setHoveredSection] = useState<"edit" | "delete" | null>(null);
+
   return (
     <>
       <ItemContent>
         <ItemTitle>{property.label}</ItemTitle>
         <ItemDescription className="space-x-1">
-          <Badge variant="secondary">{property.metadata.property_type}</Badge>
-          <Badge variant="secondary">
-            {property.metadata.details.required ? "required" : "optional"}
+          <PropertyTypeBadge property={property} />
+          <Badge variant="secondary" className="font-bold text-[9px]">
+            {property.metadata.details.required ? "REQUIRED" : "OPTIONAL"}
           </Badge>
         </ItemDescription>
       </ItemContent>
-      <ItemActions>
-        <Button size="sm" variant="outline" onClick={updateProperty}>
-          Edit
-        </Button>
-        <Button size="sm" variant="outline" onClick={removeProperty}>
-          Delete
-        </Button>
+      <ItemActions className="h-12 w-24 rounded-sm gap-0 overflow-hidden opacity-0 group-hover/item:opacity-100 transition-opacity duration-200">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className="h-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 cursor-pointer transition-all duration-300"
+              style={{
+                width: hoveredSection === "edit"
+                  ? "100%"
+                  : hoveredSection === "delete"
+                  ? "0%"
+                  : "50%"
+              }}
+              onMouseEnter={() => setHoveredSection("edit")}
+              onMouseLeave={() => setHoveredSection(null)}
+              onClick={updateProperty}
+            >
+              <PenIcon className="h-4 w-4 text-gray-700" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            Edit this property
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className="h-full flex items-center justify-center bg-red-100 hover:bg-red-200 cursor-pointer transition-all duration-300"
+              style={{
+                width: hoveredSection === "delete"
+                  ? "100%"
+                  : hoveredSection === "edit"
+                  ? "0%"
+                  : "50%"
+              }}
+              onMouseEnter={() => setHoveredSection("delete")}
+              onMouseLeave={() => setHoveredSection(null)}
+              onClick={deleteProperty}
+            >
+              <Trash2Icon className="h-4 w-4 text-red-700" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            Delete this property
+          </TooltipContent>
+        </Tooltip>
       </ItemActions>
     </>
   );
@@ -291,13 +333,13 @@ const PropertyForm = (
   { property, isSaved, saveProperty, unSaveProperty, deleteProperty }: PropertyFormProps
 ) => {
   return (
-    <Item variant="outline">
+    <Item variant="outline" className={`group/item ${isSaved ? "p-2" : "p-3"}`}>
       {isSaved
         ? (
           <PropertyItem
             property={property}
             updateProperty={unSaveProperty}
-            removeProperty={deleteProperty}
+            deleteProperty={deleteProperty}
           />
         )
         : (

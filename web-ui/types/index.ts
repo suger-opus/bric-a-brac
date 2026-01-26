@@ -1,4 +1,5 @@
 import {
+  requestEdgeSchema,
   requestGraph,
   requestNodeSchema,
   requestProperty,
@@ -34,6 +35,7 @@ export type GraphMetadata = v.InferOutput<typeof graphMetadata>;
 export type User = v.InferOutput<typeof user>;
 
 export type RequestProperty = v.InferOutput<typeof requestProperty>;
+export type RequestEdgeSchema = v.InferOutput<typeof requestEdgeSchema>;
 export type RequestNodeSchema = v.InferOutput<typeof requestNodeSchema>;
 export type RequestGraph = v.InferOutput<typeof requestGraph>;
 export type RequestSearch = v.InferOutput<typeof requestSearch>;
@@ -45,14 +47,32 @@ export type ProcessedGraphData = {
 };
 export type ProcessedNodeData = {
   id: string;
-  label: string;
+  formatted_label: string;
   color: string;
   properties: NodeData["properties"];
 };
 export type ProcessedEdgeData = {
   source: string;
   target: string;
-  label: string;
+  formatted_label: string;
   color: string;
   properties: EdgeData["properties"];
+};
+
+// --- Form Inputs for Validation ---
+export type FormInput<T> = {
+  value: T;
+  setValue: (value: T) => void;
+  validate: () => boolean;
+  error: string | null;
+  reset: () => void;
+};
+
+export type FormInputs<T> = {
+  value: { id: string; isSaved: boolean; value: T; }[];
+  setValue: (value: { id: string; isSaved: boolean; value: T; }[]) => void;
+  validateAll: () => boolean;
+  validateOne: (id: string) => boolean;
+  errors: Record<string, string | null>;
+  reset: () => void;
 };

@@ -61,8 +61,8 @@ const GraphPage = () => {
                 height={dimensions.height}
                 nodeThreeObjectExtend={true}
                 nodeThreeObject={(node: ProcessedNodeData) => {
-                  const property = node.label in displayedNodeProperties
-                    ? displayedNodeProperties[node.label]
+                  const property = node.formatted_label in displayedNodeProperties
+                    ? displayedNodeProperties[node.formatted_label]
                     : undefined;
                   const sprite = property && property in node.properties
                     ? new SpriteText(node.properties[property] as string)
@@ -76,8 +76,8 @@ const GraphPage = () => {
                 }}
                 linkThreeObjectExtend={true}
                 linkThreeObject={(link: ProcessedEdgeData) => {
-                  const property = link.label in displayedEdgeProperties
-                    ? displayedEdgeProperties[link.label]
+                  const property = link.formatted_label in displayedEdgeProperties
+                    ? displayedEdgeProperties[link.formatted_label]
                     : undefined;
                   const sprite = property && property in link.properties
                     ? new SpriteText(link.properties[property] as string)

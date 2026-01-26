@@ -64,7 +64,7 @@ export const edgeSchema = v.object({
 export const nodeData = v.object({
   graph_id: v.string(),
   node_id: v.string(),
-  label: v.string(),
+  formatted_label: v.string(),
   properties: v.record(v.string(), propertyValue)
 });
 
@@ -73,7 +73,7 @@ export const edgeData = v.object({
   edge_id: v.string(),
   from_id: v.string(),
   to_id: v.string(),
-  label: v.string(),
+  formatted_label: v.string(),
   properties: v.record(v.string(), propertyValue)
 });
 

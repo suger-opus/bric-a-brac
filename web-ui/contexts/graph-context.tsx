@@ -16,8 +16,14 @@ type GraphContextType = {
   error: string | null;
   displayedNodeProperties: DisplayedProperties;
   displayedEdgeProperties: DisplayedProperties;
-  updateDisplayedNodeProperty: (label: string, property: string | undefined) => void;
-  updateDisplayedEdgeProperty: (label: string, property: string | undefined) => void;
+  updateDisplayedNodeProperty: (
+    node_formatted_label: string,
+    property_formatted_label: string | undefined
+  ) => void;
+  updateDisplayedEdgeProperty: (
+    edge_formatted_label: string,
+    property_formatted_label: string | undefined
+  ) => void;
 };
 
 const GraphContext = createContext<GraphContextType | undefined>(undefined);
@@ -32,23 +38,23 @@ const processGraphData = (
   { graphData, graphSchema }: { graphData: GraphData; graphSchema: GraphSchema; }
 ): ProcessedGraphData => {
   const nodes = graphData.nodes.map((node) => {
-    const nodeSchema = graphSchema.nodes.find((n) => n.formatted_label === node.label);
+    const nodeSchema = graphSchema.nodes.find((n) => n.formatted_label === node.formatted_label);
     const color = nodeSchema ? nodeSchema.color : "#888888";
     return {
       id: node.node_id,
-      label: node.label,
+      formatted_label: node.formatted_label,
       color,
       properties: node.properties
     };
   });
 
   const links = graphData.edges.map((edge) => {
-    const edgeSchema = graphSchema.edges.find((e) => e.formatted_label === edge.label);
+    const edgeSchema = graphSchema.edges.find((e) => e.formatted_label === edge.formatted_label);
     const color = edgeSchema ? edgeSchema.color : "#888888";
     return {
       source: edge.from_id,
       target: edge.to_id,
-      label: edge.label,
+      formatted_label: edge.formatted_label,
       color,
       properties: edge.properties
     };

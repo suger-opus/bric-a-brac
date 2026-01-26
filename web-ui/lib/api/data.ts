@@ -204,19 +204,19 @@ export const graphData: GraphData = {
     {
       graph_id: "graph-0",
       node_id: "node-data-1",
-      label: "Person",
+      formatted_label: "Person",
       properties: { Name: "Alice", Job_Title: "Engineer" }
     },
     {
       graph_id: "graph-0",
       node_id: "node-data-2",
-      label: "Company",
+      formatted_label: "Company",
       properties: { Name: "Acme Corp" }
     },
     {
       graph_id: "graph-0",
       node_id: "node-data-3",
-      label: "Person",
+      formatted_label: "Person",
       properties: { Name: "Bob" }
     }
   ],
@@ -226,7 +226,7 @@ export const graphData: GraphData = {
       edge_id: "edge_data_1",
       from_id: "node-data-1",
       to_id: "node-data-2",
-      label: "WORKS_AT",
+      formatted_label: "WORKS_AT",
       properties: { Start_Year: 2020 }
     },
     {
@@ -234,7 +234,7 @@ export const graphData: GraphData = {
       edge_id: "edge_data_2",
       from_id: "node-data-3",
       to_id: "node-data-2",
-      label: "WORKS_AT",
+      formatted_label: "WORKS_AT",
       properties: { Start_Year: 2021 }
     }
   ]
