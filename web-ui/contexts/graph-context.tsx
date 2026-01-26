@@ -52,6 +52,7 @@ const processGraphData = (
     const edgeSchema = graphSchema.edges.find((e) => e.formatted_label === edge.formatted_label);
     const color = edgeSchema ? edgeSchema.color : "#888888";
     return {
+      id: edge.edge_id,
       source: edge.from_id,
       target: edge.to_id,
       formatted_label: edge.formatted_label,

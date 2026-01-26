@@ -52,6 +52,7 @@ export type ProcessedNodeData = {
   properties: NodeData["properties"];
 };
 export type ProcessedEdgeData = {
+  id: string;
   source: string;
   target: string;
   formatted_label: string;
