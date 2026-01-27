@@ -5,8 +5,8 @@ import GraphEdgeItem from "@/components/items/graph-edge-item";
 import GraphNodeItem from "@/components/items/graph-node-item";
 import GraphSidebar from "@/components/sidebars/graph-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Spinner } from "@/components/ui/spinner";
 import { useGraph } from "@/contexts/graph-context";
+import { sampleProcessedGraphData } from "@/lib/api/data";
 import { EdgeSchema, NodeSchema, ProcessedEdgeData, ProcessedNodeData } from "@/types";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
@@ -18,7 +18,7 @@ const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
 
 const GraphPage = () => {
   const {
-    isLoading,
+    isLoaded,
     schema,
     processedData,
     displayedNodeProperties,
@@ -90,18 +90,11 @@ const GraphPage = () => {
       <div className="w-full h-full relative overflow-hidden">
         <SidebarTrigger className="absolute right-2 top-2 z-20" />
         <div ref={containerRef} className="w-full h-full">
-          {isLoading && (
-            <div className="flex h-full items-center justify-center">
-              {/* TODO: sample data color grey instead of spinner */}
-              <Spinner />
-            </div>
-          )}
-          {dimensions.width > 0 && dimensions.height > 0 && !isLoading
-            && processedData
-            && (
+          {isLoaded
+            ? (
               <div className="relative w-full h-full">
                 <ForceGraph3D
-                  graphData={processedData}
+                  graphData={processedData!}
                   backgroundColor="white"
                   width={dimensions.width}
                   height={dimensions.height}
@@ -164,6 +157,16 @@ const GraphPage = () => {
                   />
                 )}
                 <GraphCommand isOpen={openCommand} onOpenChange={setOpenCommand} />
+              </div>
+            )
+            : (
+              <div className="relative w-full h-full">
+                <ForceGraph3D
+                  graphData={sampleProcessedGraphData}
+                  backgroundColor="white"
+                  width={dimensions.width}
+                  height={dimensions.height}
+                />
               </div>
             )}
         </div>

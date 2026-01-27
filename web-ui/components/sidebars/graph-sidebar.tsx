@@ -1,7 +1,5 @@
 "use client";
 
-import NewEdgeSchemaButton from "@/components/buttons/new-edge-schema-button";
-import NewNodeSchemaButton from "@/components/buttons/new-node-schema-button";
 import EdgeSchemaItem from "@/components/items/edge-schema-item";
 import NodeSchemaItem from "@/components/items/node-schema-item";
 import { Button } from "@/components/ui/button";
@@ -17,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGraph } from "@/contexts/graph-context";
-import { ChevronDown, HomeIcon, SettingsIcon } from "lucide-react";
+import { ChevronDown, HomeIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const GraphSidebar = () => {
@@ -59,7 +57,6 @@ const GraphSidebar = () => {
                       {schema!.nodes.map((node, index) => (
                         <NodeSchemaItem key={index} schema={node} />
                       ))}
-                      <NewNodeSchemaButton />
                     </>
                   )}
               </SidebarGroupContent>
@@ -89,7 +86,6 @@ const GraphSidebar = () => {
                       {schema!.edges.map((edge, index) => (
                         <EdgeSchemaItem key={index} schema={edge} />
                       ))}
-                      <NewEdgeSchemaButton />
                     </>
                   )}
               </SidebarGroupContent>
@@ -97,11 +93,9 @@ const GraphSidebar = () => {
           </SidebarGroup>
         </Collapsible>
       </SidebarContent>
-      <SidebarFooter className="flex flex-row items-center justify-between">
-        <Button variant="outline" size="sm">
-          <SettingsIcon /> Settings
-        </Button>
+      <SidebarFooter className="flex flex-row items-center">
         <Button
+          className="ml-auto"
           size="sm"
           onClick={() =>
             router.push("/")}

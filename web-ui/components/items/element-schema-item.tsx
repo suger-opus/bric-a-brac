@@ -52,9 +52,9 @@ const ElementSchemaItem = ({
               <TableBody>
                 {properties.map((property, index) => (
                   <TableRow key={index}>
-                    <TableCell>
+                    <TableCell className="text-left w-48">
                       <Tooltip>
-                        <TooltipTrigger className="font-medium text-ellipsis overflow-hidden whitespace-nowrap max-w-32">
+                        <TooltipTrigger className="font-medium text-ellipsis overflow-hidden whitespace-nowrap max-w-48">
                           {property.label}
                         </TooltipTrigger>
                         <TooltipContent>
@@ -62,10 +62,10 @@ const ElementSchemaItem = ({
                         </TooltipContent>
                       </Tooltip>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="w-1/4">
                       <PropertyTypeBadge property={property} />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="w-1/4">
                       {property.metadata.details.required ? "Required" : "Optional"}
                     </TableCell>
                     <TableCell className="text-right">

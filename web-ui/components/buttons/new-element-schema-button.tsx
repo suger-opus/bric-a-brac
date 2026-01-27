@@ -10,6 +10,7 @@ type NewElementSchemaButtonProps = {
   children: React.ReactElement<{ isOpen: boolean; onClose: () => void; }>;
 };
 
+// TODO: component unused, delete ?
 const NewElementSchemaButton = ({ kind, children }: NewElementSchemaButtonProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
