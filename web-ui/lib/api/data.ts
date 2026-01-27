@@ -114,18 +114,18 @@ export const graphMetadata: GraphMetadata = {
   graph_id: "graph-0",
   owner_username: "suger-opus",
   user_role: Role.OWNER,
-  is_bookmarked_by_user: false,
-  is_cheered_by_user: false,
+  is_bookmarked_by_user: true,
+  is_cheered_by_user: true,
   created_at: new Date(),
   updated_at: new Date(),
   name: "Acme Corp. Employee Network",
   description:
     "A comprehensive graph representing the employees, departments, and projects within Acme Corporation.",
-  is_public: false,
+  is_public: true,
   nb_data_nodes: 3,
   nb_data_edges: 2,
-  nb_cheers: 0,
-  nb_bookmarks: 0
+  nb_cheers: 100,
+  nb_bookmarks: 65
 };
 
 export const graphSchema: GraphSchema = {

@@ -90,8 +90,18 @@ const GraphPage = () => {
       <div className="w-full h-full relative overflow-hidden">
         <SidebarTrigger className="absolute right-2 top-2 z-20" />
         <div ref={containerRef} className="w-full h-full">
-          {isLoaded
+          {!isLoaded
             ? (
+              <div className="relative w-full h-full">
+                <ForceGraph3D
+                  graphData={sampleProcessedGraphData}
+                  backgroundColor="white"
+                  width={dimensions.width}
+                  height={dimensions.height}
+                />
+              </div>
+            )
+            : (
               <div className="relative w-full h-full">
                 <ForceGraph3D
                   graphData={processedData!}
@@ -157,16 +167,6 @@ const GraphPage = () => {
                   />
                 )}
                 <GraphCommand isOpen={openCommand} onOpenChange={setOpenCommand} />
-              </div>
-            )
-            : (
-              <div className="relative w-full h-full">
-                <ForceGraph3D
-                  graphData={sampleProcessedGraphData}
-                  backgroundColor="white"
-                  width={dimensions.width}
-                  height={dimensions.height}
-                />
               </div>
             )}
         </div>
