@@ -19,11 +19,14 @@ import {
   ChartAreaIcon,
   FileBoxIcon,
   FilePenIcon,
+  FileSymlinkIcon,
   HatGlassesIcon,
   PackageOpenIcon,
   PackagePlusIcon,
   PackageSearchIcon,
   ShieldUserIcon,
+  SplineIcon,
+  SplinePointerIcon,
   Trash2Icon,
   WorkflowIcon
 } from "lucide-react";
@@ -108,7 +111,6 @@ const GraphCommand = ({ isOpen, onOpenChange }: GraphCommandProps) => {
                   </CommandItem>
                   <CommandItem
                     key={actionLabels[Action.INSERT_NODE]}
-                    disabled
                     value={Action.INSERT_NODE}
                     onSelect={handleSelect}
                   >
@@ -129,7 +131,7 @@ const GraphCommand = ({ isOpen, onOpenChange }: GraphCommandProps) => {
                     value={Action.NEW_EDGE_TYPE}
                     onSelect={handleSelect}
                   >
-                    <FileBoxIcon />
+                    <FileSymlinkIcon />
                     <span>{actionLabels[Action.NEW_EDGE_TYPE]}</span>
                   </CommandItem>
                   <CommandItem
@@ -147,7 +149,7 @@ const GraphCommand = ({ isOpen, onOpenChange }: GraphCommandProps) => {
                     value={Action.INSERT_EDGE}
                     onSelect={handleSelect}
                   >
-                    <PackagePlusIcon />
+                    <SplineIcon />
                     <span>{actionLabels[Action.INSERT_EDGE]}</span>
                   </CommandItem>
                   <CommandItem
@@ -156,7 +158,7 @@ const GraphCommand = ({ isOpen, onOpenChange }: GraphCommandProps) => {
                     value={Action.MANAGE_EDGES}
                     onSelect={handleSelect}
                   >
-                    <PackageOpenIcon />
+                    <SplinePointerIcon />
                     <span>{actionLabels[Action.MANAGE_EDGES]}</span>
                   </CommandItem>
                 </CommandGroup>
