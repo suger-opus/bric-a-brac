@@ -1,21 +1,14 @@
 "use client";
 
 import { useElementSchemaForm } from "@/hooks/use-element-schema-form";
-import NewElementSchemaDialogContent from "./new-element-schema-dialog-content";
+import NewElementSchemaDialogContent from "./new-element-schema-content";
 
-type NewEdgeSchemaDialogContentProps = {
-  isOpen: boolean;
-  onClose: () => void;
-};
-
-const NewEdgeSchemaDialogContent = ({ isOpen, onClose }: NewEdgeSchemaDialogContentProps) => {
+const NewEdgeSchemaContent = () => {
   const { label, formattedLabel, color, properties, submitEdge } = useElementSchemaForm();
 
   return (
     <NewElementSchemaDialogContent
       kind="edge"
-      isOpen={isOpen}
-      onClose={onClose}
       onSubmit={submitEdge}
       label={label}
       formattedLabel={formattedLabel}
@@ -25,4 +18,4 @@ const NewEdgeSchemaDialogContent = ({ isOpen, onClose }: NewEdgeSchemaDialogCont
   );
 };
 
-export default NewEdgeSchemaDialogContent;
+export default NewEdgeSchemaContent;

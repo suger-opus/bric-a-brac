@@ -1,10 +1,11 @@
 "use client";
 
-import EdgeSchemaItem from "@/components/items/edge-schema-item";
-import NodeSchemaItem from "@/components/items/node-schema-item";
+import EdgeSchemaItem from "@/components/graph/items/edge-schema-item";
+import NodeSchemaItem from "@/components/graph/items/node-schema-item";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Kbd } from "@/components/ui/kbd";
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +30,11 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-const GraphSidebar = () => {
+type GraphSidebarProps = {
+  openCommand: () => void;
+};
+
+const GraphSidebar = ({ openCommand }: GraphSidebarProps) => {
   const router = useRouter();
   const { metadata, isLoaded, schema } = useGraph();
 
@@ -37,7 +42,13 @@ const GraphSidebar = () => {
     <Sidebar side="right">
       <SidebarHeader className="pt-2.75">
         {!isLoaded
-          ? <Skeleton className="h-8" />
+          ? (
+            <div className="space-y-2">
+              <Skeleton className="h-8" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-24" />
+            </div>
+          )
           : (
             <div className="space-y-2">
               <div className="space-y-1">
@@ -117,9 +128,12 @@ const GraphSidebar = () => {
                   {metadata!.nb_data_edges}
                 </Badge>
               </div>
-              <p className="text-sm">{metadata!.description}</p>
+              <p className="text-sm text-muted-foreground">{metadata!.description}</p>
             </div>
           )}
+        <Button onClick={openCommand} variant="outline" size="sm" className="w-full mt-2">
+          Open Command Menu<Kbd>Ctrl + M</Kbd>
+        </Button>
       </SidebarHeader>
       <SidebarContent className="gap-0">
         <Collapsible defaultOpen className="group/collapsible-nodes">

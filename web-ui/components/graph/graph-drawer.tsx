@@ -1,0 +1,66 @@
+"use client";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle
+} from "@/components/ui/drawer";
+import { useGraph } from "@/contexts/graph-context";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Action } from "@/types";
+import NewEdgeSchemaContent from "./contents/new-edge-schema-content";
+import NewNodeSchemaContent from "./contents/new-node-schema-content";
+import GraphMenu from "./graph-menu";
+
+const GraphDrawer = () => {
+  const { action, setAction } = useGraph();
+  const isDesktop = !useIsMobile();
+  const isOpen = action !== null;
+  const onOpenChange = (_: boolean) => setAction(null);
+
+  return isDesktop
+    ? (
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="flex flex-col justify-between h-[90vh] min-w-160">
+          <DialogHeader className="sr-only h-fit">
+            <DialogTitle>Graph Dialog Title</DialogTitle>
+            <DialogDescription>Graph Dialog Description</DialogDescription>
+          </DialogHeader>
+          <GraphMenu />
+          <div className="mt-2 grow no-scrollbar overflow-y-auto">
+            {action === Action.NEW_NODE_TYPE && <NewNodeSchemaContent />}
+            {action === Action.NEW_EDGE_TYPE && <NewEdgeSchemaContent />}
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+    : (
+      <Drawer open={isOpen} onOpenChange={onOpenChange}>
+        <DrawerContent>
+          <DrawerHeader className="sr-only h-fit">
+            <DrawerTitle>Graph Drawer Title</DrawerTitle>
+            <DrawerDescription>Graph Drawer Description</DrawerDescription>
+          </DrawerHeader>
+          <GraphMenu />
+          <div className="grow no-scrollbar overflow-y-auto">
+            {action === Action.NEW_NODE_TYPE && <NewNodeSchemaContent />}
+            {action === Action.NEW_EDGE_TYPE && <NewEdgeSchemaContent />}
+          </div>
+          <DrawerFooter>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    );
+};
+
+export default GraphDrawer;

@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiProvider } from "@/lib/api/provider";
-import { GraphData, GraphMetadata, GraphSchema, ProcessedGraphData } from "@/types";
+import { Action, GraphData, GraphMetadata, GraphSchema, ProcessedGraphData } from "@/types";
 import { createContext, useContext, useEffect, useState } from "react";
 
 type DisplayedProperties = Record<string, string | undefined>;
@@ -24,6 +24,12 @@ type GraphContextType = {
     edge_formatted_label: string,
     property_formatted_label: string | undefined
   ) => void;
+  focusNode: string | null;
+  setFocusNode: (nodeId: string | null) => void;
+  focusEdge: string | null;
+  setFocusEdge: (edgeId: string | null) => void;
+  action: Action | null;
+  setAction: (action: Action | null) => void;
 };
 
 const GraphContext = createContext<GraphContextType | undefined>(undefined);
@@ -75,6 +81,9 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
   const [error, setError] = useState<string | null>(null);
   const [displayedNodeProperties, setDisplayedNodeProperties] = useState<DisplayedProperties>({});
   const [displayedEdgeProperties, setDisplayedEdgeProperties] = useState<DisplayedProperties>({});
+  const [focusNode, setFocusNode] = useState<string | null>(null);
+  const [focusEdge, setFocusEdge] = useState<string | null>(null);
+  const [action, setAction] = useState<Action | null>(null);
 
   const updateDisplayedNodeProperty = (label: string, property: string | undefined) => {
     setDisplayedNodeProperties((prev) => ({
@@ -90,16 +99,24 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
     }));
   };
 
+  const reset = () => {
+    setMetadata(null);
+    setData(null);
+    setSchema(null);
+    setProcessedData(null);
+    setIsLoading(false);
+    setIsLoaded(false);
+    setError(null);
+    setDisplayedNodeProperties({});
+    setDisplayedEdgeProperties({});
+    setFocusNode(null);
+    setFocusEdge(null);
+  };
+
   useEffect(() => {
     const fetchGraph = async () => {
       if (!graphId) {
-        setMetadata(null);
-        setSchema(null);
-        setData(null);
-        setProcessedData(null);
-        setIsLoading(false);
-        setDisplayedNodeProperties({});
-        setDisplayedEdgeProperties({});
+        reset();
         setError("No graph ID provided");
         return;
       }
@@ -107,16 +124,31 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
       try {
         setError(null);
         setIsLoading(true);
-        setDisplayedNodeProperties({});
-        setDisplayedEdgeProperties({});
-        const metadata = await graphService.getMetadata(graphId);
-        setMetadata(metadata);
-        const schema = await graphService.getSchema(graphId);
-        setSchema(schema);
-        const data = await graphService.getData(graphId);
-        setData(data);
-        setProcessedData(processGraphData({ graphData: data, graphSchema: schema }));
+        const metadataRes = await graphService.getMetadata(graphId);
+        setMetadata(metadataRes);
+        const schemaRes = await graphService.getSchema(graphId);
+        setSchema(schemaRes);
+        const dataRes = await graphService.getData(graphId);
+        setData(dataRes);
+        setProcessedData(processGraphData({ graphData: dataRes, graphSchema: schemaRes }));
+        setDisplayedNodeProperties((prev) =>
+          Object.fromEntries(
+            Object.keys(prev).filter((k) =>
+              dataRes.nodes.some((node) => node.formatted_label === k)
+            )
+              .map((k) => [k, prev[k]])
+          )
+        );
+        setDisplayedEdgeProperties((prev) =>
+          Object.fromEntries(
+            Object.keys(prev).filter((k) =>
+              dataRes.edges.some((edge) => edge.formatted_label === k)
+            )
+              .map((k) => [k, prev[k]])
+          )
+        );
       } catch (err) {
+        reset();
         console.error("Error fetching graph:", err);
         setError("Failed to load graph.");
       } finally {
@@ -146,7 +178,13 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
         displayedNodeProperties,
         displayedEdgeProperties,
         updateDisplayedNodeProperty,
-        updateDisplayedEdgeProperty
+        updateDisplayedEdgeProperty,
+        focusNode,
+        setFocusNode,
+        focusEdge,
+        setFocusEdge,
+        action,
+        setAction
       }}
     >
       {children}

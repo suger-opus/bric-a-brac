@@ -1,6 +1,6 @@
 "use client";
 
-import PropertyTypeBadge from "@/components/badges/property-type-badge";
+import PropertyTypeBadge from "@/components/graph/badges/property-type-badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";

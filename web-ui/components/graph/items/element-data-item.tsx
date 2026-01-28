@@ -1,7 +1,8 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { Property, PropertyValue } from "@/types";
+import { Property, PropertyValue, Role } from "@/types";
 
 type GraphElementItemProps = {
   kind: "node" | "edge";
@@ -10,6 +11,7 @@ type GraphElementItemProps = {
   color: string;
   schemaProperties: Property[];
   dataProperties: Record<string, PropertyValue>;
+  role: Role;
 };
 
 const GraphElementItem = ({
@@ -18,11 +20,12 @@ const GraphElementItem = ({
   label,
   color,
   schemaProperties,
-  dataProperties
+  dataProperties,
+  role
 }: GraphElementItemProps) => {
   return (
-    <div className="absolute top-2 left-2 w-80 max-w-full h-fit p-2 overflow-auto no-scrollbar bg-transparent backdrop-blur-xs border border-black/10 rounded-md">
-      <div className="flex items-center space-x-2 mb-4">
+    <div className="w-80 max-w-full h-fit space-y-2 p-2 overflow-auto no-scrollbar bg-transparent backdrop-blur-xs border border-black/10 rounded-md">
+      <div className="flex items-center space-x-2">
         <div
           className={kind === "node" ? "w-4 h-4 rounded-full" : "w-4 h-2 rounded-xs"}
           style={{ "backgroundColor": color }}
@@ -49,6 +52,11 @@ const GraphElementItem = ({
           ))}
         </TableBody>
       </Table>
+      {[Role.OWNER, Role.ADMIN, Role.EDITOR].includes(role) && (
+        <Button size="sm" variant="secondary" className="w-full">
+          Manage
+        </Button>
+      )}
     </div>
   );
 };

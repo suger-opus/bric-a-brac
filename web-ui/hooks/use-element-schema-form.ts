@@ -64,7 +64,13 @@ export const useElementSchemaForm = (): UseElementSchemaFormReturn => {
 
   const validateOneProperty = (id: string) => {
     const property = properties.find((prop) => prop.id === id);
-    if (!property) { return false; }
+    if (!property) {
+      setPropertyErrors((prev) => ({
+        ...prev,
+        [id]: null
+      }));
+      return true;
+    }
     if (!property.isSaved) {
       setPropertyErrors((prev) => ({
         ...prev,

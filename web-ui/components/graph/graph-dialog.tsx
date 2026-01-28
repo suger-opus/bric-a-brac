@@ -16,11 +16,11 @@ import { CornerRightDownIcon, HomeIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useState } from "react";
 
-type LoadingGraphDialogContentProps = {
+type GraphDialogProps = {
   onClose: () => void;
 };
 
-const LoadingGraphDialogContent = ({ onClose }: LoadingGraphDialogContentProps) => {
+const GraphDialog = ({ onClose }: GraphDialogProps) => {
   const [progress, setProgress] = useState(0);
   const { isLoading, isLoaded, error } = useGraph();
   const router = useRouter();
@@ -95,4 +95,4 @@ const LoadingGraphDialogContent = ({ onClose }: LoadingGraphDialogContentProps) 
   );
 };
 
-export default LoadingGraphDialogContent;
+export default GraphDialog;

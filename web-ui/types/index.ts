@@ -21,6 +21,7 @@ import {
 } from "@/lib/api/schemas/response-schemas";
 import * as v from "valibot";
 
+// --- API Requests & Response Types ---
 export { Role };
 export { PropertyType };
 export type PropertyValue = v.InferOutput<typeof propertyValue>;
@@ -77,3 +78,23 @@ export type FormInputs<T> = {
   errors: Record<string, string | null>;
   reset: () => void;
 };
+
+// --- Available Actions ---
+export enum Action {
+  FIND_NODE = "FIND_NODES",
+  FIND_PATH = "FIND_PATH",
+  ASK_AI = "ASK_AI",
+  NEW_NODE_TYPE = "NEW_NODE_TYPE",
+  NEW_EDGE_TYPE = "NEW_EDGE_TYPE",
+  MANAGE_NODE_TYPES = "MANAGE_NODE_TYPES",
+  MANAGE_EDGE_TYPES = "MANAGE_EDGE_TYPES",
+  INSERT_NODE = "INSERT_NODE",
+  INSERT_EDGE = "INSERT_EDGE",
+  MANAGE_NODES = "MANAGE_NODES",
+  MANAGE_EDGES = "MANAGE_EDGES",
+  METADATA = "METADATA",
+  ACCESSES = "ACCESSES",
+  VISIBILITY = "VISIBILITY",
+  ANALYTICS = "ANALYTICS",
+  DELETE_GRAPH = "DELETE_GRAPH"
+}

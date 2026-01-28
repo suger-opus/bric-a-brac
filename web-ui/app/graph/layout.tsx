@@ -1,6 +1,6 @@
 "use client";
 
-import LoadingGraphDialogContent from "@/components/dialog-contents/loading-graph-dialog-content";
+import GraphDialog from "@/components/graph/graph-dialog";
 import { Dialog, DialogOverlay } from "@/components/ui/dialog";
 import { GraphProvider } from "@/contexts/graph-context";
 import { useSearchParams } from "next/navigation";
@@ -15,7 +15,7 @@ const GraphLayout = ({ children }: Readonly<{ children: React.ReactNode; }>) => 
     <GraphProvider graphId={graphId}>
       <Dialog open={isDialogOpen}>
         <DialogOverlay className="bg-transparent backdrop-blur-xs" />
-        <LoadingGraphDialogContent onClose={() => setIsDialogOpen(false)} />
+        <GraphDialog onClose={() => setIsDialogOpen(false)} />
       </Dialog>
       {children}
     </GraphProvider>
