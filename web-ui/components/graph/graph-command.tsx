@@ -145,7 +145,6 @@ const GraphCommand = ({ isOpen, onOpenChange }: GraphCommandProps) => {
                   </CommandItem>
                   <CommandItem
                     key={actionLabels[Action.INSERT_EDGE]}
-                    disabled
                     value={Action.INSERT_EDGE}
                     onSelect={handleSelect}
                   >

@@ -24,10 +24,9 @@ export enum PropertyType {
 export const propertyType = v.enum(PropertyType);
 
 export const propertyValue = v.union([
-  v.string(),
+  v.pipe(v.string(), v.maxLength(50, "String value must be at most 250 characters long.")),
   v.number(),
-  v.boolean(),
-  v.array(v.string())
+  v.boolean()
 ]);
 
 export const property = v.object({
@@ -39,8 +38,8 @@ export const property = v.object({
     details: v.object({
       // min: v.nullable(v.number()),
       // max: v.nullable(v.number()),
-      options: v.nullable(v.array(v.string())),
-      required: v.boolean()
+      options: v.nullable(v.array(v.string()))
+      // required: v.boolean()
     })
   })
 });

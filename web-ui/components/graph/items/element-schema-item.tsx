@@ -62,13 +62,10 @@ const ElementSchemaItem = ({
                         </TooltipContent>
                       </Tooltip>
                     </TableCell>
-                    <TableCell className="w-1/4">
+                    <TableCell className="grow">
                       <PropertyTypeBadge property={property} />
                     </TableCell>
-                    <TableCell className="w-1/4">
-                      {property.metadata.details.required ? "Required" : "Optional"}
-                    </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-12">
                       {displayedProperty === property.formatted_label
                         ? (
                           <Tooltip>

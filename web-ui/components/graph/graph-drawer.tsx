@@ -18,7 +18,9 @@ import {
 import { useGraph } from "@/contexts/graph-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Action } from "@/types";
+import NewEdgeDataContent from "./contents/new-edge-data-content";
 import NewEdgeSchemaContent from "./contents/new-edge-schema-content";
+import NewNodeDataContent from "./contents/new-node-data-content";
 import NewNodeSchemaContent from "./contents/new-node-schema-content";
 import GraphMenu from "./graph-menu";
 
@@ -40,6 +42,8 @@ const GraphDrawer = () => {
           <div className="mt-2 grow no-scrollbar overflow-y-auto">
             {action === Action.NEW_NODE_TYPE && <NewNodeSchemaContent />}
             {action === Action.NEW_EDGE_TYPE && <NewEdgeSchemaContent />}
+            {action === Action.INSERT_NODE && <NewNodeDataContent />}
+            {action === Action.INSERT_EDGE && <NewEdgeDataContent />}
           </div>
         </DialogContent>
       </Dialog>
@@ -55,6 +59,8 @@ const GraphDrawer = () => {
           <div className="grow no-scrollbar overflow-y-auto">
             {action === Action.NEW_NODE_TYPE && <NewNodeSchemaContent />}
             {action === Action.NEW_EDGE_TYPE && <NewEdgeSchemaContent />}
+            {action === Action.INSERT_NODE && <NewNodeDataContent />}
+            {action === Action.INSERT_EDGE && <NewEdgeDataContent />}
           </div>
           <DrawerFooter>
           </DrawerFooter>

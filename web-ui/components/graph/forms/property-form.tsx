@@ -3,7 +3,6 @@
 import PropertyTypeBadge from "@/components/graph/badges/property-type-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
   FieldDescription,
@@ -51,9 +50,6 @@ const PropertyFieldGroup = (
     null
   );
   const [propertyType, setPropertyType] = useState(baseProperty.metadata.property_type);
-  const [isPropertyRequired, setIsPropertyRequired] = useState(
-    baseProperty.metadata.details.required
-  );
   const [currentOption, setCurrentOption] = useState("");
   const [options, setOptions] = useState(baseProperty.metadata.details.options);
   const [metadataValidationError, setMetadataValidationError] = useState<string | null>(null);
@@ -100,8 +96,7 @@ const PropertyFieldGroup = (
     const validMetadata = v.safeParse(requestPropertyMetadata, {
       property_type: propertyType,
       details: {
-        options: options,
-        required: isPropertyRequired
+        options: options
       }
     });
     if (!validLabel.success) {
@@ -126,8 +121,7 @@ const PropertyFieldGroup = (
         metadata: {
           property_type: propertyType,
           details: {
-            options: options,
-            required: isPropertyRequired
+            options: options
           }
         }
       });
@@ -226,19 +220,6 @@ const PropertyFieldGroup = (
             <FieldError>{metadataValidationError}</FieldError>
           </Field>
         )}
-        <Field orientation="horizontal">
-          <Checkbox
-            id="new-property-required"
-            checked={isPropertyRequired}
-            onCheckedChange={(e) => setIsPropertyRequired(e as boolean)}
-          />
-          <FieldLabel
-            htmlFor="new-property-required"
-            className="font-normal"
-          >
-            I want this property to be required
-          </FieldLabel>
-        </Field>
         <FieldSeparator />
         <Field orientation="horizontal">
           <Button size="sm" variant="secondary" onClick={handleSaveProperty}>
@@ -268,9 +249,6 @@ const PropertyItem = ({ property, updateProperty, deleteProperty }: PropertyItem
         <ItemTitle>{property.label}</ItemTitle>
         <ItemDescription className="space-x-1">
           <PropertyTypeBadge property={property} />
-          <Badge variant="secondary" className="font-bold text-[9px]">
-            {property.metadata.details.required ? "REQUIRED" : "OPTIONAL"}
-          </Badge>
         </ItemDescription>
       </ItemContent>
       <ItemActions className="h-12 w-24 rounded-sm gap-0 overflow-hidden opacity-0 group-hover/item:opacity-100 transition-opacity duration-200">

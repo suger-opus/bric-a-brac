@@ -143,8 +143,7 @@ export const graphSchema: GraphSchema = {
           metadata: {
             property_type: PropertyType.STRING,
             details: {
-              options: null,
-              required: true
+              options: null
             }
           }
         },
@@ -155,8 +154,29 @@ export const graphSchema: GraphSchema = {
           metadata: {
             property_type: PropertyType.SELECT,
             details: {
-              options: ["Engineer", "Manager", "Director", "Intern"],
-              required: false
+              options: ["Engineer", "Manager", "Director", "Intern"]
+            }
+          }
+        },
+        {
+          property_id: "np13",
+          label: "Is Full Time",
+          formatted_label: "Is_Full_Time",
+          metadata: {
+            property_type: PropertyType.BOOLEAN,
+            details: {
+              options: null
+            }
+          }
+        },
+        {
+          property_id: "np14",
+          label: "Age",
+          formatted_label: "Age",
+          metadata: {
+            property_type: PropertyType.NUMBER,
+            details: {
+              options: null
             }
           }
         }
@@ -175,8 +195,7 @@ export const graphSchema: GraphSchema = {
           metadata: {
             property_type: PropertyType.STRING,
             details: {
-              options: null,
-              required: true
+              options: null
             }
           }
         }
@@ -197,8 +216,7 @@ export const graphSchema: GraphSchema = {
           metadata: {
             property_type: PropertyType.NUMBER,
             details: {
-              options: null,
-              required: true
+              options: null
             }
           }
         }
@@ -225,7 +243,7 @@ export const graphData: GraphData = {
       graph_id: "graph-0",
       node_id: "node-data-3",
       formatted_label: "Person",
-      properties: { Name: "Bob" }
+      properties: { Name: "Bob", Job_Title: "Manager", Is_Full_Time: true, Age: 30 }
     }
   ],
   edges: [
@@ -266,7 +284,7 @@ export const sampleProcessedGraphData: ProcessedGraphData = {
       id: "node-data-3",
       formatted_label: "Person",
       color: "#808080",
-      properties: { Name: "Bob" }
+      properties: { Name: "Bob", Job_Title: "Manager", Is_Full_Time: true, Age: 30 }
     }
   ],
   links: [

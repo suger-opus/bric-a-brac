@@ -6,6 +6,6 @@ export const defaultNewProperty: RequestProperty = {
   formatted_label: formatLabel(""),
   metadata: {
     property_type: PropertyType.STRING,
-    details: { options: null, required: true }
+    details: { options: null }
   }
 };

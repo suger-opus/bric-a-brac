@@ -1,11 +1,18 @@
 /* eslint-disable no-console */
 import { graphData, graphMetadata, graphs, graphSchema } from "@/lib/api/data";
 import {
+  EdgeData,
+  EdgeSchema,
   GraphData,
   GraphMetadata,
   GraphSchema,
+  NodeData,
   NodeSchema,
+  PropertyValue,
+  RequestEdgeData,
+  RequestEdgeSchema,
   RequestGraph,
+  RequestNodeData,
   RequestNodeSchema,
   Role
 } from "@/types";
@@ -16,6 +23,9 @@ export interface GraphService {
   getData(graph_id: string): Promise<GraphData>;
   getSchema(graph_id: string): Promise<GraphSchema>;
   postNodeSchema(graph_id: string, nodeSchema: RequestNodeSchema): Promise<NodeSchema>;
+  postEdgeSchema(graph_id: string, edgeSchema: RequestEdgeSchema): Promise<EdgeSchema>;
+  postNodeData(graph_id: string, nodeData: RequestNodeData): Promise<NodeData>;
+  postEdgeData(graph_id: string, edgeData: RequestEdgeData): Promise<EdgeData>;
 }
 
 export class ApiGraphService implements GraphService {
@@ -75,5 +85,55 @@ export class ApiGraphService implements GraphService {
       }))
     };
     return newNodeSchema;
+  }
+
+  async postEdgeSchema(graph_id: string, edgeSchema: RequestEdgeSchema): Promise<EdgeSchema> {
+    console.log("Adding edge schema to graph:", graph_id, "with label:", edgeSchema.label);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const newEdgeSchema: EdgeSchema = {
+      edge_id: `edge-schema-${Math.floor(Math.random() * 1000)}`,
+      label: edgeSchema.label,
+      formatted_label: edgeSchema.formatted_label,
+      color: edgeSchema.color,
+      properties: edgeSchema.properties.map((prop, index) => ({
+        property_id: `property-${index + 1}`,
+        label: prop.label,
+        formatted_label: prop.formatted_label,
+        metadata: prop.metadata
+      }))
+    };
+    return newEdgeSchema;
+  }
+
+  async postNodeData(graph_id: string, nodeData: RequestNodeData): Promise<NodeData> {
+    console.log("Adding node data to graph:", graph_id);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const newNodeData: NodeData = {
+      graph_id,
+      node_id: `node-${Math.floor(Math.random() * 1000)}`,
+      formatted_label: "New Node",
+      properties: nodeData.properties.reduce((acc, prop) => {
+        acc[prop.property_id] = prop.value;
+        return acc;
+      }, {} as Record<string, PropertyValue>)
+    };
+    return newNodeData;
+  }
+
+  async postEdgeData(graph_id: string, edgeData: RequestEdgeData): Promise<EdgeData> {
+    console.log("Adding edge data to graph:", graph_id);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const newEdgeData: EdgeData = {
+      graph_id,
+      edge_id: `edge-${Math.floor(Math.random() * 1000)}`,
+      from_id: edgeData.from_id,
+      to_id: edgeData.to_id,
+      formatted_label: "New Edge",
+      properties: edgeData.properties.reduce((acc, prop) => {
+        acc[prop.property_id] = prop.value;
+        return acc;
+      }, {} as Record<string, PropertyValue>)
+    };
+    return newEdgeData;
   }
 }

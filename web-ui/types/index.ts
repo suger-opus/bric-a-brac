@@ -1,8 +1,11 @@
 import {
+  requestEdgeData,
   requestEdgeSchema,
   requestGraph,
+  requestNodeData,
   requestNodeSchema,
   requestProperty,
+  requestPropertyData,
   requestSearch
 } from "@/lib/api/schemas/request-schemas";
 import {
@@ -36,8 +39,11 @@ export type GraphMetadata = v.InferOutput<typeof graphMetadata>;
 export type User = v.InferOutput<typeof user>;
 
 export type RequestProperty = v.InferOutput<typeof requestProperty>;
-export type RequestEdgeSchema = v.InferOutput<typeof requestEdgeSchema>;
+export type RequestPropertyData = v.InferOutput<typeof requestPropertyData>;
 export type RequestNodeSchema = v.InferOutput<typeof requestNodeSchema>;
+export type RequestEdgeSchema = v.InferOutput<typeof requestEdgeSchema>;
+export type RequestNodeData = v.InferOutput<typeof requestNodeData>;
+export type RequestEdgeData = v.InferOutput<typeof requestEdgeData>;
 export type RequestGraph = v.InferOutput<typeof requestGraph>;
 export type RequestSearch = v.InferOutput<typeof requestSearch>;
 

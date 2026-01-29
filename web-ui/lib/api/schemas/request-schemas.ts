@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { propertyType } from "./response-schemas";
+import { propertyType, propertyValue } from "./response-schemas";
 
 export const requestSearchKeyword = v.pipe(
   v.string(),
@@ -58,8 +58,8 @@ export const requestPropertyMetadataDetails = v.object({
       v.array(requestPropertyMetadataDetailsOption),
       v.minLength(1, "At least one option is required.")
     )
-  ),
-  required: v.boolean()
+  )
+  // required: v.boolean()
 });
 
 export const requestPropertyMetadata = v.pipe(
@@ -116,6 +116,21 @@ export const requestProperty = v.object({
   label: requestLabel,
   formatted_label: requestFormattedLabel,
   metadata: requestPropertyMetadata
+});
+
+export const requestPropertyData = v.object({
+  property_id: v.string(),
+  value: propertyValue
+});
+
+export const requestNodeData = v.object({
+  properties: v.array(requestPropertyData)
+});
+
+export const requestEdgeData = v.object({
+  from_id: v.string(),
+  to_id: v.string(),
+  properties: v.array(requestPropertyData)
 });
 
 export const requestNodeSchema = v.object({

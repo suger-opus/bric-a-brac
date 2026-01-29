@@ -75,7 +75,7 @@ const GraphMenu = () => {
                   <MenubarRadioItem value={Action.MANAGE_NODE_TYPES} disabled>
                     {actionLabels[Action.MANAGE_NODE_TYPES]}
                   </MenubarRadioItem>
-                  <MenubarRadioItem value={Action.INSERT_NODE} disabled>
+                  <MenubarRadioItem value={Action.INSERT_NODE}>
                     {actionLabels[Action.INSERT_NODE]}
                   </MenubarRadioItem>
                   <MenubarRadioItem value={Action.MANAGE_NODES} disabled>
@@ -88,7 +88,7 @@ const GraphMenu = () => {
                   <MenubarRadioItem value={Action.MANAGE_EDGE_TYPES} disabled>
                     {actionLabels[Action.MANAGE_EDGE_TYPES]}
                   </MenubarRadioItem>
-                  <MenubarRadioItem value={Action.INSERT_EDGE} disabled>
+                  <MenubarRadioItem value={Action.INSERT_EDGE}>
                     {actionLabels[Action.INSERT_EDGE]}
                   </MenubarRadioItem>
                   <MenubarRadioItem value={Action.MANAGE_EDGES} disabled>

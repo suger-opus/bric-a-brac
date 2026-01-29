@@ -196,9 +196,7 @@ const NewElementSchemaContent = ({
                       unSaveProperty={() => handleUnsaveProperty(property.id)}
                       deleteProperty={() => handleDeleteProperty(property.id)}
                     />
-                    {properties.errors[property.id] && (
-                      <FieldError key={index}>{properties.errors[property.id]}</FieldError>
-                    )}
+                    <FieldError>{properties.errors[property.id]}</FieldError>
                   </div>
                 ))}
               </div>
