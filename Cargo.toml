@@ -1,0 +1,120 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/bric-a-brac-id",
+    "crates/bric-a-brac-protos",
+    "knowledge",
+    "metadata",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["suger-opus@proton.me"]
+
+[workspace.dependencies]
+# Internal crates
+bric-a-brac-id = { path = "crates/bric-a-brac-id" }
+bric-a-brac-protos = { path = "crates/bric-a-brac-protos" }
+
+# Core dependencies
+anyhow = "1.0"
+tokio = "1.41.1"
+
+# Serialization
+serde = "1.0"
+serde_json = "1.0"
+
+# Tracing
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# CLI
+clap = "4.5"
+
+# Derive macros
+derive_more = "2.1.1"
+
+# gRPC / Protobuf
+prost = "0.13"
+tonic = "0.13"
+tonic-build = "0.13"
+
+# Database
+sqlx = "0.8"
+
+# UUID
+uuid = "1.0"
+
+# Web framework
+axum = "0.8"
+tower = "0.5"
+tower-http = "0.6"
+
+# Utilities
+chrono = "0.4"
+regex = "1.10"
+thiserror = "2.0"
+validator = "0.18"
+secrecy = "0.10.3"
+
+# Graph database
+neo4rs = "0.8.0"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+# Lint groups (most to least strict)
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+
+# Safety & Correctness
+undocumented_unsafe_blocks = "deny"
+indexing_slicing = "warn"
+panic = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+unwrap_in_result = "warn"
+get_unwrap = "warn"
+mem_forget = "warn"
+
+# Error Handling
+missing_panics_doc = "warn"
+map_err_ignore = "warn"
+
+# Development Remnants
+dbg_macro = "warn"
+print_stderr = "warn"
+print_stdout = "warn"
+todo = "warn"
+unimplemented = "warn"
+
+# Performance
+clone_on_ref_ptr = "warn"
+mutex_atomic = "warn"
+rc_buffer = "warn"
+rc_mutex = "warn"
+
+# Code Quality
+cognitive_complexity = "warn"
+if_then_some_else_none = "warn"
+large_include_file = "warn"
+string_add = "warn"
+str_to_string = "warn"
+unnecessary_wraps = "warn"
+verbose_file_reads = "warn"
+
+# Style Preferences
+filetype_is_file = "warn"
+let_underscore_must_use = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+wildcard_enum_match_arm = "warn"
+
+# Documentation
+unnecessary_safety_doc = "warn"
+
+# Allowances (disable noisy lints)
+cargo_common_metadata = "allow"
+missing_errors_doc = "allow"
+module_name_repetitions = "allow"

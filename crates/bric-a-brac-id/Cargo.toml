@@ -1,0 +1,16 @@
+[package]
+name = "bric-a-brac-id"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+derive_more = { workspace = true, features = ["from"] }
+serde = { workspace = true, features = ["derive"] }
+sqlx = { workspace = true, features = ["postgres", "uuid"] }
+uuid = { workspace = true, features = ["v7", "serde"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

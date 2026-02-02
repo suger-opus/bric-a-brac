@@ -1,12 +1,10 @@
-use std::net::IpAddr;
-
 use neo4rs::{ConfigBuilder, Graph};
 
 #[derive(Clone, clap::Args, derive_more::Debug)]
 pub struct KnowledgeDatabaseConfig {
     /// Knowledge database host
     #[arg(long, env = "KNOWLEDGE_DB_HOST", required = true)]
-    knowledge_db_host: IpAddr,
+    knowledge_db_host: String,
 
     /// Knowledge database port
     #[arg(long, env = "KNOWLEDGE_DB_PORT", required = true)]

@@ -1,9 +1,0 @@
-# Rust
-/target/
-Cargo.lock
-
-# Mise
-mise.local.toml
-
-# IDE
-.vscode/
