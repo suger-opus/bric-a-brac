@@ -1,6 +1,5 @@
-use crate::config::Config;
 use crate::models::{EdgeData, NodeData};
-use neo4rs::{BoltType, ConfigBuilder, Graph};
+use neo4rs::BoltType;
 use std::collections::HashMap;
 
 // Helper trait for BoltType conversion
@@ -113,30 +112,4 @@ impl From<&neo4rs::Relation> for EdgeData {
             properties,
         }
     }
-}
-
-pub async fn connect_to_database(cfg: &Config) -> anyhow::Result<Graph> {
-    let uri = cfg.database_uri();
-
-    let config = ConfigBuilder::default()
-        .uri(&uri)
-        .user(cfg.database_user.as_str())
-        .password(cfg.database_password.as_str())
-        .db(cfg.database_name.as_str())
-        .fetch_size(500)
-        .max_connections(10)
-        .build()?;
-
-    let graph = Graph::connect(config).await?;
-
-    // Verify connection by running a simple query with timeout
-    tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        graph.run(neo4rs::query("RETURN 1")),
-    )
-    .await
-    .map_err(|_| anyhow::anyhow!("Database connection timeout - check credentials and network"))?
-    .map_err(|e| anyhow::anyhow!("Failed to verify database connection: {}", e))?;
-
-    Ok(graph)
 }

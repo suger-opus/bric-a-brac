@@ -8,14 +8,21 @@ bric-a-brac-protos = { path = "../crates/bric-a-brac-protos" }
 
 anyhow = "1.0"
 axum = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive", "env"] }
+derive_more = { version = "2.1.1", features = ["debug"] }
 prost = "0.13"
+regex = "1.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json"] }
+thiserror = "2.0"
 tokio = { version = "1.41.1", features = ["macros", "rt-multi-thread"] }
 tonic = "0.13"
 tower = "0.5"
-tower-http = { version = "0.6", features = ["trace", "cors"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "request-id"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid = { version = "1.0", features = ["v4"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+validator = { version = "0.18", features = ["derive"] }
+secrecy = "0.10.3"

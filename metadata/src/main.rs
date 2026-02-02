@@ -1,47 +1,31 @@
-mod config;
-mod conversions;
-mod dto;
-mod error;
-mod grpc_client;
-mod handlers;
-mod routes;
-mod state;
-
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-use config::Config;
-use grpc_client::KnowledgeClient;
-use state::AppState;
+use metadata::{config::Config, run};
+use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    setup_tracing();
+
+    let config = Config::load()?;
+    tracing::info!(?config, "Configuration loaded");
+
+    if let Err(error) = run(&config).await {
+        tracing::error!(?error, "Unable to start metadata microservice");
+    }
+    Ok(())
+}
+
+fn setup_tracing() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "metadata=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "metadata=trace,tower_http=trace,sqlx=trace,tonic=trace".into()),
         )
-        .with(tracing_subscriber::fmt::layer())
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(true)
+                .with_thread_ids(true)
+                .with_line_number(true)
+                .with_span_events(FmtSpan::FULL),
+        )
         .init();
-
-    let config = Config::load();
-    tracing::info!("Metadata service starting...");
-    tracing::info!("Server will listen on {}", config.server_address());
-
-    tracing::info!(
-        "Connecting to Knowledge service at {}...",
-        config.knowledge_uri()
-    );
-    let knowledge_client = KnowledgeClient::connect(config.knowledge_uri()).await?;
-    tracing::info!("✓ Connected to Knowledge service");
-
-    let state = AppState { knowledge_client };
-    let app = routes::create_router(state);
-    let listener = tokio::net::TcpListener::bind(&config.server_address()).await?;
-    tracing::info!(
-        "✓ Metadata REST API listening on {}",
-        config.server_address()
-    );
-
-    axum::serve(listener, app).await?;
-    Ok(())
 }

@@ -1,5 +1,4 @@
 use crate::config::Config;
-use crate::db::connect_to_database;
 use crate::models::{EdgeData, GraphData, NodeData};
 use crate::service;
 use neo4rs::{BoltType, Graph};
@@ -22,7 +21,7 @@ pub struct KnowledgeServer {
 
 impl KnowledgeServer {
     pub async fn new(config: Config) -> anyhow::Result<Self> {
-        let graph = connect_to_database(&config).await?;
+        let graph = config.knowledge_db.connect().await?;
         Ok(Self {
             graph: Arc::new(graph),
         })

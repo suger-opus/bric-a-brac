@@ -8,10 +8,13 @@ bric-a-brac-protos = { path = "../crates/bric-a-brac-protos" }
 
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive", "env"] }
+derive_more = { version = "2.1.1", features = ["debug"] }
 neo4rs = "0.8.0"
 prost = "0.13"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.41.1", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tonic = "0.13"
 uuid = { version = "1.0", features = ["v4"] }

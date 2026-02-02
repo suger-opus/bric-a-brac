@@ -1,19 +1,21 @@
 [env]
 # Knowledge Server Configuration
-# KNOWLEDGE_HOST=""
-# KNOWLEDGE_PORT=""
+# KNOWLEDGE_SERVER_HOST=""
+# KNOWLEDGE_SERVER_PORT=""
 
 # Graph Database Configuration
-# DATABASE_HOST=""
-# DATABASE_PORT=""
-# DATABASE_USER=""
-# DATABASE_PASSWORD=""
-# DATABASE_NAME=""
+# KNOWLEDGE_DB_HOST=""
+# KNOWLEDGE_DB_PORT=""
+# KNOWLEDGE_DB_USER=""
+# KNOWLEDGE_DB_PASSWORD=""
+# KNOWLEDGE_DB_NAME=""
+# KNOWLEDGE_DB_FETCH_SIZE=""
+# KNOWLEDGE_DB_MAX_CONNECTIONS=""
 
 [tasks]
-server-start = "docker compose -f compose.server.yaml up --build -d"
-server-stop = "docker compose -f compose.server.yaml down"
-server-config = "docker compose -f compose.server.yaml config"
 db-start = "docker compose -f compose.db.yaml up --build -d"
 db-stop = "docker compose -f compose.db.yaml down"
 db-config = "docker compose -f compose.db.yaml config"
+server-start = "docker compose -f compose.server.yaml up --build -d"
+server-stop = "docker compose -f compose.server.yaml down"
+server-config = "docker compose -f compose.server.yaml config"

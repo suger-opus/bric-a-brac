@@ -1,10 +1,11 @@
-use std::collections::HashMap;
-use tonic::Request;
-
+use anyhow::Context;
+use axum::http::Uri;
 use bric_a_brac_protos::knowledge::knowledge_service_client::KnowledgeServiceClient;
 use bric_a_brac_protos::knowledge::{
     GraphDataResponse, InsertEdgeRequest, InsertNodeRequest, PropertyValue, SearchRequest,
 };
+use std::collections::HashMap;
+use tonic::Request;
 
 #[derive(Clone)]
 pub struct KnowledgeClient {
@@ -12,24 +13,43 @@ pub struct KnowledgeClient {
 }
 
 impl KnowledgeClient {
-    pub async fn connect(addr: String) -> anyhow::Result<Self> {
-        let client = KnowledgeServiceClient::connect(addr).await?;
+    pub async fn connect(addr: Uri) -> anyhow::Result<Self> {
+        let client = KnowledgeServiceClient::connect(addr)
+            .await
+            .context("Failed to connect to KnowledgeServiceClient")?;
         Ok(Self { client })
     }
 
+    // #[tracing::instrument(
+    //     skip(self, properties),
+    //     fields(
+    //         grpc_method = "insert_node",
+    //         graph_id = %graph_id,
+    //         label = %label,
+    //         property_count = properties.len()
+    //     )
+    // )]
     pub async fn insert_node(
         &mut self,
         graph_id: String,
         label: String,
         properties: HashMap<String, PropertyValue>,
     ) -> anyhow::Result<GraphDataResponse> {
+        tracing::debug!("Calling Knowledge service insert_node");
+
         let request = Request::new(InsertNodeRequest {
             graph_id,
             label,
             properties,
         });
 
-        let response = self.client.insert_node(request).await?;
+        let response = self
+            .client
+            .insert_node(request)
+            .await
+            .context("Knowledge service insert_node failed")?;
+
+        tracing::debug!("Knowledge service insert_node completed");
         Ok(response.into_inner())
     }
 
@@ -40,6 +60,8 @@ impl KnowledgeClient {
         label: String,
         properties: HashMap<String, PropertyValue>,
     ) -> anyhow::Result<GraphDataResponse> {
+        tracing::debug!("Calling Knowledge service insert_edge");
+
         let request = Request::new(InsertEdgeRequest {
             from_id,
             to_id,
@@ -47,7 +69,13 @@ impl KnowledgeClient {
             properties,
         });
 
-        let response = self.client.insert_edge(request).await?;
+        let response = self
+            .client
+            .insert_edge(request)
+            .await
+            .context("Knowledge service insert_edge failed")?;
+
+        tracing::debug!("Knowledge service insert_edge completed");
         Ok(response.into_inner())
     }
 
@@ -60,6 +88,8 @@ impl KnowledgeClient {
         edge_properties: HashMap<String, PropertyValue>,
         include_edges: bool,
     ) -> anyhow::Result<GraphDataResponse> {
+        tracing::debug!("Calling Knowledge service search");
+
         let request = Request::new(SearchRequest {
             graph_id,
             node_label,
@@ -69,7 +99,13 @@ impl KnowledgeClient {
             include_edges,
         });
 
-        let response = self.client.search(request).await?;
+        let response = self
+            .client
+            .search(request)
+            .await
+            .context("Knowledge service search failed")?;
+
+        tracing::debug!("Knowledge service search completed");
         Ok(response.into_inner())
     }
 }

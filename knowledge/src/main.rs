@@ -1,30 +1,21 @@
-mod config;
-mod db;
-mod grpc;
-mod models;
-mod service;
-
-use config::Config;
-use grpc::KnowledgeServer;
-use tonic::transport::Server;
-
-// todo: logging
+use knowledge::{config::Config, run};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let config = Config::load();
-    // todo: do not show sensitive info
-    println!("{:?}", config);
+    setup_tracing();
 
-    let addr = config.server_address().parse()?;
-    let server = KnowledgeServer::new(config.clone()).await?;
+    let config = Config::load()?;
+    tracing::info!(?config, "Configuration loaded");
 
-    println!("\nKnowledge gRPC server listening on {}", addr);
-
-    Server::builder()
-        .add_service(server.into_service())
-        .serve(addr)
-        .await?;
-
+    if let Err(error) = run(&config).await {
+        tracing::error!(?error, "Unable to start metadata microservice");
+    }
     Ok(())
+}
+
+fn setup_tracing() {
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 }

@@ -3,12 +3,22 @@ use axum::{extract::State, Json};
 use crate::conversions::dto_properties_to_proto;
 use crate::dto::{CreateEdgeRequest, CreateNodeRequest, GraphDataResponse, SearchRequest};
 use crate::error::AppError;
-use crate::state::AppState;
+use crate::state::ApiState;
 
+// #[tracing::instrument(
+//     skip(state),
+//     fields(
+//         graph_id = %req.graph_id,
+//         label = %req.label,
+//         property_count = req.properties.len()
+//     )
+// )]
 pub async fn create_node(
-    State(state): State<AppState>,
+    State(state): State<ApiState>,
     Json(req): Json<CreateNodeRequest>,
 ) -> Result<Json<GraphDataResponse>, AppError> {
+    tracing::debug!("Creating node in knowledge service");
+
     let mut client = state.knowledge_client.clone();
 
     let proto_props = dto_properties_to_proto(req.properties);
@@ -17,13 +27,16 @@ pub async fn create_node(
         .insert_node(req.graph_id, req.label, proto_props)
         .await?;
 
+    tracing::info!(node_count = result.nodes.len(), "Node created successfully");
     Ok(Json(GraphDataResponse::from(result)))
 }
 
 pub async fn create_edge(
-    State(state): State<AppState>,
+    State(state): State<ApiState>,
     Json(req): Json<CreateEdgeRequest>,
 ) -> Result<Json<GraphDataResponse>, AppError> {
+    tracing::debug!("Creating edge in knowledge service");
+
     let mut client = state.knowledge_client.clone();
 
     let proto_props = dto_properties_to_proto(req.properties);
@@ -32,13 +45,16 @@ pub async fn create_edge(
         .insert_edge(req.from_id, req.to_id, req.label, proto_props)
         .await?;
 
+    tracing::info!(edge_count = result.edges.len(), "Edge created successfully");
     Ok(Json(GraphDataResponse::from(result)))
 }
 
 pub async fn search_graph(
-    State(state): State<AppState>,
+    State(state): State<ApiState>,
     Json(req): Json<SearchRequest>,
 ) -> Result<Json<GraphDataResponse>, AppError> {
+    tracing::debug!("Searching graph in knowledge service");
+
     let mut client = state.knowledge_client.clone();
 
     let node_props = req
@@ -62,5 +78,9 @@ pub async fn search_graph(
         )
         .await?;
 
+    tracing::info!(
+        result_count = result.nodes.len() + result.edges.len(),
+        "Search completed successfully"
+    );
     Ok(Json(GraphDataResponse::from(result)))
 }

@@ -34,7 +34,7 @@ export const property = v.object({
   label: v.string(),
   formatted_label: v.string(),
   metadata: v.object({
-    property_type: propertyType,
+    property_type: propertyType, // porperty_type should not be inside metadata
     details: v.object({
       // min: v.nullable(v.number()),
       // max: v.nullable(v.number()),
