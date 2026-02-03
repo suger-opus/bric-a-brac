@@ -1,16 +1,23 @@
-use crate::handlers::{create_edge, create_node, search_graph};
+use crate::handlers::{graph_handler, user_handler};
 use crate::state::ApiState;
-use axum::{routing::post, Router};
-use tower_http::cors::{Any, CorsLayer};
-use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
-use tower_http::trace::TraceLayer;
+use axum::{
+    routing::{get, post},
+    Router,
+};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
+    trace::TraceLayer,
+};
 use tracing::Level;
 
 pub fn build(state: ApiState) -> Router {
     Router::new()
-        .route("/nodes", post(create_node))
-        .route("/edges", post(create_edge))
-        .route("/search", post(search_graph))
+        .route("/users", post(user_handler::post))
+        .route("/users", get(user_handler::get))
+        .route("/graphs", post(graph_handler::post))
+        .route("/graphs/graph_id", get(graph_handler::get_one_metadata))
+        .route("/graphs/filter", get(graph_handler::get_all_metadata))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -27,7 +34,7 @@ pub fn build(state: ApiState) -> Router {
                         .get("x-request-id")
                         .and_then(|v| v.to_str().ok())
                         .unwrap_or("unknown");
-                    
+
                     tracing::info_span!(
                         "http_request",
                         method = %request.method(),

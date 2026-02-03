@@ -1,0 +1,14 @@
+use bric_a_brac_id::id;
+use chrono::{DateTime, Utc};
+use serde::Serialize;
+
+id!(UserId);
+
+#[derive(Debug, Clone, Serialize)]
+pub struct User {
+    pub user_id: UserId,
+    pub username: String,
+    pub email: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}

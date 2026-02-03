@@ -3,25 +3,146 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use serde::Serialize;
+use serde_json::json;
+use sqlx::{error::ErrorKind, postgres::PgDatabaseError};
 
-use crate::dto::ErrorResponse;
-
-pub enum AppError {
-    KnowledgeService(String),
+#[derive(Debug, Serialize)]
+pub struct ApiErrorContent<T> {
+    pub message: String,
+    pub details: T,
 }
 
-impl IntoResponse for AppError {
+#[derive(Debug, Serialize)]
+pub struct ConstraintViolationContext {
+    pub table: String,
+    pub column: String,
+    pub constraint: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct NotFoundContext {
+    pub table: String,
+    pub record_id: String,
+}
+
+#[derive(Debug)]
+pub enum ApiError {
+    ConstraintViolation(ApiErrorContent<ConstraintViolationContext>),
+    NotFound(ApiErrorContent<NotFoundContext>),
+    Conflict(ApiErrorContent<ConstraintViolationContext>),
+    UnknownDatabaseError(ApiErrorContent<sqlx::Error>),
+}
+
+impl From<&ApiError> for StatusCode {
+    fn from(val: &ApiError) -> Self {
+        match val {
+            ApiError::ConstraintViolation(_) => StatusCode::BAD_REQUEST,
+            ApiError::NotFound(_) => StatusCode::NOT_FOUND,
+            ApiError::Conflict(_) => StatusCode::CONFLICT,
+            ApiError::UnknownDatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        let (status, message) = match self {
-            AppError::KnowledgeService(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+        tracing::error!(error=?self, "request failed");
+        let status = StatusCode::from(&self);
+        let payload = match self {
+            Self::ConstraintViolation(content) => Json(json!(content)),
+            Self::NotFound(content) => Json(json!(content)),
+            Self::Conflict(content) => Json(json!(content)),
+            Self::UnknownDatabaseError(content) => Json(json!(ApiErrorContent {
+                message: content.message,
+                details: content.details.to_string(),
+            })),
         };
-
-        (status, Json(ErrorResponse { error: message })).into_response()
+        (status, payload).into_response()
     }
 }
 
-impl From<anyhow::Error> for AppError {
-    fn from(err: anyhow::Error) -> Self {
-        AppError::KnowledgeService(err.to_string())
+pub trait WithErrorContext<T> {
+    fn with_not_found_context(self, context: NotFoundContext) -> Result<T, ApiError>;
+}
+
+impl<T> WithErrorContext<T> for Result<T, sqlx::Error> {
+    fn with_not_found_context(self, context: NotFoundContext) -> Result<T, ApiError> {
+        match self {
+            Ok(value) => Ok(value),
+            Err(err) => {
+                let api_err = match err {
+                    sqlx::Error::RowNotFound => ApiError::NotFound(ApiErrorContent {
+                        message: "Element not found".to_string(),
+                        details: context,
+                    }),
+                    _ => err.into(),
+                };
+                Err(api_err)
+            }
+        }
     }
+}
+
+impl From<sqlx::Error> for ApiError {
+    fn from(err: sqlx::Error) -> Self {
+        tracing::error!(error=?err, "database error occurred");
+        match err {
+            sqlx::Error::Database(ref db_err) => {
+                let pg_err = db_err.downcast_ref::<PgDatabaseError>();
+                let details = pg_err.detail().unwrap_or("unknown").to_string();
+                let table = pg_err.table().unwrap_or("unknown").to_string();
+                let constraint = pg_err.constraint().unwrap_or("unknown").to_string();
+                let column = extract_field_name_from_error(pg_err);
+                match db_err.kind() {
+                    ErrorKind::UniqueViolation => ApiError::Conflict(ApiErrorContent {
+                        message: details,
+                        details: ConstraintViolationContext {
+                            table,
+                            column,
+                            constraint: "unique".to_string(),
+                        },
+                    }),
+                    ErrorKind::NotNullViolation => ApiError::ConstraintViolation(ApiErrorContent {
+                        message: details,
+                        details: ConstraintViolationContext {
+                            table,
+                            column,
+                            constraint: "not null".to_string(),
+                        },
+                    }),
+                    ErrorKind::CheckViolation => Self::ConstraintViolation(ApiErrorContent {
+                        message: details,
+                        details: ConstraintViolationContext {
+                            table,
+                            column,
+                            constraint,
+                        },
+                    }),
+                    _ => Self::UnknownDatabaseError(ApiErrorContent {
+                        message: "Unknown Database Error".to_string(),
+                        details: err,
+                    }),
+                }
+            }
+            _ => Self::UnknownDatabaseError(ApiErrorContent {
+                message: "Unknown Database Error".to_string(),
+                details: err,
+            }),
+        }
+    }
+}
+
+fn extract_field_name_from_error(pg_err: &PgDatabaseError) -> String {
+    // Constraint names follow pattern: tablename_fieldname_key
+    // Remove "_key" suffix, then skip table name prefix
+    pg_err
+        .constraint()
+        .and_then(|constraint| {
+            constraint
+                .strip_suffix("_key")
+                .and_then(|s| s.split_once('_').map(|(_, field)| field))
+        })
+        .unwrap_or("unknown")
+        .to_string()
 }

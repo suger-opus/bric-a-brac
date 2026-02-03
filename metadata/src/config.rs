@@ -1,10 +1,10 @@
-mod knowledge_server;
-mod metadata_db;
-mod metadata_server;
+mod knowledge_server_config;
+mod metadata_db_config;
+mod metadata_server_config;
 
-use crate::config::knowledge_server::KnowledgeServerConfig;
-use crate::config::metadata_db::MetadataDatabaseConfig;
-use crate::config::metadata_server::MetadataServerConfig;
+use crate::config::knowledge_server_config::KnowledgeServerConfig;
+use crate::config::metadata_db_config::MetadataDatabaseConfig;
+use crate::config::metadata_server_config::MetadataServerConfig;
 use anyhow::Context;
 use clap::Parser;
 

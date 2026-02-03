@@ -27,7 +27,6 @@ CREATE TABLE users
 CREATE TABLE graphs
 (
     graph_id            UUID PRIMARY KEY                NOT NULL,
-    user_id             UUID                            NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     name                VARCHAR(100)                    NOT NULL,
     description         TEXT                            NOT NULL,
     is_public           BOOLEAN                         NOT NULL DEFAULT FALSE,
