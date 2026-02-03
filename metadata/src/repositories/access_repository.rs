@@ -1,5 +1,9 @@
 use crate::error::ApiError;
-use crate::models::{access_model::Role, graph_model::GraphId, user_model::UserId};
+use crate::models::{
+    access_model::{Access, Role},
+    graph_model::GraphId,
+    user_model::UserId,
+};
 use sqlx::PgConnection;
 
 #[derive(Clone)]
@@ -16,18 +20,26 @@ impl AccessRepository {
         graph_id: GraphId,
         user_id: UserId,
         role: Role,
-    ) -> Result<(), ApiError> {
-        sqlx::query!(
+    ) -> Result<Access, ApiError> {
+        let access = sqlx::query_as!(
+            Access,
             r#"
 INSERT INTO accesses (graph_id, user_id, role)
 VALUES ($1, $2, $3)
+RETURNING
+    graph_id AS "graph_id!:_",
+    user_id AS "user_id!:_",
+    role AS "role!:_",
+    created_at,
+    updated_at
             "#,
             graph_id as _,
             user_id as _,
             role as _,
         )
-        .execute(connection)
+        .fetch_one(connection)
         .await?;
-        Ok(())
+
+        Ok(access)
     }
 }

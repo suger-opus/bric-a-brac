@@ -1,14 +1,13 @@
 pub mod config;
-mod dtos;
+pub mod dtos;
 mod error;
 mod extractors;
 mod grpc_client;
 mod handlers;
-mod models;
+pub mod models;
 mod repositories;
 mod router;
-pub mod seed;
-mod services;
+pub mod services;
 pub mod state;
 
 use crate::config::Config;
