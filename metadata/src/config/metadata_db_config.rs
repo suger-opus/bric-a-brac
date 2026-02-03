@@ -32,6 +32,23 @@ impl MetadataDatabaseConfig {
         Ok(pool)
     }
 
+    pub async fn reset(&self, pool: &PgPool) -> anyhow::Result<()> {
+        tracing::debug!("Resetting database schema");
+
+        sqlx::query("DROP SCHEMA public CASCADE")
+            .execute(pool)
+            .await
+            .context("Failed to drop schema")?;
+
+        sqlx::query("CREATE SCHEMA public")
+            .execute(pool)
+            .await
+            .context("Failed to create schema")?;
+
+        tracing::debug!("Database schema reset");
+        Ok(())
+    }
+
     pub async fn migrate(&self, db_pool: &PgPool) -> anyhow::Result<()> {
         if self.metadata_db_skip_migration {
             tracing::warn!("Metadata database migrations skipped");

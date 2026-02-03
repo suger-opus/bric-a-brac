@@ -1,16 +1,19 @@
 pub mod config;
 mod dtos;
 mod error;
+mod extractors;
 mod grpc_client;
 mod handlers;
 mod models;
 mod repositories;
 mod router;
+pub mod seed;
 mod services;
-mod state;
+pub mod state;
 
 use crate::config::Config;
 use crate::state::ApiState;
+use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt};
 
 pub async fn run(config: &Config) -> anyhow::Result<()> {
     tracing::info!("Initializing metadata service");
@@ -29,4 +32,21 @@ pub async fn run(config: &Config) -> anyhow::Result<()> {
     axum::serve(listener, routes).await?;
 
     Ok(())
+}
+
+pub fn setup_tracing() {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "metadata=trace,tower_http=trace,sqlx=trace,tonic=trace".into()
+            }),
+        )
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(true)
+                .with_thread_ids(true)
+                .with_line_number(true)
+                .with_span_events(FmtSpan::FULL),
+        )
+        .init();
 }

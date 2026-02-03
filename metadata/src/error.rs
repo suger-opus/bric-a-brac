@@ -20,17 +20,12 @@ pub struct ConstraintViolationContext {
     pub constraint: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct NotFoundContext {
-    pub table: String,
-    pub record_id: String,
-}
-
 #[derive(Debug)]
 pub enum ApiError {
     ConstraintViolation(ApiErrorContent<ConstraintViolationContext>),
-    NotFound(ApiErrorContent<NotFoundContext>),
+    NotFound(ApiErrorContent<String>),
     Conflict(ApiErrorContent<ConstraintViolationContext>),
+    Unauthorized(ApiErrorContent<String>),
     UnknownDatabaseError(ApiErrorContent<sqlx::Error>),
 }
 
@@ -40,6 +35,7 @@ impl From<&ApiError> for StatusCode {
             ApiError::ConstraintViolation(_) => StatusCode::BAD_REQUEST,
             ApiError::NotFound(_) => StatusCode::NOT_FOUND,
             ApiError::Conflict(_) => StatusCode::CONFLICT,
+            ApiError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             ApiError::UnknownDatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -53,6 +49,7 @@ impl IntoResponse for ApiError {
             Self::ConstraintViolation(content) => Json(json!(content)),
             Self::NotFound(content) => Json(json!(content)),
             Self::Conflict(content) => Json(json!(content)),
+            Self::Unauthorized(content) => Json(json!(content)),
             Self::UnknownDatabaseError(content) => Json(json!(ApiErrorContent {
                 message: content.message,
                 details: content.details.to_string(),
@@ -62,32 +59,14 @@ impl IntoResponse for ApiError {
     }
 }
 
-pub trait WithErrorContext<T> {
-    fn with_not_found_context(self, context: NotFoundContext) -> Result<T, ApiError>;
-}
-
-impl<T> WithErrorContext<T> for Result<T, sqlx::Error> {
-    fn with_not_found_context(self, context: NotFoundContext) -> Result<T, ApiError> {
-        match self {
-            Ok(value) => Ok(value),
-            Err(err) => {
-                let api_err = match err {
-                    sqlx::Error::RowNotFound => ApiError::NotFound(ApiErrorContent {
-                        message: "Element not found".to_string(),
-                        details: context,
-                    }),
-                    _ => err.into(),
-                };
-                Err(api_err)
-            }
-        }
-    }
-}
-
 impl From<sqlx::Error> for ApiError {
     fn from(err: sqlx::Error) -> Self {
         tracing::error!(error=?err, "database error occurred");
         match err {
+            sqlx::Error::RowNotFound => ApiError::NotFound(ApiErrorContent {
+                message: "Element not found".to_string(),
+                details: "An element should have been returned, but none was found".to_string(),
+            }),
             sqlx::Error::Database(ref db_err) => {
                 let pg_err = db_err.downcast_ref::<PgDatabaseError>();
                 let details = pg_err.detail().unwrap_or("unknown").to_string();

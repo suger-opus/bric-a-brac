@@ -41,7 +41,7 @@ CREATE TABLE accesses
 (
     user_id             UUID                            NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     graph_id            UUID                            NOT NULL REFERENCES graphs(graph_id) ON DELETE CASCADE,
-    ROLE                role_type                       NOT NULL DEFAULT 'None',
+    role                role_type                       NOT NULL DEFAULT 'None',
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, graph_id)

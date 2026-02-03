@@ -1,5 +1,5 @@
 use crate::dtos::user_dto::PostUser;
-use crate::error::{ApiError, NotFoundContext, WithErrorContext};
+use crate::error::ApiError;
 use crate::models::user_model::{User, UserId};
 use sqlx::PgConnection;
 
@@ -49,11 +49,7 @@ WHERE user_id = $1
             user_id as _,
         )
         .fetch_one(connection)
-        .await
-        .with_not_found_context(NotFoundContext {
-            table: "users".to_string(),
-            record_id: user_id.to_string(),
-        })?;
+        .await?;
 
         Ok(user)
     }

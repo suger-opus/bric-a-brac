@@ -1,18 +1,12 @@
 use crate::dtos::user_dto::PostUser;
-use crate::models::user_model::UserId;
+use crate::extractors::AuthenticatedUser;
 use crate::state::ApiState;
 use axum::{
-    extract::{Query, State},
+    extract::State,
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-pub struct UserQuery {
-    user_id: UserId,
-}
 
 pub async fn post(
     State(state): State<ApiState>,
@@ -27,11 +21,11 @@ pub async fn post(
 
 pub async fn get(
     State(state): State<ApiState>,
-    Query(query): Query<UserQuery>,
+    AuthenticatedUser { user_id }: AuthenticatedUser,
 ) -> impl IntoResponse {
     state
         .user_service
-        .get(query.user_id)
+        .get(user_id)
         .await
         .map(|it| (StatusCode::OK, Json(it)))
 }

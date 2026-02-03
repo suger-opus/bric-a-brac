@@ -1,5 +1,5 @@
 use crate::dtos::graph_dto::{GraphMetadata, PostGraph};
-use crate::error::{ApiError, NotFoundContext, WithErrorContext};
+use crate::error::ApiError;
 use crate::models::{
     access_model::Role,
     graph_model::{Graph, GraphId, Reddit},
@@ -65,7 +65,7 @@ SELECT
     g.updated_at,
     g.name,
     g.description,
-    user_access.role AS "user_role!:_",
+    COALESCE(user_access.role, 'None') AS "user_role!:_",
     g.is_public,
     EXISTS(SELECT 1 FROM bookmarks b WHERE b.user_id = $1 AND b.graph_id = g.graph_id) AS "is_bookmarked_by_user!",
     EXISTS(SELECT 1 FROM cheers c WHERE c.user_id = $1 AND c.graph_id = g.graph_id) AS "is_cheered_by_user!",
@@ -74,7 +74,7 @@ SELECT
     (SELECT COUNT(*)::INT FROM bookmarks b WHERE b.graph_id = g.graph_id) AS "nb_bookmarks!",
     (SELECT COUNT(*)::INT FROM cheers c WHERE c.graph_id = g.graph_id) AS "nb_cheers!"
 FROM graphs g
-JOIN accesses user_access ON g.graph_id = user_access.graph_id AND user_access.user_id = $1
+LEFT JOIN accesses user_access ON g.graph_id = user_access.graph_id AND user_access.user_id = $1
 JOIN accesses owner_access ON g.graph_id = owner_access.graph_id AND owner_access.role = 'Owner'
 JOIN users u ON owner_access.user_id = u.user_id
 WHERE g.graph_id = $2
@@ -83,11 +83,7 @@ WHERE g.graph_id = $2
             graph_id as _,
         )
         .fetch_one(connection)
-        .await
-        .with_not_found_context(NotFoundContext {
-            table: "graphs".to_string(),
-            record_id: graph_id.to_string(),
-        })?;
+        .await?;
 
         Ok(graph.into())
     }

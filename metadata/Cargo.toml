@@ -2,6 +2,7 @@
 name = "metadata"
 version.workspace = true
 edition.workspace = true
+default-run = "metadata"
 
 [dependencies]
 bric-a-brac-id = { workspace = true }
