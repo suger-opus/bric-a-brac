@@ -4,7 +4,7 @@ use serde::Serialize;
 
 id!(UserId);
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct User {
     pub user_id: UserId,
     pub username: String,

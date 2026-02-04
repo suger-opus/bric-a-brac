@@ -90,18 +90,32 @@ CREATE TABLE edge_schemas (
 CREATE OR REPLACE FUNCTION check_schema_formatted_label_uniqueness()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF EXISTS (
-        SELECT 1 FROM node_schemas
-        WHERE graph_id = NEW.graph_id
-        AND (formatted_label = NEW.formatted_label)
-        AND node_schema_id != COALESCE(NEW.node_schema_id, '00000000-0000-0000-0000-000000000000'::UUID)
-    ) OR EXISTS (
-        SELECT 1 FROM edge_schemas
-        WHERE graph_id = NEW.graph_id
-        AND (formatted_label = NEW.formatted_label)
-        AND edge_schema_id != COALESCE(NEW.edge_schema_id, '00000000-0000-0000-0000-000000000000'::UUID)
-    ) THEN
-        RAISE EXCEPTION 'Label "%" or formatted label "%" already exists in this graph', NEW.label, NEW.formatted_label;
+    IF TG_TABLE_NAME = 'node_schemas' THEN
+        IF EXISTS (
+            SELECT 1 FROM node_schemas
+            WHERE graph_id = NEW.graph_id
+            AND formatted_label = NEW.formatted_label
+            AND node_schema_id != NEW.node_schema_id
+        ) OR EXISTS (
+            SELECT 1 FROM edge_schemas
+            WHERE graph_id = NEW.graph_id
+            AND formatted_label = NEW.formatted_label
+        ) THEN
+            RAISE EXCEPTION 'Formatted label "%" already exists in this graph', NEW.formatted_label;
+        END IF;
+    ELSIF TG_TABLE_NAME = 'edge_schemas' THEN
+        IF EXISTS (
+            SELECT 1 FROM edge_schemas
+            WHERE graph_id = NEW.graph_id
+            AND formatted_label = NEW.formatted_label
+            AND edge_schema_id != NEW.edge_schema_id
+        ) OR EXISTS (
+            SELECT 1 FROM node_schemas
+            WHERE graph_id = NEW.graph_id
+            AND formatted_label = NEW.formatted_label
+        ) THEN
+            RAISE EXCEPTION 'Formatted label "%" already exists in this graph', NEW.formatted_label;
+        END IF;
     END IF;
 
     RETURN NEW;

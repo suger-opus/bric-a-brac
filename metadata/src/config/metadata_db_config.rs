@@ -2,7 +2,7 @@ use anyhow::Context;
 use secrecy::{ExposeSecret, SecretString};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 
-#[derive(Clone, clap::Args, derive_more::Debug)]
+#[derive(clap::Args, derive_more::Debug)]
 pub struct MetadataDatabaseConfig {
     /// Metadata database URL
     #[arg(long, env = "METADATA_DB_URL", required = true)]

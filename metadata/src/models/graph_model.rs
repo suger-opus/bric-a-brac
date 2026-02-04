@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 
 id!(GraphId);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Reddit {}
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Graph {
     pub graph_id: GraphId,
     pub name: String,

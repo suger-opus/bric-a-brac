@@ -14,17 +14,21 @@ impl UserRepository {
     pub async fn post(
         &self,
         connection: &mut PgConnection,
-        new_user: PostUser,
+        new_user: &PostUser,
     ) -> Result<User, ApiError> {
-        let user_id = UserId::new();
         let user = sqlx::query_as!(
             User,
             r#"
 INSERT INTO users (user_id, email, username)
 VALUES ($1, $2, $3)
-RETURNING user_id AS "user_id!:_", email, username, created_at, updated_at
+RETURNING
+    user_id,
+    email,
+    username,
+    created_at,
+    updated_at
             "#,
-            user_id as _,
+            UserId::new() as _,
             new_user.email,
             new_user.username
         )
@@ -42,7 +46,12 @@ RETURNING user_id AS "user_id!:_", email, username, created_at, updated_at
         let user = sqlx::query_as!(
             User,
             r#"
-SELECT user_id AS "user_id!:_", email, username, created_at, updated_at
+SELECT
+    user_id,
+    email,
+    username,
+    created_at,
+    updated_at
 FROM users
 WHERE user_id = $1
             "#,

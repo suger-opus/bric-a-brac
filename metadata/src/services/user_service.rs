@@ -18,7 +18,7 @@ impl UserService {
         }
     }
 
-    pub async fn post(&self, new_user: PostUser) -> Result<User, ApiError> {
+    pub async fn post(&self, new_user: &PostUser) -> Result<User, ApiError> {
         let mut txn = self.pool.begin().await?;
         let user = self.repository.post(&mut txn, new_user).await?;
         txn.commit().await?;

@@ -14,7 +14,7 @@ pub async fn post(
 ) -> impl IntoResponse {
     state
         .user_service
-        .post(payload)
+        .post(&payload)
         .await
         .map(|it| (StatusCode::CREATED, Json(it)))
 }

@@ -1,12 +1,19 @@
-use crate::dtos::graph_dto::{GraphMetadata, PostGraph};
+use crate::dtos::graph_dto::{
+    ReqPostEdgeSchema, ReqPostGraph, ReqPostNodeSchema, ReqPostProperty, ResEdgeSchema,
+    ResGraphMetadata, ResGraphSchema, ResNodeSchema,
+};
 use crate::error::ApiError;
 use crate::models::{
     access_model::Role,
+    edge_schema::{EdgeSchema, EdgeSchemaId},
     graph_model::{Graph, GraphId, Reddit},
+    node_schema::{NodeSchema, NodeSchemaId},
+    property_model::{Property, PropertyId, PropertyMetadata, PropertyType},
     user_model::UserId,
 };
 use chrono::{DateTime, Utc};
 use sqlx::{types::Json, PgConnection};
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct GraphRepository;
@@ -16,45 +23,49 @@ impl GraphRepository {
         GraphRepository
     }
 
-    pub async fn post(
+    pub async fn get_all_metadata(
         &self,
         connection: &mut PgConnection,
-        new_graph: PostGraph,
-    ) -> Result<Graph, ApiError> {
-        let graph_id = GraphId::new();
-        let graph = sqlx::query_as!(
-            GraphRow,
+        user_id: UserId,
+    ) -> Result<Vec<ResGraphMetadata>, ApiError> {
+        let graphs = sqlx::query_as!(
+            GraphMetadataRow,
             r#"
-INSERT INTO graphs (graph_id, name, description, is_public)
-VALUES ($1, $2, $3, $4)
-RETURNING
-    graph_id AS "graph_id!:_",
-    name,
-    description,
-    is_public,
-    reddit AS "reddit!:_",
-    created_at,
-    updated_at,
-    nb_data_nodes,
-    nb_data_edges
+SELECT
+    g.graph_id,
+    u.username AS owner_username,
+    g.created_at,
+    g.updated_at,
+    g.name,
+    g.description,
+    user_access.role AS "user_role!:_",
+    g.is_public,
+    g.reddit AS "reddit!:_",
+    EXISTS(SELECT 1 FROM bookmarks b WHERE b.user_id = $1 AND b.graph_id = g.graph_id) AS "is_bookmarked_by_user!",
+    EXISTS(SELECT 1 FROM cheers c WHERE c.user_id = $1 AND c.graph_id = g.graph_id) AS "is_cheered_by_user!",
+    g.nb_data_nodes,
+    g.nb_data_edges,
+    (SELECT COUNT(*)::INT FROM bookmarks b WHERE b.graph_id = g.graph_id) AS "nb_bookmarks!",
+    (SELECT COUNT(*)::INT FROM cheers c WHERE c.graph_id = g.graph_id) AS "nb_cheers!"
+FROM graphs g
+JOIN accesses user_access ON g.graph_id = user_access.graph_id AND user_access.user_id = $1 AND user_access.role IN ('Owner', 'Admin', 'Editor', 'Viewer')
+JOIN accesses owner_access ON g.graph_id = owner_access.graph_id AND owner_access.role = 'Owner'
+JOIN users u ON owner_access.user_id = u.user_id
             "#,
-            graph_id as _,
-            new_graph.name,
-            new_graph.description,
-            new_graph.is_public
+            user_id as _,
         )
-        .fetch_one(connection)
+        .fetch_all(connection)
         .await?;
 
-        Ok(graph.into())
+        Ok(graphs.into_iter().map(ResGraphMetadata::from).collect())
     }
 
-    pub async fn get_one_metadata(
+    pub async fn get_metadata(
         &self,
         connection: &mut PgConnection,
         user_id: UserId,
         graph_id: GraphId,
-    ) -> Result<GraphMetadata, ApiError> {
+    ) -> Result<ResGraphMetadata, ApiError> {
         let graph = sqlx::query_as!(
             GraphMetadataRow,
             r#"
@@ -67,6 +78,7 @@ SELECT
     g.description,
     COALESCE(user_access.role, 'None') AS "user_role!:_",
     g.is_public,
+    g.reddit AS "reddit!:_",
     EXISTS(SELECT 1 FROM bookmarks b WHERE b.user_id = $1 AND b.graph_id = g.graph_id) AS "is_bookmarked_by_user!",
     EXISTS(SELECT 1 FROM cheers c WHERE c.user_id = $1 AND c.graph_id = g.graph_id) AS "is_cheered_by_user!",
     g.nb_data_nodes,
@@ -88,40 +100,227 @@ WHERE g.graph_id = $2
         Ok(graph.into())
     }
 
-    pub async fn get_all_metadata(
+    pub async fn get_schema(
         &self,
         connection: &mut PgConnection,
-        user_id: UserId,
-    ) -> Result<Vec<GraphMetadata>, ApiError> {
-        let graphs = sqlx::query_as!(
-            GraphMetadataRow,
+        graph_id: GraphId,
+    ) -> Result<ResGraphSchema, ApiError> {
+        let rows: Vec<SchemaRow> = sqlx::query_as!(
+            SchemaRow,
             r#"
 SELECT
-    g.graph_id,
-    u.username AS owner_username,
-    g.created_at,
-    g.updated_at,
-    g.name,
-    g.description,
-    user_access.role AS "user_role!:_",
-    g.is_public,
-    EXISTS(SELECT 1 FROM bookmarks b WHERE b.user_id = $1 AND b.graph_id = g.graph_id) AS "is_bookmarked_by_user!",
-    EXISTS(SELECT 1 FROM cheers c WHERE c.user_id = $1 AND c.graph_id = g.graph_id) AS "is_cheered_by_user!",
-    g.nb_data_nodes,
-    g.nb_data_edges,
-    (SELECT COUNT(*)::INT FROM bookmarks b WHERE b.graph_id = g.graph_id) AS "nb_bookmarks!",
-    (SELECT COUNT(*)::INT FROM cheers c WHERE c.graph_id = g.graph_id) AS "nb_cheers!"
-FROM graphs g
-JOIN accesses user_access ON g.graph_id = user_access.graph_id AND user_access.user_id = $1 AND user_access.role IN ('Owner', 'Admin', 'Editor', 'Viewer')
-JOIN accesses owner_access ON g.graph_id = owner_access.graph_id AND owner_access.role = 'Owner'
-JOIN users u ON owner_access.user_id = u.user_id
+    'node' AS "schema_type!:_",
+    ns.node_schema_id AS "node_schema_id?:_",
+    NULL::uuid AS "edge_schema_id?:_",
+    ns.graph_id AS "graph_id!:_",
+    ns.label AS "label!:_",
+    ns.formatted_label AS "formatted_label!:_",
+    ns.color AS "color!:_",
+    ns.created_at AS "schema_created_at!:_",
+    ns.updated_at AS "schema_updated_at!:_",
+    p.property_id AS "property_id?:_",
+    p.node_schema_id AS "property_node_schema_id?:_",
+    p.edge_schema_id AS "property_edge_schema_id?:_",
+    p.label AS "property_label?:_",
+    p.formatted_label AS "property_formatted_label?:_",
+    p.property_type AS "property_type?:_",
+    p.metadata AS "property_metadata?:_",
+    p.created_at AS "property_created_at?:_",
+    p.updated_at AS "property_updated_at?:_"
+FROM node_schemas ns
+LEFT JOIN properties p ON ns.node_schema_id = p.node_schema_id
+WHERE ns.graph_id = $1
+
+UNION ALL
+
+SELECT
+    'edge' AS "schema_type!:_",
+    NULL::uuid AS "node_schema_id?:_",
+    es.edge_schema_id AS "edge_schema_id?:_",
+    es.graph_id AS "graph_id!:_",
+    es.label AS "label!:_",
+    es.formatted_label AS "formatted_label!:_",
+    es.color AS "color!:_",
+    es.created_at AS "schema_created_at!:_",
+    es.updated_at AS "schema_updated_at!:_",
+    p.property_id AS "property_id?:_",
+    p.node_schema_id AS "property_node_schema_id?:_",
+    p.edge_schema_id AS "property_edge_schema_id?:_",
+    p.label AS "property_label?:_",
+    p.formatted_label AS "property_formatted_label?:_",
+    p.property_type AS "property_type?:_",
+    p.metadata AS "property_metadata?:_",
+    p.created_at AS "property_created_at?:_",
+    p.updated_at AS "property_updated_at?:_"
+FROM edge_schemas es
+LEFT JOIN properties p ON es.edge_schema_id = p.edge_schema_id
+WHERE es.graph_id = $1
+ORDER BY "schema_type!:_"
             "#,
-            user_id as _,
+            graph_id as _,
         )
         .fetch_all(connection)
         .await?;
 
-        Ok(graphs.into_iter().map(GraphMetadata::from).collect())
+        Ok(rows.into())
+    }
+
+    pub async fn post(
+        &self,
+        connection: &mut PgConnection,
+        new_graph: &ReqPostGraph,
+    ) -> Result<Graph, ApiError> {
+        let graph = sqlx::query_as!(
+            GraphRow,
+            r#"
+INSERT INTO graphs (graph_id, name, description, is_public)
+VALUES ($1, $2, $3, $4)
+RETURNING
+    graph_id,
+    name,
+    description,
+    is_public,
+    reddit AS "reddit!:_",
+    created_at,
+    updated_at,
+    nb_data_nodes,
+    nb_data_edges
+            "#,
+            GraphId::new() as _,
+            new_graph.name,
+            new_graph.description,
+            new_graph.is_public
+        )
+        .fetch_one(connection)
+        .await?;
+
+        Ok(graph.into())
+    }
+
+    pub async fn post_node_schema(
+        &self,
+        connection: &mut PgConnection,
+        graph_id: GraphId,
+        new_node_schema: &ReqPostNodeSchema,
+    ) -> Result<NodeSchema, ApiError> {
+        let node_schema = sqlx::query_as!(
+            NodeSchema,
+            r#"
+INSERT INTO node_schemas (node_schema_id, graph_id, label, formatted_label, color)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING
+    node_schema_id,
+    graph_id,
+    label,
+    formatted_label,
+    color,
+    created_at,
+    updated_at
+            "#,
+            NodeSchemaId::new() as _,
+            graph_id as _,
+            new_node_schema.label,
+            new_node_schema.formatted_label,
+            new_node_schema.color,
+        )
+        .fetch_one(connection)
+        .await?;
+
+        Ok(node_schema)
+    }
+
+    pub async fn post_edge_schema(
+        &self,
+        connection: &mut PgConnection,
+        graph_id: GraphId,
+        new_edge_schema: &ReqPostEdgeSchema,
+    ) -> Result<EdgeSchema, ApiError> {
+        let edge_schema = sqlx::query_as!(
+            EdgeSchema,
+            r#"
+INSERT INTO edge_schemas (edge_schema_id, graph_id, label, formatted_label, color)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING
+    edge_schema_id,
+    graph_id,
+    label,
+    formatted_label,
+    color,
+    created_at,
+    updated_at
+            "#,
+            EdgeSchemaId::new() as _,
+            graph_id as _,
+            new_edge_schema.label,
+            new_edge_schema.formatted_label,
+            new_edge_schema.color,
+        )
+        .fetch_one(connection)
+        .await?;
+
+        Ok(edge_schema)
+    }
+
+    pub async fn post_properties(
+        &self,
+        connection: &mut PgConnection,
+        node_schema_id: Option<NodeSchemaId>,
+        edge_schema_id: Option<EdgeSchemaId>,
+        new_properties: &Vec<ReqPostProperty>,
+    ) -> Result<Vec<Property>, ApiError> {
+        let mut ids = vec![];
+        let mut node_schema_ids = vec![];
+        let mut edge_schema_ids = vec![];
+        let mut labels = vec![];
+        let mut formatted_labels = vec![];
+        let mut property_types = vec![];
+        let mut metadatas = vec![];
+
+        for property in new_properties {
+            ids.push(PropertyId::new());
+            node_schema_ids.push(node_schema_id);
+            edge_schema_ids.push(edge_schema_id);
+            labels.push(property.label.clone());
+            formatted_labels.push(property.formatted_label.clone());
+            property_types.push(&property.property_type);
+            metadatas.push(Json(&property.metadata));
+        }
+
+        let properties = sqlx::query_as!(
+            PropertyRow,
+            r#"
+INSERT INTO properties (property_id, node_schema_id, edge_schema_id, label, formatted_label, property_type, metadata)
+SELECT * FROM UNNEST(
+    $1::uuid[],
+    $2::uuid[],
+    $3::uuid[],
+    $4::text[],
+    $5::text[],
+    $6::property_type[],
+    $7::jsonb[]
+) RETURNING
+    property_id,
+    node_schema_id AS "node_schema_id?:_",
+    edge_schema_id AS "edge_schema_id?:_",
+    label,
+    formatted_label,
+    property_type AS "property_type!:_",
+    metadata AS "metadata!:_",
+    created_at,
+    updated_at
+            "#,
+            &ids as _,
+            &node_schema_ids as _,
+            &edge_schema_ids as _,
+            &labels,
+            &formatted_labels,
+            &property_types as _,
+            &metadatas as _,
+        )
+        .fetch_all(connection)
+        .await?;
+
+        Ok(properties.into_iter().map(Property::from).collect())
     }
 }
 
@@ -162,6 +361,7 @@ struct GraphMetadataRow {
     updated_at: DateTime<Utc>,
     name: String,
     description: String,
+    reddit: Json<Reddit>,
     user_role: Role,
     is_public: bool,
     is_bookmarked_by_user: bool,
@@ -172,23 +372,185 @@ struct GraphMetadataRow {
     nb_cheers: i32,
 }
 
-impl From<GraphMetadataRow> for GraphMetadata {
+impl From<GraphMetadataRow> for ResGraphMetadata {
     fn from(row: GraphMetadataRow) -> Self {
         Self {
-            graph_id: row.graph_id,
+            graph: Graph {
+                graph_id: row.graph_id,
+                name: row.name,
+                description: row.description,
+                is_public: row.is_public,
+                reddit: row.reddit.0,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                nb_data_nodes: row.nb_data_nodes as u32,
+                nb_data_edges: row.nb_data_edges as u32,
+            },
             owner_username: row.owner_username,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            name: row.name,
-            description: row.description,
             user_role: row.user_role,
-            is_public: row.is_public,
             is_bookmarked_by_user: row.is_bookmarked_by_user,
             is_cheered_by_user: row.is_cheered_by_user,
-            nb_data_nodes: row.nb_data_nodes as u32,
-            nb_data_edges: row.nb_data_edges as u32,
             nb_bookmarks: row.nb_bookmarks as u32,
             nb_cheers: row.nb_cheers as u32,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct PropertyRow {
+    property_id: PropertyId,
+    node_schema_id: Option<NodeSchemaId>,
+    edge_schema_id: Option<EdgeSchemaId>,
+    label: String,
+    formatted_label: String,
+    property_type: PropertyType,
+    metadata: Json<PropertyMetadata>,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+}
+
+impl From<PropertyRow> for Property {
+    fn from(row: PropertyRow) -> Self {
+        Property {
+            property_id: row.property_id,
+            node_schema_id: row.node_schema_id,
+            edge_schema_id: row.edge_schema_id,
+            label: row.label,
+            formatted_label: row.formatted_label,
+            property_type: row.property_type,
+            metadata: row.metadata.0,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct SchemaRow {
+    schema_type: String,
+    node_schema_id: Option<NodeSchemaId>,
+    edge_schema_id: Option<EdgeSchemaId>,
+    graph_id: GraphId,
+    label: String,
+    formatted_label: String,
+    color: String,
+    schema_created_at: DateTime<Utc>,
+    schema_updated_at: DateTime<Utc>,
+    property_id: Option<PropertyId>,
+    property_node_schema_id: Option<NodeSchemaId>,
+    property_edge_schema_id: Option<EdgeSchemaId>,
+    property_label: Option<String>,
+    property_formatted_label: Option<String>,
+    property_type: Option<PropertyType>,
+    property_metadata: Option<Json<PropertyMetadata>>,
+    property_created_at: Option<DateTime<Utc>>,
+    property_updated_at: Option<DateTime<Utc>>,
+}
+
+impl From<Vec<SchemaRow>> for ResGraphSchema {
+    fn from(rows: Vec<SchemaRow>) -> Self {
+        let mut node_schemas_map: HashMap<NodeSchemaId, (NodeSchema, Vec<Property>)> =
+            HashMap::new();
+        let mut edge_schemas_map: HashMap<EdgeSchemaId, (EdgeSchema, Vec<Property>)> =
+            HashMap::new();
+
+        for row in rows {
+            let property = if let (
+                Some(property_id),
+                Some(label),
+                Some(formatted_label),
+                Some(property_type),
+                Some(metadata),
+                Some(created_at),
+                Some(updated_at),
+            ) = (
+                row.property_id,
+                row.property_label,
+                row.property_formatted_label,
+                row.property_type,
+                row.property_metadata,
+                row.property_created_at,
+                row.property_updated_at,
+            ) {
+                Some(Property {
+                    property_id,
+                    node_schema_id: row.property_node_schema_id,
+                    edge_schema_id: row.property_edge_schema_id,
+                    label,
+                    formatted_label,
+                    property_type,
+                    metadata: metadata.0,
+                    created_at,
+                    updated_at,
+                })
+            } else {
+                None
+            };
+
+            if row.schema_type == "node" {
+                let Some(schema_id) = row.node_schema_id else {
+                    continue;
+                };
+
+                let entry = node_schemas_map.entry(schema_id).or_insert_with(|| {
+                    (
+                        NodeSchema {
+                            node_schema_id: schema_id,
+                            graph_id: row.graph_id,
+                            label: row.label.clone(),
+                            formatted_label: row.formatted_label.clone(),
+                            color: row.color.clone(),
+                            created_at: row.schema_created_at,
+                            updated_at: row.schema_updated_at,
+                        },
+                        Vec::new(),
+                    )
+                });
+
+                if let Some(prop) = property {
+                    entry.1.push(prop);
+                }
+            } else {
+                let Some(schema_id) = row.edge_schema_id else {
+                    continue;
+                };
+
+                let entry = edge_schemas_map.entry(schema_id).or_insert_with(|| {
+                    (
+                        EdgeSchema {
+                            edge_schema_id: schema_id,
+                            graph_id: row.graph_id,
+                            label: row.label.clone(),
+                            formatted_label: row.formatted_label.clone(),
+                            color: row.color.clone(),
+                            created_at: row.schema_created_at,
+                            updated_at: row.schema_updated_at,
+                        },
+                        Vec::new(),
+                    )
+                });
+
+                if let Some(prop) = property {
+                    entry.1.push(prop);
+                }
+            }
+        }
+
+        ResGraphSchema {
+            node_schemas: node_schemas_map
+                .into_iter()
+                .map(|(_, (node_schema, properties))| ResNodeSchema {
+                    node_schema,
+                    properties,
+                })
+                .collect(),
+            edge_schemas: edge_schemas_map
+                .into_iter()
+                .map(|(_, (edge_schema, properties))| ResEdgeSchema {
+                    edge_schema,
+                    properties,
+                })
+                .collect(),
         }
     }
 }

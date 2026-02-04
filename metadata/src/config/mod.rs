@@ -8,7 +8,7 @@ use crate::config::metadata_server_config::MetadataServerConfig;
 use anyhow::Context;
 use clap::Parser;
 
-#[derive(Clone, clap::Parser, derive_more::Debug)]
+#[derive(clap::Parser, derive_more::Debug)]
 #[command(about = "Metadata microservice configuration", long_about = None)]
 pub struct Config {
     #[clap(flatten)]

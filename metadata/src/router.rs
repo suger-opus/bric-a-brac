@@ -10,10 +10,19 @@ pub fn build(state: ApiState) -> Router {
     Router::new()
         .route("/users", post(user_handler::post))
         .route("/users", get(user_handler::get))
+        .route("/graphs", get(graph_handler::get_all_metadata))
+        .route("/graphs/{graph_id}", get(graph_handler::get_metadata))
+        .route("/graphs/{graph_id}/schema", get(graph_handler::get_schema))
         .route("/graphs", post(graph_handler::post))
-        .route("/graphs/{graph_id}", get(graph_handler::get_one_metadata))
-        .route("/graphs/filter", get(graph_handler::get_all_metadata))
-        .route("/graphs/{graph_id}/accesses", post(access_handler::post))
+        .route(
+            "/graphs/{graph_id}/schema/nodes",
+            post(graph_handler::post_node_schema),
+        )
+        .route(
+            "/graphs/{graph_id}/schema/edges",
+            post(graph_handler::post_edge_schema),
+        )
+        .route("/accesses/graphs/{graph_id}", post(access_handler::post))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

@@ -1,6 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 
-#[derive(Clone, clap::Args, derive_more::Debug)]
+#[derive(clap::Args, derive_more::Debug)]
 pub struct MetadataServerConfig {
     /// Metadata server host
     #[arg(long, env = "METADATA_SERVER_HOST", required = true)]

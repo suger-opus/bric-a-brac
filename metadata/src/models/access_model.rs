@@ -2,7 +2,7 @@ use crate::models::{graph_model::GraphId, user_model::UserId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "role_type")]
 pub enum Role {
     Owner,
@@ -12,7 +12,7 @@ pub enum Role {
     None,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Access {
     pub graph_id: GraphId,
     pub user_id: UserId,

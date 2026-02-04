@@ -2,7 +2,7 @@ use anyhow::Context;
 use crate::grpc_client::KnowledgeClient;
 use axum::http::Uri;
 
-#[derive(Clone, clap::Args, derive_more::Debug)]
+#[derive(clap::Args, derive_more::Debug)]
 pub struct KnowledgeServerConfig {
     /// Knowledge server URL
     #[arg(long, env = "KNOWLEDGE_SERVER_URL", required = true)]

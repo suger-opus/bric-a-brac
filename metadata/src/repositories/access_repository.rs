@@ -27,8 +27,8 @@ impl AccessRepository {
 INSERT INTO accesses (graph_id, user_id, role)
 VALUES ($1, $2, $3)
 RETURNING
-    graph_id AS "graph_id!:_",
-    user_id AS "user_id!:_",
+    graph_id,
+    user_id,
     role AS "role!:_",
     created_at,
     updated_at
