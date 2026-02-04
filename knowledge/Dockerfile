@@ -16,9 +16,9 @@ COPY crates/bric-a-brac-protos/Cargo.toml ./crates/bric-a-brac-protos/
 COPY crates/bric-a-brac-id/Cargo.toml ./crates/bric-a-brac-id/
 COPY knowledge/Cargo.toml ./knowledge/
 
-# Create dummy metadata manifest and lib to satisfy workspace (won't be built)
+# Create dummy metadata manifest and binary to satisfy workspace (won't be built)
 COPY metadata/Cargo.toml ./metadata/
-RUN mkdir -p metadata/src && echo "// Dummy file for workspace" > metadata/src/lib.rs
+RUN mkdir -p metadata/src && echo "fn main() {}" > metadata/src/main.rs
 
 # Copy actual source code only for knowledge and its dependencies
 COPY crates/bric-a-brac-protos ./crates/bric-a-brac-protos
