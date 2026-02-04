@@ -1,5 +1,5 @@
+use crate::clients::knowledge_client::KnowledgeClient;
 use crate::config::Config;
-use crate::grpc_client::KnowledgeClient;
 use crate::repositories::{
     access_repository::AccessRepository, graph_repository::GraphRepository,
     user_repository::UserRepository,

@@ -6,6 +6,7 @@ use axum::{
 use serde::Serialize;
 use serde_json::json;
 use sqlx::{error::ErrorKind, postgres::PgDatabaseError};
+use tonic::Status;
 
 #[derive(Debug, Serialize)]
 pub struct ApiErrorContent<T> {
@@ -27,6 +28,7 @@ pub enum ApiError {
     Conflict(ApiErrorContent<ConstraintViolationContext>),
     Unauthorized(ApiErrorContent<String>),
     UnknownDatabaseError(ApiErrorContent<sqlx::Error>),
+    KnowledgeError(ApiErrorContent<String>),
 }
 
 impl From<&ApiError> for StatusCode {
@@ -37,6 +39,7 @@ impl From<&ApiError> for StatusCode {
             ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             ApiError::UnknownDatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::KnowledgeError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -54,6 +57,7 @@ impl IntoResponse for ApiError {
                 message: content.message,
                 details: content.details.to_string(),
             })),
+            Self::KnowledgeError(content) => Json(json!(content)),
         };
         (status, payload).into_response()
     }
@@ -124,4 +128,14 @@ fn extract_field_name_from_error(pg_err: &PgDatabaseError) -> String {
         })
         .unwrap_or("unknown")
         .to_string()
+}
+
+impl From<Status> for ApiError {
+    fn from(status: Status) -> Self {
+        tracing::error!(error=?status, "gRPC status error occurred");
+        ApiError::KnowledgeError(ApiErrorContent {
+            message: "(knowledge) gRPC Status Error".to_string(),
+            details: status.message().to_string(),
+        })
+    }
 }

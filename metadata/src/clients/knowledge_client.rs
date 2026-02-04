@@ -1,8 +1,9 @@
+use crate::error::ApiError;
 use anyhow::Context;
 use axum::http::Uri;
-use bric_a_brac_protos::knowledge::knowledge_service_client::KnowledgeServiceClient;
 use bric_a_brac_protos::knowledge::{
-    GraphDataResponse, InsertEdgeRequest, InsertNodeRequest, PropertyValue, SearchRequest,
+    knowledge_service_client::KnowledgeServiceClient, InsertEdgeRequest, InsertNodeRequest,
+    LoadGraphRequest, LoadGraphResponse, PropertyValue,
 };
 use std::collections::HashMap;
 use tonic::Request;
@@ -30,11 +31,11 @@ impl KnowledgeClient {
     //     )
     // )]
     pub async fn insert_node(
-        &mut self,
+        &self,
         graph_id: String,
         label: String,
         properties: HashMap<String, PropertyValue>,
-    ) -> anyhow::Result<GraphDataResponse> {
+    ) -> Result<String, ApiError> {
         tracing::debug!("Calling Knowledge service insert_node");
 
         let request = Request::new(InsertNodeRequest {
@@ -43,23 +44,19 @@ impl KnowledgeClient {
             properties,
         });
 
-        let response = self
-            .client
-            .insert_node(request)
-            .await
-            .context("Knowledge service insert_node failed")?;
+        let response = self.client.clone().insert_node(request).await?;
 
         tracing::debug!("Knowledge service insert_node completed");
-        Ok(response.into_inner())
+        Ok(response.into_inner().node_id)
     }
 
     pub async fn insert_edge(
-        &mut self,
+        &self,
         from_id: String,
         to_id: String,
         label: String,
         properties: HashMap<String, PropertyValue>,
-    ) -> anyhow::Result<GraphDataResponse> {
+    ) -> Result<String, ApiError> {
         tracing::debug!("Calling Knowledge service insert_edge");
 
         let request = Request::new(InsertEdgeRequest {
@@ -69,43 +66,20 @@ impl KnowledgeClient {
             properties,
         });
 
-        let response = self
-            .client
-            .insert_edge(request)
-            .await
-            .context("Knowledge service insert_edge failed")?;
+        let response = self.client.clone().insert_edge(request).await?;
 
         tracing::debug!("Knowledge service insert_edge completed");
-        Ok(response.into_inner())
+        Ok(response.into_inner().edge_id)
     }
 
-    pub async fn search(
-        &mut self,
-        graph_id: Option<String>,
-        node_label: Option<String>,
-        node_properties: HashMap<String, PropertyValue>,
-        edge_label: Option<String>,
-        edge_properties: HashMap<String, PropertyValue>,
-        include_edges: bool,
-    ) -> anyhow::Result<GraphDataResponse> {
-        tracing::debug!("Calling Knowledge service search");
+    pub async fn load_graph(&self, graph_id: String) -> Result<LoadGraphResponse, ApiError> {
+        tracing::debug!("Calling Knowledge service load_graph");
 
-        let request = Request::new(SearchRequest {
-            graph_id,
-            node_label,
-            node_properties,
-            edge_label,
-            edge_properties,
-            include_edges,
-        });
+        let request = Request::new(LoadGraphRequest { graph_id });
 
-        let response = self
-            .client
-            .search(request)
-            .await
-            .context("Knowledge service search failed")?;
+        let response = self.client.clone().load_graph(request).await?;
 
-        tracing::debug!("Knowledge service search completed");
+        tracing::debug!("Knowledge service load_graph completed");
         Ok(response.into_inner())
     }
 }

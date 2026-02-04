@@ -3,15 +3,19 @@ syntax = "proto3";
 package knowledge;
 
 service KnowledgeService {
-  rpc InsertNode(InsertNodeRequest) returns (GraphDataResponse);
-  rpc InsertEdge(InsertEdgeRequest) returns (GraphDataResponse);
-  rpc Search(SearchRequest) returns (GraphDataResponse);
+  rpc InsertNode(InsertNodeRequest) returns (InsertNodeResponse);
+  rpc InsertEdge(InsertEdgeRequest) returns (InsertEdgeResponse);
+  rpc LoadGraph(LoadGraphRequest) returns (LoadGraphResponse);
 }
 
 message InsertNodeRequest {
   string graph_id = 1;
   string label = 2;
   map<string, PropertyValue> properties = 3;
+}
+
+message InsertNodeResponse {
+  string node_id = 1;
 }
 
 message InsertEdgeRequest {
@@ -21,28 +25,31 @@ message InsertEdgeRequest {
   map<string, PropertyValue> properties = 4;
 }
 
-message SearchRequest {
-  optional string graph_id = 1;
-  optional string node_label = 2;
-  map<string, PropertyValue> node_properties = 3;
-  optional string edge_label = 4;
-  map<string, PropertyValue> edge_properties = 5;
-  bool include_edges = 6;
+message InsertEdgeResponse {
+  string edge_id = 1;
+}
+
+message LoadGraphRequest {
+  string graph_id = 1;
+}
+
+message LoadGraphResponse {
+  repeated Node nodes = 1;
+  repeated Edge edges = 2;
 }
 
 message PropertyValue {
   oneof value {
     string string_value = 1;
-    int64 int_value = 2;
-    double float_value = 3;
-    bool bool_value = 4;
+    double number_value = 2;
+    bool bool_value = 3;
   }
 }
 
 message Node {
   string id = 1;
   string label = 2;
-  string properties_json = 3;
+  map<string, PropertyValue> properties = 3;
 }
 
 message Edge {
@@ -50,10 +57,6 @@ message Edge {
   string label = 2;
   string from_id = 3;
   string to_id = 4;
-  string properties_json = 5;
+  map<string, PropertyValue> properties = 5;
 }
 
-message GraphDataResponse {
-  repeated Node nodes = 1;
-  repeated Edge edges = 2;
-}

@@ -1,12 +1,13 @@
+use crate::clients::knowledge_client::KnowledgeClient;
 use crate::dtos::graph_dto::{
-    ReqPostEdgeSchema, ReqPostGraph, ReqPostNodeSchema, ResEdgeSchema, ResGraphMetadata,
-    ResGraphSchema, ResNodeSchema,
+    ReqPostEdgeSchema, ReqPostGraph, ReqPostNodeSchema, ResEdgeSchema, ResGraphData,
+    ResGraphMetadata, ResGraphSchema, ResNodeSchema,
 };
 use crate::error::ApiError;
-use crate::grpc_client::KnowledgeClient;
 use crate::models::{access_model::Role, graph_model::GraphId, user_model::UserId};
 use crate::repositories::{access_repository::AccessRepository, graph_repository::GraphRepository};
 use sqlx::PgPool;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct GraphService {
@@ -131,5 +132,115 @@ impl GraphService {
             edge_schema,
             properties,
         })
+    }
+
+    pub async fn get_data(&self, graph_id: GraphId) -> Result<ResGraphData, ApiError> {
+        let response = self
+            .knowledge_client
+            .load_graph(graph_id.to_string())
+            .await?;
+        
+        use bric_a_brac_protos::knowledge::property_value::Value;
+        
+        let convert_properties = |props: std::collections::HashMap<String, bric_a_brac_protos::knowledge::PropertyValue>| {
+            props.into_iter().filter_map(|(k, v)| {
+                v.value.map(|val| {
+                    let json_val = match val {
+                        Value::StringValue(s) => serde_json::Value::String(s),
+                        Value::NumberValue(n) => serde_json::json!(n),
+                        Value::BoolValue(b) => serde_json::Value::Bool(b),
+                    };
+                    (k, json_val)
+                })
+            }).collect()
+        };
+        
+        Ok(ResGraphData {
+            nodes: response.nodes.into_iter().map(|n| crate::dtos::graph_dto::ResNode {
+                id: n.id,
+                label: n.label,
+                properties: convert_properties(n.properties),
+            }).collect(),
+            edges: response.edges.into_iter().map(|e| crate::dtos::graph_dto::ResEdge {
+                id: e.id,
+                label: e.label,
+                from_id: e.from_id,
+                to_id: e.to_id,
+                properties: convert_properties(e.properties),
+            }).collect(),
+        })
+    }
+
+    pub async fn post_node_data(
+        &self,
+        graph_id: GraphId,
+        label: String,
+        properties: HashMap<String, serde_json::Value>,
+    ) -> Result<String, ApiError> {
+        use bric_a_brac_protos::knowledge::{PropertyValue, property_value};
+        
+        let proto_properties: HashMap<String, PropertyValue> = properties
+            .into_iter()
+            .map(|(k, v)| {
+                let pv = match v {
+                    serde_json::Value::String(s) => PropertyValue {
+                        value: Some(property_value::Value::StringValue(s)),
+                    },
+                    serde_json::Value::Number(n) => PropertyValue {
+                        value: Some(property_value::Value::NumberValue(
+                            n.as_f64().unwrap_or(0.0),
+                        )),
+                    },
+                    serde_json::Value::Bool(b) => PropertyValue {
+                        value: Some(property_value::Value::BoolValue(b)),
+                    },
+                    _ => PropertyValue { value: None },
+                };
+                (k, pv)
+            })
+            .collect();
+
+        let node_id = self
+            .knowledge_client
+            .insert_node(graph_id.to_string(), label, proto_properties)
+            .await?;
+        Ok(node_id)
+    }
+
+    pub async fn post_edge_data(
+        &self,
+        from_id: String,
+        to_id: String,
+        label: String,
+        properties: HashMap<String, serde_json::Value>,
+    ) -> Result<String, ApiError> {
+        use bric_a_brac_protos::knowledge::{PropertyValue, property_value};
+        
+        let proto_properties: HashMap<String, PropertyValue> = properties
+            .into_iter()
+            .map(|(k, v)| {
+                let pv = match v {
+                    serde_json::Value::String(s) => PropertyValue {
+                        value: Some(property_value::Value::StringValue(s)),
+                    },
+                    serde_json::Value::Number(n) => PropertyValue {
+                        value: Some(property_value::Value::NumberValue(
+                            n.as_f64().unwrap_or(0.0),
+                        )),
+                    },
+                    serde_json::Value::Bool(b) => PropertyValue {
+                        value: Some(property_value::Value::BoolValue(b)),
+                    },
+                    _ => PropertyValue { value: None },
+                };
+                (k, pv)
+            })
+            .collect();
+
+        let edge_id = self
+            .knowledge_client
+            .insert_edge(from_id, to_id, label, proto_properties)
+            .await?;
+        Ok(edge_id)
     }
 }

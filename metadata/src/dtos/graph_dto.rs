@@ -6,6 +6,7 @@ use crate::models::{
     property_model::{Property, PropertyMetadata, PropertyType},
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 pub struct ReqPostGraph {
@@ -71,4 +72,26 @@ pub struct ResEdgeSchema {
     pub edge_schema: EdgeSchema,
 
     pub properties: Vec<Property>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ResGraphData {
+    pub nodes: Vec<ResNode>,
+    pub edges: Vec<ResEdge>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ResNode {
+    pub id: String,
+    pub label: String,
+    pub properties: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ResEdge {
+    pub id: String,
+    pub label: String,
+    pub from_id: String,
+    pub to_id: String,
+    pub properties: HashMap<String, serde_json::Value>,
 }

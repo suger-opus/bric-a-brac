@@ -22,6 +22,9 @@ pub fn build(state: ApiState) -> Router {
             "/graphs/{graph_id}/schema/edges",
             post(graph_handler::post_edge_schema),
         )
+        .route("/graphs/{graph_id}/data", get(graph_handler::get_data))
+        // .route("/graphs/{graph_id}/data/nodes", get(graph_handler::post_node_data))
+        // .route("/graphs/{graph_id}/data/edges", get(graph_handler::post_edge_data))
         .route("/accesses/graphs/{graph_id}", post(access_handler::post))
         .layer(
             CorsLayer::new()

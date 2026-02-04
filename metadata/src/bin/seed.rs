@@ -11,6 +11,8 @@ use metadata::services::{
 };
 use metadata::setup_tracing;
 use metadata::state::ApiState;
+use serde_json::json;
+use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -127,7 +129,7 @@ async fn seed(
     tracing::info!("✓ Granted users access to some graphs");
 
     tracing::info!("Adding schemas to Project Graph...");
-    
+
     graph_service
         .post_node_schema(
             graph1.graph.graph_id,
@@ -352,6 +354,196 @@ async fn seed(
         .expect("Failed to create TaggedWith edge schema");
 
     tracing::info!("✓ Added schemas to Knowledge Base");
+
+    tracing::info!("Adding nodes and edges to Project Graph...");
+
+    let mut props1 = HashMap::new();
+    props1.insert("name".to_string(), json!("tokio"));
+    props1.insert("version".to_string(), json!("1.41.0"));
+    let tokio_id = graph_service
+        .post_node_data(
+            graph1.graph.graph_id,
+            "Package".to_string(),
+            props1,
+        )
+        .await
+        .expect("Failed to insert tokio node");
+
+    let mut props2 = HashMap::new();
+    props2.insert("name".to_string(), json!("axum"));
+    props2.insert("version".to_string(), json!("0.7.0"));
+    let axum_id = graph_service
+        .post_node_data(
+            graph1.graph.graph_id,
+            "Package".to_string(),
+            props2,
+        )
+        .await
+        .expect("Failed to insert axum node");
+
+    let mut props3 = HashMap::new();
+    props3.insert("path".to_string(), json!("src/main.rs"));
+    let main_id = graph_service
+        .post_node_data(
+            graph1.graph.graph_id,
+            "Module".to_string(),
+            props3,
+        )
+        .await
+        .expect("Failed to insert main module node");
+
+    let mut edge_props1 = HashMap::new();
+    edge_props1.insert("constraint".to_string(), json!("^1.0"));
+    graph_service
+        .post_edge_data(
+            axum_id.clone(),
+            tokio_id.clone(),
+            "DependsOn".to_string(),
+            edge_props1,
+        )
+        .await
+        .expect("Failed to insert DependsOn edge");
+
+    let mut edge_props2 = HashMap::new();
+    edge_props2.insert("constraint".to_string(), json!("^0.7"));
+    graph_service
+        .post_edge_data(
+            main_id.clone(),
+            axum_id.clone(),
+            "DependsOn".to_string(),
+            edge_props2,
+        )
+        .await
+        .expect("Failed to insert DependsOn edge");
+
+    tracing::info!("✓ Added data to Project Graph (3 nodes, 2 edges)");
+
+    tracing::info!("Adding nodes and edges to Research Notes...");
+
+    let mut props4 = HashMap::new();
+    props4.insert("title".to_string(), json!("Attention Is All You Need"));
+    props4.insert("year".to_string(), json!(2017));
+    let paper1_id = graph_service
+        .post_node_data(
+            graph2.graph.graph_id,
+            "Paper".to_string(),
+            props4,
+        )
+        .await
+        .expect("Failed to insert paper1 node");
+
+    let mut props5 = HashMap::new();
+    props5.insert("title".to_string(), json!("BERT: Pre-training of Deep Bidirectional Transformers"));
+    props5.insert("year".to_string(), json!(2018));
+    let paper2_id = graph_service
+        .post_node_data(
+            graph2.graph.graph_id,
+            "Paper".to_string(),
+            props5,
+        )
+        .await
+        .expect("Failed to insert paper2 node");
+
+    let mut props6 = HashMap::new();
+    props6.insert("full_name".to_string(), json!("Ashish Vaswani"));
+    let author_id = graph_service
+        .post_node_data(
+            graph2.graph.graph_id,
+            "Author".to_string(),
+            props6,
+        )
+        .await
+        .expect("Failed to insert author node");
+
+    graph_service
+        .post_edge_data(
+            paper2_id.clone(),
+            paper1_id.clone(),
+            "Cites".to_string(),
+            HashMap::new(),
+        )
+        .await
+        .expect("Failed to insert Cites edge");
+
+    graph_service
+        .post_edge_data(
+            paper1_id.clone(),
+            author_id.clone(),
+            "AuthoredBy".to_string(),
+            HashMap::new(),
+        )
+        .await
+        .expect("Failed to insert AuthoredBy edge");
+
+    tracing::info!("✓ Added data to Research Notes (3 nodes, 2 edges)");
+
+    tracing::info!("Adding nodes and edges to Knowledge Base...");
+
+    let mut props7 = HashMap::new();
+    props7.insert("name".to_string(), json!("Rust Programming"));
+    props7.insert("importance".to_string(), json!(10));
+    let topic1_id = graph_service
+        .post_node_data(
+            graph3.graph.graph_id,
+            "Topic".to_string(),
+            props7,
+        )
+        .await
+        .expect("Failed to insert topic1 node");
+
+    let mut props8 = HashMap::new();
+    props8.insert("name".to_string(), json!("Async Programming"));
+    props8.insert("importance".to_string(), json!(8));
+    let topic2_id = graph_service
+        .post_node_data(
+            graph3.graph.graph_id,
+            "Topic".to_string(),
+            props8,
+        )
+        .await
+        .expect("Failed to insert topic2 node");
+
+    let doc_id = graph_service
+        .post_node_data(
+            graph3.graph.graph_id,
+            "Document".to_string(),
+            HashMap::new(),
+        )
+        .await
+        .expect("Failed to insert document node");
+
+    let tag_id = graph_service
+        .post_node_data(
+            graph3.graph.graph_id,
+            "Tag".to_string(),
+            HashMap::new(),
+        )
+        .await
+        .expect("Failed to insert tag node");
+
+    let mut edge_props3 = HashMap::new();
+    edge_props3.insert("order".to_string(), json!(1));
+    graph_service
+        .post_edge_data(
+            topic1_id.clone(),
+            topic2_id.clone(),
+            "Contains".to_string(),
+            edge_props3,
+        )
+        .await
+        .expect("Failed to insert Contains edge");
+
+    graph_service
+        .post_edge_data(
+            doc_id.clone(),
+            tag_id.clone(),
+            "TaggedWith".to_string(),
+            HashMap::new(),
+        )
+        .await
+        .expect("Failed to insert TaggedWith edge");
+
+    tracing::info!("✓ Added data to Knowledge Base (4 nodes, 2 edges)");
 
     tracing::info!("🎉 Database seeding completed successfully!");
     Ok(())

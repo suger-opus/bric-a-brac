@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::models::{EdgeData, GraphData, NodeData};
+use crate::models::{EdgeData, NodeData};
 use crate::service;
 use neo4rs::{BoltType, Graph};
 use std::collections::HashMap;
@@ -11,8 +11,8 @@ use bric_a_brac_protos::knowledge::knowledge_service_server::{
     KnowledgeService, KnowledgeServiceServer,
 };
 use bric_a_brac_protos::knowledge::{
-    Edge as ProtoEdge, GraphDataResponse, InsertEdgeRequest, InsertNodeRequest, Node as ProtoNode,
-    PropertyValue, SearchRequest,
+    property_value, Edge as ProtoEdge, InsertEdgeRequest, InsertEdgeResponse, InsertNodeRequest,
+    InsertNodeResponse, LoadGraphRequest, LoadGraphResponse, Node as ProtoNode, PropertyValue,
 };
 
 pub struct KnowledgeServer {
@@ -32,23 +32,18 @@ impl KnowledgeServer {
     }
 }
 
-// Helper type wrapper for property conversion
-// Helper type wrappers for conversions (satisfies orphan rule)
+// Helper type wrappers for conversions
 struct BoltProperties(HashMap<String, BoltType>);
 struct PropertyValueWrapper<'a>(&'a PropertyValue);
 
-// Trait implementations for type conversions
 impl<'a> From<PropertyValueWrapper<'a>> for Option<BoltType> {
     fn from(wrapper: PropertyValueWrapper<'a>) -> Self {
         wrapper.0.value.as_ref().map(|v| match v {
             bric_a_brac_protos::knowledge::property_value::Value::StringValue(s) => {
                 BoltType::String(s.clone().into())
             }
-            bric_a_brac_protos::knowledge::property_value::Value::IntValue(i) => {
-                BoltType::Integer((*i).into())
-            }
-            bric_a_brac_protos::knowledge::property_value::Value::FloatValue(f) => {
-                BoltType::Float(neo4rs::BoltFloat::new(*f))
+            bric_a_brac_protos::knowledge::property_value::Value::NumberValue(n) => {
+                BoltType::Float(neo4rs::BoltFloat::new(*n))
             }
             bric_a_brac_protos::knowledge::property_value::Value::BoolValue(b) => {
                 BoltType::Boolean(neo4rs::BoltBoolean::new(*b))
@@ -81,7 +76,27 @@ impl From<NodeData> for ProtoNode {
         ProtoNode {
             id: node.id,
             label: node.label,
-            properties_json: serde_json::to_string(&node.properties).unwrap_or_default(),
+            properties: node
+                .properties
+                .into_iter()
+                .filter_map(|(k, v)| {
+                    let pv = match v {
+                        serde_json::Value::String(s) => PropertyValue {
+                            value: Some(property_value::Value::StringValue(s)),
+                        },
+                        serde_json::Value::Number(n) => PropertyValue {
+                            value: Some(property_value::Value::NumberValue(
+                                n.as_f64().unwrap_or(0.0),
+                            )),
+                        },
+                        serde_json::Value::Bool(b) => PropertyValue {
+                            value: Some(property_value::Value::BoolValue(b)),
+                        },
+                        _ => return None,
+                    };
+                    Some((k, pv))
+                })
+                .collect(),
         }
     }
 }
@@ -93,16 +108,27 @@ impl From<EdgeData> for ProtoEdge {
             label: edge.label,
             from_id: edge.from_id,
             to_id: edge.to_id,
-            properties_json: serde_json::to_string(&edge.properties).unwrap_or_default(),
-        }
-    }
-}
-
-impl From<GraphData> for GraphDataResponse {
-    fn from(data: GraphData) -> Self {
-        GraphDataResponse {
-            nodes: data.nodes.into_iter().map(ProtoNode::from).collect(),
-            edges: data.edges.into_iter().map(ProtoEdge::from).collect(),
+            properties: edge
+                .properties
+                .into_iter()
+                .filter_map(|(k, v)| {
+                    let pv = match v {
+                        serde_json::Value::String(s) => PropertyValue {
+                            value: Some(property_value::Value::StringValue(s)),
+                        },
+                        serde_json::Value::Number(n) => PropertyValue {
+                            value: Some(property_value::Value::NumberValue(
+                                n.as_f64().unwrap_or(0.0),
+                            )),
+                        },
+                        serde_json::Value::Bool(b) => PropertyValue {
+                            value: Some(property_value::Value::BoolValue(b)),
+                        },
+                        _ => return None,
+                    };
+                    Some((k, pv))
+                })
+                .collect(),
         }
     }
 }
@@ -112,24 +138,26 @@ impl KnowledgeService for KnowledgeServer {
     async fn insert_node(
         &self,
         request: Request<InsertNodeRequest>,
-    ) -> Result<Response<GraphDataResponse>, Status> {
+    ) -> Result<Response<InsertNodeResponse>, Status> {
         let req = request.into_inner();
         let graph_id = Uuid::parse_str(&req.graph_id)
             .map_err(|e| Status::invalid_argument(format!("Invalid graph_id: {}", e)))?;
 
         let properties: HashMap<String, BoltType> = BoltProperties::from(req.properties).into();
 
-        let result = service::insert_node(&self.graph, graph_id, &req.label, properties)
+        let node_id = service::insert_node(&self.graph, graph_id, &req.label, properties)
             .await
             .map_err(|e| Status::internal(format!("Failed to insert node: {}", e)))?;
 
-        Ok(Response::new(result.into()))
+        Ok(Response::new(InsertNodeResponse {
+            node_id: node_id.to_string(),
+        }))
     }
 
     async fn insert_edge(
         &self,
         request: Request<InsertEdgeRequest>,
-    ) -> Result<Response<GraphDataResponse>, Status> {
+    ) -> Result<Response<InsertEdgeResponse>, Status> {
         let req = request.into_inner();
         let from_id = Uuid::parse_str(&req.from_id)
             .map_err(|e| Status::invalid_argument(format!("Invalid from_id: {}", e)))?;
@@ -138,38 +166,30 @@ impl KnowledgeService for KnowledgeServer {
 
         let properties: HashMap<String, BoltType> = BoltProperties::from(req.properties).into();
 
-        let result = service::insert_edge(&self.graph, from_id, to_id, &req.label, properties)
+        let edge_id = service::insert_edge(&self.graph, from_id, to_id, &req.label, properties)
             .await
             .map_err(|e| Status::internal(format!("Failed to insert edge: {}", e)))?;
 
-        Ok(Response::new(result.into()))
+        Ok(Response::new(InsertEdgeResponse {
+            edge_id: edge_id.to_string(),
+        }))
     }
 
-    async fn search(
+    async fn load_graph(
         &self,
-        request: Request<SearchRequest>,
-    ) -> Result<Response<GraphDataResponse>, Status> {
+        request: Request<LoadGraphRequest>,
+    ) -> Result<Response<LoadGraphResponse>, Status> {
         let req = request.into_inner();
+        let graph_id = Uuid::parse_str(&req.graph_id)
+            .map_err(|e| Status::invalid_argument(format!("Invalid graph_id: {}", e)))?;
 
-        let graph_id = req.graph_id.and_then(|id| Uuid::parse_str(&id).ok());
+        let graph_data = service::load_graph(&self.graph, graph_id)
+            .await
+            .map_err(|e| Status::internal(format!("Failed to load graph: {}", e)))?;
 
-        let node_properties: HashMap<String, BoltType> =
-            BoltProperties::from(req.node_properties).into();
-        let edge_properties: HashMap<String, BoltType> =
-            BoltProperties::from(req.edge_properties).into();
-
-        let result = service::search(
-            &self.graph,
-            graph_id,
-            req.node_label.as_deref(),
-            node_properties,
-            req.edge_label.as_deref(),
-            edge_properties,
-            req.include_edges,
-        )
-        .await
-        .map_err(|e| Status::internal(format!("Search failed: {}", e)))?;
-
-        Ok(Response::new(result.into()))
+        Ok(Response::new(LoadGraphResponse {
+            nodes: graph_data.nodes.into_iter().map(ProtoNode::from).collect(),
+            edges: graph_data.edges.into_iter().map(ProtoEdge::from).collect(),
+        }))
     }
 }

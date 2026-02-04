@@ -1,8 +1,8 @@
+mod clients;
 pub mod config;
 pub mod dtos;
 mod error;
 mod extractors;
-mod grpc_client;
 mod handlers;
 pub mod models;
 mod repositories;

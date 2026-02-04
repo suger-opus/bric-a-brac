@@ -1,5 +1,5 @@
+use crate::clients::knowledge_client::KnowledgeClient;
 use anyhow::Context;
-use crate::grpc_client::KnowledgeClient;
 use axum::http::Uri;
 
 #[derive(clap::Args, derive_more::Debug)]
@@ -13,7 +13,7 @@ impl KnowledgeServerConfig {
     // #[tracing::instrument(skip(self), fields(url = %self.knowledge_server_url))]
     pub async fn connect(&self) -> anyhow::Result<KnowledgeClient> {
         tracing::debug!("Connecting to Knowledge service");
-        
+
         let knowledge_client = KnowledgeClient::connect(self.knowledge_server_url.clone())
             .await
             .context("Failed to connect to Knowledge service")?;
