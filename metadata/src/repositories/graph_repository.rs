@@ -5,9 +5,9 @@ use crate::dtos::graph_dto::{
 use crate::error::ApiError;
 use crate::models::{
     access_model::Role,
-    edge_schema::{EdgeSchema, EdgeSchemaId},
+    edge_schema_model::{EdgeSchema, EdgeSchemaId},
     graph_model::{Graph, GraphId, Reddit},
-    node_schema::{NodeSchema, NodeSchemaId},
+    node_schema_model::{NodeSchema, NodeSchemaId},
     property_model::{Property, PropertyId, PropertyMetadata, PropertyType},
     user_model::UserId,
 };
@@ -57,7 +57,7 @@ JOIN users u ON owner_access.user_id = u.user_id
         .fetch_all(connection)
         .await?;
 
-        Ok(graphs.into_iter().map(ResGraphMetadata::from).collect())
+        Ok(graphs.into_iter().map(GraphMetadataRow::into).collect())
     }
 
     pub async fn get_metadata(
@@ -105,7 +105,7 @@ WHERE g.graph_id = $2
         connection: &mut PgConnection,
         graph_id: GraphId,
     ) -> Result<ResGraphSchema, ApiError> {
-        let rows: Vec<SchemaRow> = sqlx::query_as!(
+        let schemas = sqlx::query_as!(
             SchemaRow,
             r#"
 SELECT
@@ -162,7 +162,85 @@ ORDER BY "schema_type!:_"
         .fetch_all(connection)
         .await?;
 
-        Ok(rows.into())
+        Ok(schemas.into())
+    }
+
+    pub async fn get_node_schema(
+        &self,
+        connection: &mut PgConnection,
+        node_schema_id: NodeSchemaId,
+    ) -> Result<ResNodeSchema, ApiError> {
+        let node_schemas = sqlx::query_as!(
+            SchemaRow,
+            r#"
+SELECT
+    'node' AS "schema_type!:_",
+    ns.node_schema_id AS "node_schema_id!:_",
+    NULL::uuid AS "edge_schema_id?:_",
+    ns.graph_id,
+    ns.label,
+    ns.formatted_label,
+    ns.color,
+    ns.created_at AS schema_created_at,
+    ns.updated_at AS schema_updated_at,
+    p.property_id AS "property_id?:_",
+    p.node_schema_id AS "property_node_schema_id?:_",
+    p.edge_schema_id AS "property_edge_schema_id?:_",
+    p.label AS "property_label?:_",
+    p.formatted_label AS "property_formatted_label?:_",
+    p.property_type AS "property_type?:_",
+    p.metadata AS "property_metadata?:_",
+    p.created_at AS "property_created_at?:_",
+    p.updated_at AS "property_updated_at?:_"
+FROM node_schemas ns
+LEFT JOIN properties p ON ns.node_schema_id = p.node_schema_id
+WHERE ns.node_schema_id = $1
+            "#,
+            node_schema_id as _,
+        )
+        .fetch_all(connection)
+        .await?;
+
+        Ok(node_schemas.into())
+    }
+
+    pub async fn get_edge_schema(
+        &self,
+        connection: &mut PgConnection,
+        edge_schema_id: EdgeSchemaId,
+    ) -> Result<ResEdgeSchema, ApiError> {
+        let edge_schemas = sqlx::query_as!(
+            SchemaRow,
+            r#"
+SELECT
+    'edge' AS "schema_type!:_",
+    es.edge_schema_id AS "edge_schema_id!:_",
+    NULL::uuid AS "node_schema_id?:_",
+    es.graph_id,
+    es.label,
+    es.formatted_label,
+    es.color,
+    es.created_at AS schema_created_at,
+    es.updated_at AS schema_updated_at,
+    p.property_id AS "property_id?:_",
+    p.node_schema_id AS "property_node_schema_id?:_",
+    p.edge_schema_id AS "property_edge_schema_id?:_",
+    p.label AS "property_label?:_",
+    p.formatted_label AS "property_formatted_label?:_",
+    p.property_type AS "property_type?:_",
+    p.metadata AS "property_metadata?:_",
+    p.created_at AS "property_created_at?:_",
+    p.updated_at AS "property_updated_at?:_"
+FROM edge_schemas es
+LEFT JOIN properties p ON es.edge_schema_id = p.edge_schema_id
+WHERE es.edge_schema_id = $1
+            "#,
+            edge_schema_id as _,
+        )
+        .fetch_all(connection)
+        .await?;
+
+        Ok(edge_schemas.into())
     }
 
     pub async fn post(
@@ -320,7 +398,7 @@ SELECT * FROM UNNEST(
         .fetch_all(connection)
         .await?;
 
-        Ok(properties.into_iter().map(Property::from).collect())
+        Ok(properties.into_iter().map(PropertyRow::into).collect())
     }
 }
 
@@ -425,7 +503,7 @@ impl From<PropertyRow> for Property {
     }
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(Default, sqlx::FromRow)]
 struct SchemaRow {
     schema_type: String,
     node_schema_id: Option<NodeSchemaId>,
@@ -447,15 +525,18 @@ struct SchemaRow {
     property_updated_at: Option<DateTime<Utc>>,
 }
 
-impl From<Vec<SchemaRow>> for ResGraphSchema {
-    fn from(rows: Vec<SchemaRow>) -> Self {
-        let mut node_schemas_map: HashMap<NodeSchemaId, (NodeSchema, Vec<Property>)> =
-            HashMap::new();
-        let mut edge_schemas_map: HashMap<EdgeSchemaId, (EdgeSchema, Vec<Property>)> =
-            HashMap::new();
-
-        for row in rows {
-            let property = if let (
+impl SchemaRow {
+    fn extract_property(&self) -> Option<Property> {
+        match (
+            self.property_id,
+            &self.property_label,
+            &self.property_formatted_label,
+            &self.property_type,
+            &self.property_metadata,
+            self.property_created_at,
+            self.property_updated_at,
+        ) {
+            (
                 Some(property_id),
                 Some(label),
                 Some(formatted_label),
@@ -463,75 +544,41 @@ impl From<Vec<SchemaRow>> for ResGraphSchema {
                 Some(metadata),
                 Some(created_at),
                 Some(updated_at),
-            ) = (
-                row.property_id,
-                row.property_label,
-                row.property_formatted_label,
-                row.property_type,
-                row.property_metadata,
-                row.property_created_at,
-                row.property_updated_at,
-            ) {
-                Some(Property {
-                    property_id,
-                    node_schema_id: row.property_node_schema_id,
-                    edge_schema_id: row.property_edge_schema_id,
-                    label,
-                    formatted_label,
-                    property_type,
-                    metadata: metadata.0,
-                    created_at,
-                    updated_at,
-                })
-            } else {
-                None
-            };
+            ) => Some(Property {
+                property_id,
+                node_schema_id: self.property_node_schema_id,
+                edge_schema_id: self.property_edge_schema_id,
+                label: label.clone(),
+                formatted_label: formatted_label.clone(),
+                property_type: property_type.clone(),
+                metadata: metadata.0.clone(),
+                created_at,
+                updated_at,
+            }),
+            _ => None,
+        }
+    }
+}
 
+impl From<Vec<SchemaRow>> for ResGraphSchema {
+    fn from(schemas: Vec<SchemaRow>) -> Self {
+        let mut node_schemas_map: HashMap<NodeSchemaId, Vec<SchemaRow>> = HashMap::new();
+        let mut edge_schemas_map: HashMap<EdgeSchemaId, Vec<SchemaRow>> = HashMap::new();
+
+        for row in schemas {
             if row.schema_type == "node" {
-                let Some(schema_id) = row.node_schema_id else {
-                    continue;
-                };
-
-                let entry = node_schemas_map.entry(schema_id).or_insert_with(|| {
-                    (
-                        NodeSchema {
-                            node_schema_id: schema_id,
-                            graph_id: row.graph_id,
-                            label: row.label.clone(),
-                            formatted_label: row.formatted_label.clone(),
-                            color: row.color.clone(),
-                            created_at: row.schema_created_at,
-                            updated_at: row.schema_updated_at,
-                        },
-                        Vec::new(),
-                    )
-                });
-
-                if let Some(prop) = property {
-                    entry.1.push(prop);
+                if let Some(node_schema_id) = row.node_schema_id {
+                    node_schemas_map
+                        .entry(node_schema_id)
+                        .or_default()
+                        .push(row);
                 }
             } else {
-                let Some(schema_id) = row.edge_schema_id else {
-                    continue;
-                };
-
-                let entry = edge_schemas_map.entry(schema_id).or_insert_with(|| {
-                    (
-                        EdgeSchema {
-                            edge_schema_id: schema_id,
-                            graph_id: row.graph_id,
-                            label: row.label.clone(),
-                            formatted_label: row.formatted_label.clone(),
-                            color: row.color.clone(),
-                            created_at: row.schema_created_at,
-                            updated_at: row.schema_updated_at,
-                        },
-                        Vec::new(),
-                    )
-                });
-
-                if let Some(prop) = property {
-                    entry.1.push(prop);
+                if let Some(edge_schema_id) = row.edge_schema_id {
+                    edge_schemas_map
+                        .entry(edge_schema_id)
+                        .or_default()
+                        .push(row);
                 }
             }
         }
@@ -539,18 +586,74 @@ impl From<Vec<SchemaRow>> for ResGraphSchema {
         ResGraphSchema {
             node_schemas: node_schemas_map
                 .into_iter()
-                .map(|(_, (node_schema, properties))| ResNodeSchema {
-                    node_schema,
-                    properties,
-                })
+                .map(|(_, schemas)| schemas.into())
                 .collect(),
             edge_schemas: edge_schemas_map
                 .into_iter()
-                .map(|(_, (edge_schema, properties))| ResEdgeSchema {
-                    edge_schema,
-                    properties,
-                })
+                .map(|(_, schemas)| schemas.into())
                 .collect(),
+        }
+    }
+}
+
+impl From<Vec<SchemaRow>> for ResNodeSchema {
+    fn from(schemas: Vec<SchemaRow>) -> Self {
+        // Default to empty schema if not found, as repository guarantees non-empty vector
+        let first_row = if let Some(row) = schemas.first() {
+            row
+        } else {
+            &SchemaRow::default()
+        };
+
+        let node_schema = NodeSchema {
+            node_schema_id: first_row.node_schema_id.unwrap_or_default(),
+            graph_id: first_row.graph_id,
+            label: first_row.label.clone(),
+            formatted_label: first_row.formatted_label.clone(),
+            color: first_row.color.clone(),
+            created_at: first_row.schema_created_at,
+            updated_at: first_row.schema_updated_at,
+        };
+
+        let properties = schemas
+            .iter()
+            .filter_map(|row| row.extract_property())
+            .collect();
+
+        ResNodeSchema {
+            node_schema,
+            properties,
+        }
+    }
+}
+
+impl From<Vec<SchemaRow>> for ResEdgeSchema {
+    fn from(schemas: Vec<SchemaRow>) -> Self {
+        // Default to empty schema if not found, as repository guarantees non-empty vector
+        let first_row = if let Some(row) = schemas.first() {
+            row
+        } else {
+            &SchemaRow::default()
+        };
+
+        let edge_schema = EdgeSchema {
+            edge_schema_id: first_row.edge_schema_id.unwrap_or_default(),
+            graph_id: first_row.graph_id,
+            label: first_row.label.clone(),
+            formatted_label: first_row.formatted_label.clone(),
+            color: first_row.color.clone(),
+            created_at: first_row.schema_created_at,
+            updated_at: first_row.schema_updated_at,
+        };
+
+        let properties = schemas
+            .iter()
+            .filter_map(|row| row.extract_property())
+            .collect();
+
+        ResEdgeSchema {
+            edge_schema,
+            properties,
         }
     }
 }

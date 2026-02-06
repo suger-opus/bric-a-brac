@@ -1,16 +1,16 @@
-use crate::models::{edge_schema::EdgeSchemaId, node_schema::NodeSchemaId};
+use crate::models::{edge_schema_model::EdgeSchemaId, node_schema_model::NodeSchemaId};
 use bric_a_brac_id::id;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 id!(PropertyId);
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PropertyMetadata {
-    options: Option<Vec<String>>
+    pub options: Option<Vec<String>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "property_type")]
 pub enum PropertyType {
     Number,
@@ -19,6 +19,8 @@ pub enum PropertyType {
     Select,
 }
 
+// TODO: rename Property to PropertySchema
+// Also rename tables edge_schemas and node_schemas to edges_schemas and node_schemas
 #[derive(Debug, Serialize)]
 pub struct Property {
     pub property_id: PropertyId,

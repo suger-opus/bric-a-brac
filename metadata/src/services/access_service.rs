@@ -14,11 +14,8 @@ pub struct AccessService {
 }
 
 impl AccessService {
-    pub fn new(pool: &PgPool, repository: &AccessRepository) -> Self {
-        AccessService {
-            pool: pool.clone(),
-            repository: repository.clone(),
-        }
+    pub fn new(pool: PgPool, repository: AccessRepository) -> Self {
+        AccessService { pool, repository }
     }
 
     pub async fn post(

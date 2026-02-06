@@ -1,12 +1,18 @@
 use crate::models::{
     access_model::Role,
-    edge_schema::EdgeSchema,
+    edge_data_model::EdgeDataId,
+    edge_schema_model::{EdgeSchema, EdgeSchemaId},
     graph_model::Graph,
-    node_schema::NodeSchema,
+    node_data_model::NodeDataId,
+    node_schema_model::{NodeSchema, NodeSchemaId},
     property_model::{Property, PropertyMetadata, PropertyType},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+// Shouldn't the wrapper be on top of proto properties ?
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PropertiesDto(pub HashMap<String, serde_json::Value>);
 
 #[derive(Debug, Deserialize)]
 pub struct ReqPostGraph {
@@ -37,6 +43,22 @@ pub struct ReqPostProperty {
     pub formatted_label: String,
     pub property_type: PropertyType,
     pub metadata: PropertyMetadata,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReqPostNodeData {
+    pub node_schema_id: NodeSchemaId,
+    pub formatted_label: String,
+    pub properties: PropertiesDto,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReqPostEdgeData {
+    pub edge_schema_id: EdgeSchemaId,
+    pub from_node_data_id: NodeDataId,
+    pub to_node_data_id: NodeDataId,
+    pub formatted_label: String,
+    pub properties: PropertiesDto,
 }
 
 #[derive(Debug, Serialize)]
@@ -76,22 +98,22 @@ pub struct ResEdgeSchema {
 
 #[derive(Debug, Serialize)]
 pub struct ResGraphData {
-    pub nodes: Vec<ResNode>,
-    pub edges: Vec<ResEdge>,
+    pub nodes: Vec<ResNodeData>,
+    pub edges: Vec<ResEdgeData>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct ResNode {
-    pub id: String,
-    pub label: String,
-    pub properties: HashMap<String, serde_json::Value>,
+pub struct ResNodeData {
+    pub node_data_id: NodeDataId,
+    pub formatted_label: String,
+    pub properties: PropertiesDto,
 }
 
 #[derive(Debug, Serialize)]
-pub struct ResEdge {
-    pub id: String,
-    pub label: String,
-    pub from_id: String,
-    pub to_id: String,
-    pub properties: HashMap<String, serde_json::Value>,
+pub struct ResEdgeData {
+    pub edge_data_id: EdgeDataId,
+    pub formatted_label: String,
+    pub from_node_data_id: NodeDataId,
+    pub to_node_data_id: NodeDataId,
+    pub properties: PropertiesDto,
 }

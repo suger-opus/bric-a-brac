@@ -3,39 +3,33 @@ syntax = "proto3";
 package knowledge;
 
 service KnowledgeService {
-  rpc InsertNode(InsertNodeRequest) returns (InsertNodeResponse);
-  rpc InsertEdge(InsertEdgeRequest) returns (InsertEdgeResponse);
-  rpc LoadGraph(LoadGraphRequest) returns (LoadGraphResponse);
+  rpc InsertNode(InsertNodeRequest) returns (NodeData);
+  rpc InsertEdge(InsertEdgeRequest) returns (EdgeData);
+  rpc LoadGraph(LoadGraphRequest) returns (GraphData);
 }
 
 message InsertNodeRequest {
   string graph_id = 1;
-  string label = 2;
-  map<string, PropertyValue> properties = 3;
-}
-
-message InsertNodeResponse {
-  string node_id = 1;
-}
-
-message InsertEdgeRequest {
-  string from_id = 1;
-  string to_id = 2;
-  string label = 3;
+  string node_data_id = 2;
+  string formatted_label = 3;
   map<string, PropertyValue> properties = 4;
 }
 
-message InsertEdgeResponse {
-  string edge_id = 1;
+message InsertEdgeRequest {
+  string edge_data_id = 1;
+  string from_node_data_id = 2;
+  string to_node_data_id = 3;
+  string formatted_label = 4;
+  map<string, PropertyValue> properties = 5;
 }
 
 message LoadGraphRequest {
   string graph_id = 1;
 }
 
-message LoadGraphResponse {
-  repeated Node nodes = 1;
-  repeated Edge edges = 2;
+message GraphData {
+  repeated NodeData nodes = 1;
+  repeated EdgeData edges = 2;
 }
 
 message PropertyValue {
@@ -46,17 +40,18 @@ message PropertyValue {
   }
 }
 
-message Node {
-  string id = 1;
-  string label = 2;
-  map<string, PropertyValue> properties = 3;
+message NodeData {
+  string graph_id = 1;
+  string node_data_id = 2;
+  string formatted_label = 3;
+  map<string, PropertyValue> properties = 4;
 }
 
-message Edge {
-  string id = 1;
-  string label = 2;
-  string from_id = 3;
-  string to_id = 4;
+message EdgeData {
+  string edge_data_id = 1;
+  string formatted_label = 2;
+  string from_node_data_id = 3;
+  string to_node_data_id = 4;
   map<string, PropertyValue> properties = 5;
 }
 

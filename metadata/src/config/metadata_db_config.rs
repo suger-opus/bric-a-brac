@@ -1,6 +1,4 @@
-use anyhow::Context;
-use secrecy::{ExposeSecret, SecretString};
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use secrecy::SecretString;
 
 #[derive(clap::Args, derive_more::Debug)]
 pub struct MetadataDatabaseConfig {
@@ -18,49 +16,15 @@ pub struct MetadataDatabaseConfig {
 }
 
 impl MetadataDatabaseConfig {
-    // #[tracing::instrument(skip(self), fields(max_connections = self.metadata_db_max_connections))]
-    pub async fn connect(&self) -> anyhow::Result<PgPool> {
-        tracing::debug!("Establishing database connection");
-
-        let pool = PgPoolOptions::new()
-            .max_connections(self.metadata_db_max_connections)
-            .connect(&self.metadata_db_url.expose_secret())
-            .await
-            .context("Failed to connect to metadata database")?;
-
-        tracing::debug!("Database connection established");
-        Ok(pool)
+    pub fn url(&self) -> &SecretString {
+        &self.metadata_db_url
     }
 
-    pub async fn reset(&self, pool: &PgPool) -> anyhow::Result<()> {
-        tracing::debug!("Resetting database schema");
-
-        sqlx::query("DROP SCHEMA public CASCADE")
-            .execute(pool)
-            .await
-            .context("Failed to drop schema")?;
-
-        sqlx::query("CREATE SCHEMA public")
-            .execute(pool)
-            .await
-            .context("Failed to create schema")?;
-
-        tracing::debug!("Database schema reset");
-        Ok(())
+    pub fn max_connections(&self) -> u32 {
+        self.metadata_db_max_connections
     }
 
-    pub async fn migrate(&self, db_pool: &PgPool) -> anyhow::Result<()> {
-        if self.metadata_db_skip_migration {
-            tracing::warn!("Metadata database migrations skipped");
-        } else {
-            tracing::debug!("Running database migrations");
-            sqlx::migrate!("./migrations")
-                .run(db_pool)
-                .await
-                .context("Failed to run metadata database migrations")?;
-            tracing::info!("Metadata database migrations applied");
-        }
-
-        Ok(())
+    pub fn skip_migration(&self) -> bool {
+        self.metadata_db_skip_migration
     }
 }

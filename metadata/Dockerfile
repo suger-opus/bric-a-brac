@@ -25,6 +25,7 @@ COPY crates/bric-a-brac-protos ./crates/bric-a-brac-protos
 COPY crates/bric-a-brac-id ./crates/bric-a-brac-id
 COPY metadata/src ./metadata/src
 COPY metadata/migrations ./metadata/migrations
+COPY metadata/.sqlx ./metadata/.sqlx
 
 # Build only the metadata package
 RUN cargo build --release --package metadata

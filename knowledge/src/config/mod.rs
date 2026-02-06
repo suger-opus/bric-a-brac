@@ -1,8 +1,8 @@
-mod knowledge_db;
-mod knowledge_server;
+mod knowledge_db_config;
+mod knowledge_server_config;
+pub use knowledge_db_config::KnowledgeDatabaseConfig;
+pub use knowledge_server_config::KnowledgeServerConfig;
 
-use crate::config::knowledge_db::KnowledgeDatabaseConfig;
-use crate::config::knowledge_server::KnowledgeServerConfig;
 use anyhow::Context;
 use clap::Parser;
 

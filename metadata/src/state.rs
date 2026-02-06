@@ -1,13 +1,14 @@
 use crate::clients::knowledge_client::KnowledgeClient;
 use crate::config::Config;
+use crate::database;
 use crate::repositories::{
     access_repository::AccessRepository, graph_repository::GraphRepository,
     user_repository::UserRepository,
 };
 use crate::services::{
     access_service::AccessService, graph_service::GraphService, user_service::UserService,
+    validation_service::ValidationService,
 };
-use sqlx::PgPool;
 
 #[derive(Clone)]
 pub struct ApiState {
@@ -17,35 +18,29 @@ pub struct ApiState {
 }
 
 impl ApiState {
-    pub async fn from_config(config: &Config) -> anyhow::Result<Self> {
-        tracing::info!("Initializing API state");
+    pub async fn build(config: &Config) -> anyhow::Result<Self> {
+        let db_pool = database::connect(&config.metadata_db).await?;
+        database::migrate(&config.metadata_db, &db_pool).await?;
+        let knowledge_client = KnowledgeClient::connect(&config.knowledge_server).await?;
 
-        let db_pool = config.metadata_db.connect().await?;
-        config.metadata_db.migrate(&db_pool).await?;
-        let knowledge_client = config.knowledge_server.connect().await?;
-
-        tracing::info!("✓ All services initialized");
-
-        Ok(Self::new(&db_pool, &knowledge_client).await)
-    }
-
-    pub async fn new(db_pool: &PgPool, knowledge_client: &KnowledgeClient) -> Self {
         let access_repository = AccessRepository::new();
         let graph_repository = GraphRepository::new();
         let user_repository = UserRepository::new();
-        let access_service = AccessService::new(db_pool, &access_repository);
+        let validation_service = ValidationService::new(db_pool.clone(), graph_repository.clone());
+        let access_service = AccessService::new(db_pool.clone(), access_repository.clone());
         let graph_service = GraphService::new(
-            db_pool,
-            &graph_repository,
-            &access_repository,
+            db_pool.clone(),
+            graph_repository,
+            access_repository,
             knowledge_client,
+            validation_service,
         );
-        let user_service = UserService::new(db_pool, &user_repository);
+        let user_service = UserService::new(db_pool, user_repository);
 
-        ApiState {
+        Ok(ApiState {
             access_service,
             graph_service,
             user_service,
-        }
+        })
     }
 }

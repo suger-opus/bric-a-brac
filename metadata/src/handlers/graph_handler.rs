@@ -1,4 +1,6 @@
-use crate::dtos::graph_dto::{ReqPostEdgeSchema, ReqPostGraph, ReqPostNodeSchema};
+use crate::dtos::graph_dto::{
+    ReqPostEdgeData, ReqPostEdgeSchema, ReqPostGraph, ReqPostNodeData, ReqPostNodeSchema,
+};
 use crate::extractors::AuthenticatedUser;
 use crate::models::graph_model::GraphId;
 use crate::state::ApiState;
@@ -51,7 +53,7 @@ pub async fn post(
 ) -> impl IntoResponse {
     state
         .graph_service
-        .post(user_id, &payload)
+        .post(user_id, payload)
         .await
         .map(|it| (StatusCode::CREATED, Json(it)))
 }
@@ -64,7 +66,7 @@ pub async fn post_node_schema(
 ) -> impl IntoResponse {
     state
         .graph_service
-        .post_node_schema(graph_id, &payload)
+        .post_node_schema(graph_id, payload)
         .await
         .map(|it| (StatusCode::CREATED, Json(it)))
 }
@@ -77,7 +79,7 @@ pub async fn post_edge_schema(
 ) -> impl IntoResponse {
     state
         .graph_service
-        .post_edge_schema(graph_id, &payload)
+        .post_edge_schema(graph_id, payload)
         .await
         .map(|it| (StatusCode::CREATED, Json(it)))
 }
@@ -94,28 +96,28 @@ pub async fn get_data(
         .map(|it| (StatusCode::OK, Json(it)))
 }
 
-// pub async fn post_node_data(
-//     State(state): State<ApiState>,
-//     AuthenticatedUser { user_id: _ }: AuthenticatedUser,
-//     Path(graph_id): Path<GraphId>,
-//     Json(payload): Json<ReqPostNodeSchema>,
-// ) -> impl IntoResponse {
-//     state
-//         .graph_service
-//         .post_node_data(graph_id, &payload)
-//         .await
-//         .map(|it| (StatusCode::OK, Json(it)))
-// }
+pub async fn post_node_data(
+    State(state): State<ApiState>,
+    AuthenticatedUser { user_id: _ }: AuthenticatedUser,
+    Path(graph_id): Path<GraphId>,
+    Json(payload): Json<ReqPostNodeData>,
+) -> impl IntoResponse {
+    state
+        .graph_service
+        .post_node_data(graph_id, payload)
+        .await
+        .map(|it| (StatusCode::OK, Json(it)))
+}
 
-// pub async fn post_edge_data(
-//     State(state): State<ApiState>,
-//     AuthenticatedUser { user_id: _ }: AuthenticatedUser,
-//     Path(graph_id): Path<GraphId>,
-//     Json(payload): Json<ReqPostEdgeSchema>,
-// ) -> impl IntoResponse {
-//     state
-//         .graph_service
-//         .post_edge_data(graph_id, &payload)
-//         .await
-//         .map(|it| (StatusCode::OK, Json(it)))
-// }
+pub async fn post_edge_data(
+    State(state): State<ApiState>,
+    AuthenticatedUser { user_id: _ }: AuthenticatedUser,
+    Path(graph_id): Path<GraphId>,
+    Json(payload): Json<ReqPostEdgeData>,
+) -> impl IntoResponse {
+    state
+        .graph_service
+        .post_edge_data(graph_id, payload)
+        .await
+        .map(|it| (StatusCode::OK, Json(it)))
+}

@@ -1,16 +1,23 @@
 pub mod config;
-mod db;
-mod grpc;
-mod models;
-mod service;
+mod database;
+mod error;
+mod repositories;
+mod server;
+mod services;
 
 use crate::config::Config;
-use crate::grpc::KnowledgeServer;
+use crate::repositories::Repository;
+use crate::server::KnowledgeServer;
+use crate::services::Service;
 use tonic::transport::Server;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 pub async fn run(config: &Config) -> anyhow::Result<()> {
     let addr = config.knowledge_server.url();
-    let server = KnowledgeServer::new(config.clone()).await?;
+    let graph = database::connect(&config.knowledge_db).await?;
+    let repository = Repository::new();
+    let service = Service::new(graph, repository).await?;
+    let server = KnowledgeServer::new(service).await?;
 
     tracing::info!("Knowledge gRPC server listening on {}", addr);
 
@@ -20,4 +27,10 @@ pub async fn run(config: &Config) -> anyhow::Result<()> {
         .await?;
 
     Ok(())
+}
+
+pub fn setup_tracing() {
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 }

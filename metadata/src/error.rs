@@ -21,6 +21,12 @@ pub struct ConstraintViolationContext {
     pub constraint: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ValidationContext {
+    pub field: String,
+    pub issue: String,
+}
+
 #[derive(Debug)]
 pub enum ApiError {
     ConstraintViolation(ApiErrorContent<ConstraintViolationContext>),
@@ -28,6 +34,7 @@ pub enum ApiError {
     Conflict(ApiErrorContent<ConstraintViolationContext>),
     Unauthorized(ApiErrorContent<String>),
     UnknownDatabaseError(ApiErrorContent<sqlx::Error>),
+    ValidationError(ApiErrorContent<ValidationContext>),
     KnowledgeError(ApiErrorContent<String>),
 }
 
@@ -35,6 +42,7 @@ impl From<&ApiError> for StatusCode {
     fn from(val: &ApiError) -> Self {
         match val {
             ApiError::ConstraintViolation(_) => StatusCode::BAD_REQUEST,
+            ApiError::ValidationError(_) => StatusCode::BAD_REQUEST,
             ApiError::NotFound(_) => StatusCode::NOT_FOUND,
             ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
@@ -50,6 +58,7 @@ impl IntoResponse for ApiError {
         let status = StatusCode::from(&self);
         let payload = match self {
             Self::ConstraintViolation(content) => Json(json!(content)),
+            Self::ValidationError(content) => Json(json!(content)),
             Self::NotFound(content) => Json(json!(content)),
             Self::Conflict(content) => Json(json!(content)),
             Self::Unauthorized(content) => Json(json!(content)),

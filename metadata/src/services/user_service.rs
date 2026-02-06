@@ -11,16 +11,13 @@ pub struct UserService {
 }
 
 impl UserService {
-    pub fn new(pool: &PgPool, repository: &UserRepository) -> Self {
-        UserService {
-            pool: pool.clone(),
-            repository: repository.clone(),
-        }
+    pub fn new(pool: PgPool, repository: UserRepository) -> Self {
+        UserService { pool, repository }
     }
 
-    pub async fn post(&self, new_user: &PostUser) -> Result<User, ApiError> {
+    pub async fn post(&self, new_user: PostUser) -> Result<User, ApiError> {
         let mut txn = self.pool.begin().await?;
-        let user = self.repository.post(&mut txn, new_user).await?;
+        let user = self.repository.post(&mut txn, &new_user).await?;
         txn.commit().await?;
         Ok(user)
     }

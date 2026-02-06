@@ -1,5 +1,3 @@
-use neo4rs::{ConfigBuilder, Graph};
-
 #[derive(Clone, clap::Args, derive_more::Debug)]
 pub struct KnowledgeDatabaseConfig {
     /// Knowledge database host
@@ -39,31 +37,23 @@ impl KnowledgeDatabaseConfig {
         )
     }
 
-    pub async fn connect(&self) -> anyhow::Result<Graph> {
-        let uri = self.url();
+    pub fn user(&self) -> &str {
+        &self.knowledge_db_user
+    }
 
-        let config = ConfigBuilder::default()
-            .uri(&uri)
-            .user(&self.knowledge_db_user)
-            .password(&self.knowledge_db_password)
-            .db(self.knowledge_db_name.as_str())
-            .fetch_size(self.knowledge_db_fetch_size)
-            .max_connections(self.knowledge_db_max_connections)
-            .build()?;
+    pub fn password(&self) -> &str {
+        &self.knowledge_db_password
+    }
 
-        let graph = Graph::connect(config).await?;
+    pub fn name(&self) -> &str {
+        &self.knowledge_db_name
+    }
 
-        // Verify connection by running a simple query with timeout
-        tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            graph.run(neo4rs::query("RETURN 1")),
-        )
-        .await
-        .map_err(|_| {
-            anyhow::anyhow!("Knowledge database connection timeout - check credentials and network")
-        })?
-        .map_err(|e| anyhow::anyhow!("Failed to verify knowledge database connection: {}", e))?;
+    pub fn max_connections(&self) -> usize {
+        self.knowledge_db_max_connections
+    }
 
-        Ok(graph)
+    pub fn fetch_size(&self) -> usize {
+        self.knowledge_db_fetch_size
     }
 }
