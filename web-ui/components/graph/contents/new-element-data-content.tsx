@@ -296,7 +296,7 @@ const NewElementDataContent = ({
             <FieldGroup className="mt-1">
               {properties.value.map((property) => (
                 <Fragment key={property.id}>
-                  {property.value.property.metadata.property_type === PropertyType.STRING && (
+                  {property.value.property.property_type === PropertyType.STRING && (
                     <Field>
                       <FieldLabel htmlFor={property.value.property.formatted_label}>
                         {property.value.property.label}
@@ -317,7 +317,7 @@ const NewElementDataContent = ({
                       <FieldError>{properties.errors[property.id]}</FieldError>
                     </Field>
                   )}
-                  {property.value.property.metadata.property_type === PropertyType.NUMBER && (
+                  {property.value.property.property_type === PropertyType.NUMBER && (
                     <Field>
                       <FieldLabel htmlFor={property.value.property.formatted_label}>
                         {property.value.property.label}
@@ -334,7 +334,7 @@ const NewElementDataContent = ({
                       <FieldError>{properties.errors[property.id]}</FieldError>
                     </Field>
                   )}
-                  {property.value.property.metadata.property_type === PropertyType.BOOLEAN && (
+                  {property.value.property.property_type === PropertyType.BOOLEAN && (
                     <Field orientation="horizontal">
                       <Checkbox
                         id={property.value.property.formatted_label}
@@ -347,7 +347,7 @@ const NewElementDataContent = ({
                       </FieldLabel>
                     </Field>
                   )}
-                  {property.value.property.metadata.property_type === PropertyType.SELECT && (
+                  {property.value.property.property_type === PropertyType.SELECT && (
                     <Field>
                       <FieldLabel htmlFor={property.value.property.formatted_label}>
                         {property.value.property.label}
@@ -361,7 +361,7 @@ const NewElementDataContent = ({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            {property.value.property.metadata.details.options!.map((option) => (
+                            {property.value.property.metadata.options!.map((option) => (
                               <SelectItem key={option} value={option}>
                                 {option}
                               </SelectItem>

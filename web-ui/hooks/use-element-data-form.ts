@@ -52,8 +52,8 @@ export const useElementDataForm = (): UseElementDataFormReturn => {
       return false;
     }
     if (
-      property.value.property.metadata.property_type === PropertyType.SELECT
-      && !property.value.property.metadata.details.options!.includes(property.value.value as string)
+      property.value.property.property_type === PropertyType.SELECT
+      && !property.value.property.metadata.options!.includes(property.value.value as string)
     ) {
       setPropertyErrors((prev) => ({
         ...prev,

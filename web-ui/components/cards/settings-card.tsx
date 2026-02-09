@@ -61,7 +61,7 @@ const SettingsCard = ({ is_expanded, expand, un_expand }: SettingsProps) => {
   const getUser = async () => {
     try {
       setIsUserLoading(true);
-      const result = await userService.getProfile();
+      const result = await userService.get();
       setUser(result);
     } catch (error) {
       console.error("Error during getUser:", error);

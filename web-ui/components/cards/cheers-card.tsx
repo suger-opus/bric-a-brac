@@ -29,7 +29,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api/provider";
 import { pluralize, scrollToElement } from "@/lib/utils";
 import { GraphMetadata } from "@/types";
 import { ArrowUpRightIcon, ExpandIcon, HandHeartIcon, ShrinkIcon } from "lucide-react";
@@ -43,7 +42,6 @@ type CheersProps = {
 };
 
 const CheersCard = ({ is_expanded, expand, un_expand }: CheersProps) => {
-  const { cheerService } = ApiProvider;
   const [cheeredGraphs, setCheeredGraphs] = useState<GraphMetadata[]>([]);
   const [isCheersLoading, setIsCheersLoading] = useState(true);
 
@@ -70,11 +68,11 @@ const CheersCard = ({ is_expanded, expand, un_expand }: CheersProps) => {
   const getCheers = async () => {
     try {
       setIsCheersLoading(true);
-      const results = await cheerService.list();
+      const results = [] as GraphMetadata[];
       setCheeredGraphs(results);
       setCurrentPage(0);
     } catch (error) {
-      console.error("Error during getCheers:", error);
+      console.error(error);
     } finally {
       setIsCheersLoading(false);
     }

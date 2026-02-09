@@ -49,9 +49,9 @@ const PropertyFieldGroup = (
   const [formattedLabelValidationError, setFormattedLabelValidationError] = useState<string | null>(
     null
   );
-  const [propertyType, setPropertyType] = useState(baseProperty.metadata.property_type);
+  const [propertyType, setPropertyType] = useState(baseProperty.property_type);
   const [currentOption, setCurrentOption] = useState("");
-  const [options, setOptions] = useState(baseProperty.metadata.details.options);
+  const [options, setOptions] = useState(baseProperty.metadata.options);
   const [metadataValidationError, setMetadataValidationError] = useState<string | null>(null);
 
   const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,11 +118,9 @@ const PropertyFieldGroup = (
       saveProperty({
         label,
         formatted_label: formattedLabel,
+        property_type: propertyType,
         metadata: {
-          property_type: propertyType,
-          details: {
-            options: options
-          }
+          options: options
         }
       });
     }

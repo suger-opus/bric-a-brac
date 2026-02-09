@@ -50,23 +50,15 @@ export const requestPropertyMetadataDetailsOption = v.pipe(
   v.maxLength(30, "Property option must be at most 30 characters long.")
 );
 
-export const requestPropertyMetadataDetails = v.object({
-  // min: v.nullable(v.number()),
-  // max: v.nullable(v.number()),
-  options: v.nullable(
-    v.pipe(
-      v.array(requestPropertyMetadataDetailsOption),
-      v.minLength(1, "At least one option is required.")
-    )
-  )
-  // required: v.boolean()
-});
-
 export const requestPropertyMetadata = v.pipe(
   v.object({
-    property_type: propertyType,
-    details: requestPropertyMetadataDetails
-  }),
+    options: v.nullable(
+      v.pipe(
+        v.array(requestPropertyMetadataDetailsOption),
+        v.minLength(1, "At least one option is required.")
+      )
+    )
+  })
   // v.check(
   //   (data) => {
   //     if (data.property_type === "range") {
@@ -86,21 +78,6 @@ export const requestPropertyMetadata = v.pipe(
   //   },
   //   "Range type requires max to be strictly superior to min."
   // ),
-  v.check(
-    (data) => {
-      if (data.property_type === "select") {
-        return data.details.options !== null;
-      }
-      return true;
-    },
-    "Select type requires at least one option."
-  ),
-  v.check((data) => {
-    if (data.property_type !== "select") {
-      return data.details.options === null;
-    }
-    return true;
-  })
   // v.check(
   //   (data) => {
   //     if (data.property_type === "multiselect") {
@@ -112,11 +89,29 @@ export const requestPropertyMetadata = v.pipe(
   // )
 );
 
-export const requestProperty = v.object({
-  label: requestLabel,
-  formatted_label: requestFormattedLabel,
-  metadata: requestPropertyMetadata
-});
+export const requestProperty = v.pipe(
+  v.object({
+    label: requestLabel,
+    formatted_label: requestFormattedLabel,
+    metadata: requestPropertyMetadata,
+    property_type: propertyType
+  }),
+  v.check(
+    (data) => {
+      if (data.property_type === "select") {
+        return data.metadata.options !== null;
+      }
+      return true;
+    },
+    "Select type requires at least one option."
+  ),
+  v.check((data) => {
+    if (data.property_type !== "select") {
+      return data.metadata.options === null;
+    }
+    return true;
+  })
+);
 
 export const requestPropertyData = v.object({
   property_id: v.string(),

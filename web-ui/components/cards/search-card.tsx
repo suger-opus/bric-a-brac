@@ -29,7 +29,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api/provider";
 import { requestSearch } from "@/lib/api/schemas/request-schemas";
 import { pluralize, scrollToElement } from "@/lib/utils";
 import { GraphMetadata } from "@/types";
@@ -44,7 +43,6 @@ type SearchProps = {
 };
 
 const SearchCard = ({ is_expanded, expand, un_expand }: SearchProps) => {
-  const { searchService } = ApiProvider;
   const [searchGraphs, setSearchGraphs] = useState<GraphMetadata[]>([]);
 
   // Search parameters
@@ -80,7 +78,7 @@ const SearchCard = ({ is_expanded, expand, un_expand }: SearchProps) => {
       const validation = v.safeParse(requestSearch, { keyword: searchKeyword });
       if (validation.success) {
         setShowResults(false);
-        const results = await searchService.search(validation.output);
+        const results = [] as GraphMetadata[];
         setSearchGraphs(results);
         setCurrentPage(0);
         setShowResults(true);
@@ -90,7 +88,7 @@ const SearchCard = ({ is_expanded, expand, un_expand }: SearchProps) => {
       }
     } catch (error) {
       setShowResults(false);
-      console.error("Error during executeSearch:", error);
+      console.error(error);
     } finally {
       setIsSearchLoading(false);
     }

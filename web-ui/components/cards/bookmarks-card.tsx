@@ -30,7 +30,6 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api/provider";
 import { pluralize, scrollToElement } from "@/lib/utils";
 import { GraphMetadata } from "@/types";
 import { ArrowUpRightIcon, BookmarkIcon, ExpandIcon, ShrinkIcon } from "lucide-react";
@@ -44,7 +43,6 @@ type BookmarksProps = {
 };
 
 const BookmarksPage = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
-  const { bookmarkService } = ApiProvider;
   const [bookmarkedGraphs, setBookmarkedGraphs] = useState<GraphMetadata[]>([]);
   const [isBookmarksLoading, setIsBookmarksLoading] = useState(true);
 
@@ -71,11 +69,11 @@ const BookmarksPage = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
   const getBookmarks = async () => {
     try {
       setIsBookmarksLoading(true);
-      const results = await bookmarkService.list();
+      const results = [] as GraphMetadata[];
       setBookmarkedGraphs(results);
       setCurrentPage(0);
     } catch (error) {
-      console.error("Error during getBookmarks:", error);
+      console.error(error);
     } finally {
       setIsBookmarksLoading(false);
     }

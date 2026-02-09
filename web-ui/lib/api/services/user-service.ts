@@ -1,15 +1,24 @@
-/* eslint-disable no-console */
-import { users } from "@/lib/api/data";
+import { proxy } from "@/lib/api/proxy";
+import { user } from "@/lib/api/schemas/response-schemas";
 import { User } from "@/types";
+import * as v from "valibot";
 
 export interface UserService {
-  getProfile(): Promise<User>;
+  get(): Promise<User>;
 }
 
 export class ApiUserService implements UserService {
-  async getProfile(): Promise<User> {
-    console.log("Fetching user profile");
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return users[0];
+  private get api() {
+    return proxy("/users");
+  }
+
+  async get(): Promise<User> {
+    try {
+      const response = await this.api.get();
+      return v.parse(user, response);
+    } catch (error) {
+      console.error("Failed to get user:", error);
+      throw error;
+    }
   }
 }

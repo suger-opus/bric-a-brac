@@ -25,7 +25,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api/provider";
 import { scrollToElement } from "@/lib/utils";
 import { GraphMetadata } from "@/types";
 import { ExpandIcon, PlusIcon, ShrinkIcon, VectorSquareIcon } from "lucide-react";
@@ -38,7 +37,6 @@ type AccessesProps = {
 };
 
 const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
-  const { accessService } = ApiProvider;
   const [accessedGraphs, setAccessedGraphs] = useState<GraphMetadata[]>([]);
   const [isAccessesLoading, setIsAccessesLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -57,10 +55,10 @@ const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
   const getAccesses = async () => {
     try {
       setIsAccessesLoading(true);
-      const results = await accessService.list();
+      const results = [] as GraphMetadata[];
       setAccessedGraphs(results);
     } catch (error) {
-      console.error("Error during getAccesses:", error);
+      console.error(error);
     } finally {
       setIsAccessesLoading(false);
     }

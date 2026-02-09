@@ -124,7 +124,7 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
       try {
         setError(null);
         setIsLoading(true);
-        const metadataRes = await graphService.getMetadata(graphId);
+        const metadataRes = await graphService.getOneMetadata(graphId);
         setMetadata(metadataRes);
         const schemaRes = await graphService.getSchema(graphId);
         setSchema(schemaRes);

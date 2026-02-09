@@ -33,14 +33,12 @@ export const property = v.object({
   property_id: v.string(),
   label: v.string(),
   formatted_label: v.string(),
+  property_type: propertyType,
   metadata: v.object({
-    property_type: propertyType, // porperty_type should not be inside metadata
-    details: v.object({
-      // min: v.nullable(v.number()),
-      // max: v.nullable(v.number()),
-      options: v.nullable(v.array(v.string()))
-      // required: v.boolean()
-    })
+    // min: v.nullable(v.number()),
+    // max: v.nullable(v.number()),
+    options: v.nullable(v.array(v.string()))
+    // required: v.boolean()
   })
 });
 
@@ -95,6 +93,7 @@ export const graphMetadata = v.object({
   description: v.string(),
   user_role: role,
   is_public: v.boolean(),
+  reddit: v.object({}),
   is_bookmarked_by_user: v.boolean(),
   is_cheered_by_user: v.boolean(),
   nb_data_nodes: v.number(),
@@ -107,5 +106,6 @@ export const user = v.object({
   user_id: v.string(),
   username: v.string(),
   email: v.string(),
-  created_at: v.date()
+  created_at: v.date(),
+  updated_at: v.date()
 });

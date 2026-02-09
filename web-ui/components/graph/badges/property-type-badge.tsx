@@ -11,24 +11,24 @@ type PropertyTypeBadgeProps = {
 };
 
 const PropertyTypeBadge = ({ property }: PropertyTypeBadgeProps) => {
-  return property.metadata.property_type === PropertyType.SELECT
+  return property.property_type === PropertyType.SELECT
     ? (
       <HoverCard>
         <HoverCardTrigger className="cursor-pointer">
           <Badge variant="outline" className="font-bold text-[9px]">
-            {property.metadata.property_type.toUpperCase()}{" "}
-            ({property.metadata.details.options!.length})
+            {property.property_type.toUpperCase()}{" "}
+            ({property.metadata.options!.length})
           </Badge>
         </HoverCardTrigger>
         <HoverCardContent className="w-fit">
           <span className="text-sm font-semibold">
-            {property.label} options ({property.metadata.details.options!.length})
+            {property.label} options ({property.metadata.options!.length})
           </span>
           <div className="mt-3 max-h-80 overflow-y-auto no-scrollbar">
-            {property.metadata.details.options!.map((p, index) => (
+            {property.metadata.options!.map((p, index) => (
               <Fragment key={index}>
                 <div className="text-sm">{p}</div>
-                {index < property.metadata.details.options!.length - 1 && (
+                {index < property.metadata.options!.length - 1 && (
                   <Separator className="my-2" />
                 )}
               </Fragment>
@@ -39,7 +39,7 @@ const PropertyTypeBadge = ({ property }: PropertyTypeBadgeProps) => {
     )
     : (
       <Badge variant="outline" className="font-bold text-[9px]">
-        {property.metadata.property_type.toUpperCase()}
+        {property.property_type.toUpperCase()}
       </Badge>
     );
 };

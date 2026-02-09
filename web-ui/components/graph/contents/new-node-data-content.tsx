@@ -18,12 +18,11 @@ const NewNodeDataContent = () => {
       );
       if (selectedSchema) {
         const initialProperties = selectedSchema.properties.map((prop) => {
-          const { property_type, details } = prop.metadata;
-          const initialValue = property_type === PropertyType.SELECT
-            ? details.options![0]
-            : property_type === PropertyType.STRING
+          const initialValue = prop.property_type === PropertyType.SELECT
+            ? prop.metadata.options![0]
+            : prop.property_type === PropertyType.STRING
             ? ""
-            : property_type === PropertyType.NUMBER
+            : prop.property_type === PropertyType.NUMBER
             ? 0
             : false; // BOOLEAN
           return {
