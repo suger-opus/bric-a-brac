@@ -1,0 +1,150 @@
+[
+  {
+    "label": "Person",
+    "formatted_label": "Person",
+    "color": "#4A90E2",
+    "properties": [
+      {
+        "label": "Name",
+        "formatted_label": "Name",
+        "property_type": "String"
+      },
+      {
+        "label": "BirthYear",
+        "formatted_label": "Birth_Year",
+        "property_type": "Number"
+      },
+      {
+        "label": "DeathYear",
+        "formatted_label": "Death_Year",
+        "property_type": "Number"
+      },
+      {
+        "label": "Title",
+        "formatted_label": "Title",
+        "property_type": "String"
+      },
+      {
+        "label": "Gender",
+        "formatted_label": "Gender",
+        "property_type": "Select",
+        "metadata": {
+          "options": [
+            "Male",
+            "Female"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "label": "Dynasty",
+    "formatted_label": "Dynasty",
+    "color": "#7B4173",
+    "properties": [
+      {
+        "label": "Name",
+        "formatted_label": "Name",
+        "property_type": "String"
+      },
+      {
+        "label": "Origin",
+        "formatted_label": "Origin",
+        "property_type": "String"
+      },
+      {
+        "label": "FoundedYear",
+        "formatted_label": "Founded_Year",
+        "property_type": "Number"
+      },
+      {
+        "label": "Founder",
+        "formatted_label": "Founder",
+        "property_type": "String"
+      }
+    ]
+  },
+  {
+    "label": "Polity",
+    "formatted_label": "Polity",
+    "color": "#2ECC71",
+    "properties": [
+      {
+        "label": "Name",
+        "formatted_label": "Name",
+        "property_type": "String"
+      },
+      {
+        "label": "Type",
+        "formatted_label": "Type",
+        "property_type": "Select",
+        "metadata": {
+          "options": [
+            "Kingdom",
+            "Empire",
+            "Duchy"
+          ]
+        }
+      },
+      {
+        "label": "FoundedYear",
+        "formatted_label": "Founded_Year",
+        "property_type": "Number"
+      }
+    ]
+  },
+  {
+    "label": "War",
+    "formatted_label": "War",
+    "color": "#E74C3C",
+    "properties": [
+      {
+        "label": "Name",
+        "formatted_label": "Name",
+        "property_type": "String"
+      },
+      {
+        "label": "StartYear",
+        "formatted_label": "Start_Year",
+        "property_type": "Number"
+      },
+      {
+        "label": "EndYear",
+        "formatted_label": "End_Year",
+        "property_type": "Number"
+      },
+      {
+        "label": "Cause",
+        "formatted_label": "Cause",
+        "property_type": "String"
+      },
+      {
+        "label": "Outcome",
+        "formatted_label": "Outcome",
+        "property_type": "String"
+      }
+    ]
+  },
+  {
+    "label": "Treaty",
+    "formatted_label": "Treaty",
+    "color": "#F1C40F",
+    "properties": [
+      {
+        "label": "Name",
+        "formatted_label": "Name",
+        "property_type": "String"
+      },
+      {
+        "label": "Year",
+        "formatted_label": "Year",
+        "property_type": "Number"
+      },
+      {
+        "label": "Location",
+        "formatted_label": "Location",
+        "property_type": "String"
+      }
+    ]
+  }
+]

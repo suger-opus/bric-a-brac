@@ -1,32 +1,95 @@
-use anyhow::Result;
+use anyhow::Context;
 use metadata::config::Config;
 use metadata::database;
 use metadata::dtos::{
     graph_dto::{
         PropertiesDto, ReqPostEdgeData, ReqPostEdgeSchema, ReqPostGraph, ReqPostNodeData,
-        ReqPostNodeSchema, ReqPostProperty,
+        ReqPostNodeSchema, ReqPostProperty, ResGraphMetadata,
     },
     user_dto::PostUser,
 };
 use metadata::models::{
-    access_model::Role,
+    edge_data_model::EdgeDataId,
+    edge_schema_model::{EdgeSchema, EdgeSchemaId},
+    graph_model::GraphId,
+    node_data_model::NodeDataId,
+    node_schema_model::{NodeSchema, NodeSchemaId},
     property_model::{PropertyMetadata, PropertyType},
-};
-use metadata::services::{
-    access_service::AccessService, graph_service::GraphService, user_service::UserService,
+    user_model::User,
 };
 use metadata::setup_tracing;
 use metadata::state::ApiState;
+use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 
+#[derive(Debug, Deserialize)]
+struct NodeSchemaJson {
+    label: String,
+    formatted_label: String,
+    color: String,
+    #[serde(default)]
+    properties: Vec<PropertyJson>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EdgeSchemaJson {
+    label: String,
+    formatted_label: String,
+    color: String,
+    #[serde(default)]
+    properties: Vec<PropertyJson>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PropertyJson {
+    label: String,
+    formatted_label: String,
+    property_type: String,
+    #[serde(default)]
+    metadata: PropertyMetadataJson,
+}
+
+impl TryFrom<&PropertyJson> for ReqPostProperty {
+    type Error = anyhow::Error;
+
+    fn try_from(property: &PropertyJson) -> Result<Self, Self::Error> {
+        Ok(ReqPostProperty {
+            label: property.label.clone(),
+            formatted_label: property.formatted_label.clone(),
+            property_type: PropertyType::try_from(property.property_type.as_str()).map_err(
+                |err| {
+                    anyhow::anyhow!(
+                        "Invalid property type '{}': {}",
+                        property.property_type,
+                        err
+                    )
+                },
+            )?,
+            metadata: if property.metadata.options.is_empty() {
+                PropertyMetadata::default()
+            } else {
+                PropertyMetadata {
+                    options: Some(property.metadata.options.clone()),
+                }
+            },
+        })
+    }
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct PropertyMetadataJson {
+    #[serde(default)]
+    options: Vec<String>,
+}
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     setup_tracing();
 
     tracing::info!("🌱 Starting database seed");
     let config = Config::load()?;
-    tracing::info!("� Connecting to database...");
+    tracing::info!("🔌 Connecting to database...");
     let pool = database::connect(&config.metadata_db).await?;
     tracing::info!("🗑️  Resetting database schema...");
     database::reset(&pool).await?;
@@ -35,579 +98,319 @@ async fn main() -> Result<()> {
     tracing::info!("🌱 Seeding database...");
     pool.close().await;
     let state = ApiState::build(&config).await?;
-    seed(
-        state.user_service,
-        state.graph_service,
-        state.access_service,
-    )
-    .await?;
+    tracing::info!("Starting database seeding...");
+    let user = create_user(&state).await?;
+    tracing::info!("✓ Created user: admin");
+    let graph = create_graph(&state, &user).await?;
+    tracing::info!("✓ Created graph: European Royalty");
+    let node_schemas = load_node_schemas().await?;
+    tracing::info!("✓ Loaded {} node schemas", node_schemas.len());
+    let node_schemas = create_node_schemas(&state, graph.graph.graph_id, node_schemas).await?;
+    tracing::info!("✓ Created {} node schemas", node_schemas.len());
+    let edge_schemas = load_edge_schemas().await?;
+    tracing::info!("✓ Loaded {} edge schemas", edge_schemas.len());
+    let edge_schemas = create_edge_schemas(&state, graph.graph.graph_id, edge_schemas).await?;
+    tracing::info!("✓ Created {} edge schemas", edge_schemas.len());
+    let node_data = create_node_data(&state, graph.graph.graph_id, &node_schemas).await?;
+    tracing::info!("✓ Created {} nodes", node_data.len());
+    let edge_data =
+        create_edge_data(&state, graph.graph.graph_id, &edge_schemas, &node_data).await?;
+    tracing::info!("✓ Created {} edges", edge_data.len());
+    tracing::info!("🎉 Database seeding completed successfully!");
     tracing::info!("✅ All done!");
 
     Ok(())
 }
 
-async fn seed(
-    user_service: UserService,
-    graph_service: GraphService,
-    access_service: AccessService,
-) -> Result<()> {
-    tracing::info!("Starting database seeding...");
-
-    let alice = user_service
+async fn create_user(state: &ApiState) -> anyhow::Result<User> {
+    state
+        .user_service
         .post(PostUser {
-            username: "alice".to_string(),
-            email: "alice@example.com".to_string(),
+            username: "admin".to_string(),
+            email: "admin@example.com".to_string(),
         })
         .await
-        .expect("Failed to create alice user");
+        .map_err(|err| anyhow::anyhow!("Failed to create user: {:?}", err))
+}
 
-    let bob = user_service
-        .post(PostUser {
-            username: "bob".to_string(),
-            email: "bob@example.com".to_string(),
-        })
-        .await
-        .expect("Failed to create bob user");
-
-    let charlie = user_service
-        .post(PostUser {
-            username: "charlie".to_string(),
-            email: "charlie@example.com".to_string(),
-        })
-        .await
-        .expect("Failed to create charlie user");
-
-    tracing::info!("✓ Created 3 users: alice, bob and charlie");
-
-    let graph1 = graph_service
+async fn create_graph(state: &ApiState, user: &User) -> anyhow::Result<ResGraphMetadata> {
+    state
+        .graph_service
         .post(
-            alice.user_id,
+            user.user_id,
             ReqPostGraph {
-                name: "Project Graph".to_string(),
-                description: "Software project dependencies".to_string(),
-                is_public: false,
+                name: "European Royalty".to_string(),
+                description: "Historical graph of European monarchies, dynasties, and conflicts"
+                    .to_string(),
+                is_public: true,
             },
         )
         .await
-        .expect("Failed to create Project Graph");
+        .map_err(|err| anyhow::anyhow!("Failed to create graph: {:?}", err))
+}
 
-    let graph2 = graph_service
-        .post(
-            bob.user_id,
-            ReqPostGraph {
-                name: "Research Notes".to_string(),
-                description: "Academic research graph".to_string(),
-                is_public: false,
-            },
-        )
-        .await
-        .expect("Failed to create Research Notes graph");
+async fn load_node_schemas() -> anyhow::Result<Vec<NodeSchemaJson>> {
+    let node_schemas = std::fs::read_to_string("src/bin/dataset/nodes/schemas.json")
+        .context("Failed to read node schemas.json")?;
+    let node_schemas: Vec<NodeSchemaJson> =
+        serde_json::from_str(&node_schemas).context("Failed to parse node schemas")?;
 
-    let graph3 = graph_service
-        .post(
-            charlie.user_id,
-            ReqPostGraph {
-                name: "Knowledge Base".to_string(),
-                description: "Personal knowledge management system".to_string(),
-                is_public: false,
-            },
-        )
-        .await
-        .expect("Failed to create Knowledge Base graph");
+    Ok(node_schemas)
+}
 
-    tracing::info!("✓ Created 3 graphs");
+async fn load_edge_schemas() -> anyhow::Result<Vec<EdgeSchemaJson>> {
+    let edge_schemas = std::fs::read_to_string("src/bin/dataset/edges/schemas.json")
+        .context("Failed to read edge schemas.json")?;
+    let edge_schemas: Vec<EdgeSchemaJson> =
+        serde_json::from_str(&edge_schemas).context("Failed to parse edge schemas")?;
 
-    access_service
-        .post(alice.user_id, graph2.graph.graph_id, Role::Viewer)
-        .await
-        .expect("Failed to grant alice access to Project Graph");
+    Ok(edge_schemas)
+}
 
-    access_service
-        .post(bob.user_id, graph3.graph.graph_id, Role::Admin)
-        .await
-        .expect("Failed to grant bob access to Research Notes");
+async fn create_node_schemas(
+    state: &ApiState,
+    graph_id: GraphId,
+    node_schemas: Vec<NodeSchemaJson>,
+) -> anyhow::Result<HashMap<NodeSchemaId, NodeSchema>> {
+    let mut node_schema_map = HashMap::new();
 
-    access_service
-        .post(charlie.user_id, graph1.graph.graph_id, Role::Editor)
-        .await
-        .expect("Failed to grant charlie access to Knowledge Base");
+    for schema in &node_schemas {
+        let properties: Vec<ReqPostProperty> = schema
+            .properties
+            .iter()
+            .map(|property| property.try_into())
+            .collect::<Result<Vec<_>, _>>()
+            .with_context(|| format!("Invalid properties in node schema {}", schema.label))?;
 
-    tracing::info!("✓ Granted users access to some graphs");
+        let response = state
+            .graph_service
+            .post_node_schema(
+                graph_id,
+                ReqPostNodeSchema {
+                    label: schema.label.clone(),
+                    formatted_label: schema.formatted_label.clone(),
+                    color: schema.color.clone(),
+                    properties,
+                },
+            )
+            .await
+            .map_err(|err| {
+                anyhow::anyhow!("Failed to create node schema {}: {:?}", schema.label, err)
+            })?;
 
-    tracing::info!("Adding schemas to Project Graph...");
+        node_schema_map.insert(
+            response.node_schema.node_schema_id.clone(),
+            response.node_schema,
+        );
+    }
 
-    let package_schema = graph_service
-        .post_node_schema(
-            graph1.graph.graph_id,
-            ReqPostNodeSchema {
-                label: "Package".to_string(),
-                formatted_label: "Package".to_string(),
-                color: "#3B82F6".to_string(),
-                properties: vec![
-                    ReqPostProperty {
-                        label: "name".to_string(),
-                        formatted_label: "Name".to_string(),
-                        property_type: PropertyType::String,
-                        metadata: PropertyMetadata::default(),
+    Ok(node_schema_map)
+}
+
+async fn create_edge_schemas(
+    state: &ApiState,
+    graph_id: GraphId,
+    edge_schemas: Vec<EdgeSchemaJson>,
+) -> anyhow::Result<HashMap<EdgeSchemaId, EdgeSchema>> {
+    let mut edge_schema_map = HashMap::new();
+
+    for schema in &edge_schemas {
+        let properties: Vec<ReqPostProperty> = schema
+            .properties
+            .iter()
+            .map(|property| property.try_into())
+            .collect::<Result<Vec<_>, _>>()
+            .with_context(|| format!("Invalid properties in edge schema {}", schema.label))?;
+
+        let response = state
+            .graph_service
+            .post_edge_schema(
+                graph_id,
+                ReqPostEdgeSchema {
+                    label: schema.label.clone(),
+                    formatted_label: schema.formatted_label.clone(),
+                    color: schema.color.clone(),
+                    properties,
+                },
+            )
+            .await
+            .map_err(|err| {
+                anyhow::anyhow!("Failed to create edge schema {}: {:?}", schema.label, err)
+            })?;
+
+        edge_schema_map.insert(
+            response.edge_schema.edge_schema_id.clone(),
+            response.edge_schema,
+        );
+    }
+
+    Ok(edge_schema_map)
+}
+
+trait ExtendCsvRecord {
+    fn extract_properties(
+        &self,
+        headers: &csv::StringRecord,
+        skip: usize,
+    ) -> anyhow::Result<HashMap<String, serde_json::Value>>;
+}
+
+impl ExtendCsvRecord for csv::StringRecord {
+    fn extract_properties(
+        &self,
+        headers: &csv::StringRecord,
+        skip: usize,
+    ) -> anyhow::Result<HashMap<String, serde_json::Value>> {
+        let mut properties = HashMap::new();
+
+        for (i, value) in self.iter().enumerate().skip(skip) {
+            if !value.is_empty() {
+                let header = headers
+                    .get(i)
+                    .with_context(|| format!("Unable to read header at index {}", i))?;
+                if let Ok(num) = value.parse::<i32>() {
+                    properties.insert(header.to_string(), json!(num));
+                } else if let Ok(bool) = value.parse::<bool>() {
+                    properties.insert(header.to_string(), json!(bool));
+                } else {
+                    properties.insert(header.to_string(), json!(value));
+                }
+            }
+        }
+
+        Ok(properties)
+    }
+}
+
+fn read_csv(formatted_label: &str, is_node: bool) -> anyhow::Result<(String, String)> {
+    let folder = if is_node { "nodes" } else { "edges" };
+    let filename = formatted_label.to_lowercase() + ".csv";
+    let csv_path = format!("src/bin/dataset/{}/{}", folder, filename);
+    let content = std::fs::read_to_string(&csv_path)
+        .with_context(|| format!("Unable to read file {}", &csv_path))?;
+
+    Ok((csv_path, content))
+}
+
+async fn create_node_data(
+    state: &ApiState,
+    graph_id: GraphId,
+    node_schemas: &HashMap<NodeSchemaId, NodeSchema>,
+) -> anyhow::Result<HashMap<String, NodeDataId>> {
+    let mut node_data: HashMap<String, NodeDataId> = HashMap::new();
+
+    for (node_schema_id, node_schema) in node_schemas {
+        let (csv_path, content) = read_csv(&node_schema.formatted_label, true)?;
+        let mut csv_reader = csv::Reader::from_reader(content.as_bytes());
+        let headers = csv_reader
+            .headers()
+            .with_context(|| format!("Failed to read CSV headers for file {}", csv_path))?
+            .clone();
+
+        for result in csv_reader.records() {
+            let record = result
+                .with_context(|| format!("Failed to read CSV record for file {}", csv_path))?;
+            let node_id = record
+                .get(0)
+                .with_context(|| format!("Missing record ID in file {}", csv_path))?
+                .to_string();
+            let properties = record.extract_properties(&headers, 1).with_context(|| {
+                format!(
+                    "Failed to extract properties for node {} in file {}",
+                    node_id, csv_path
+                )
+            })?;
+
+            let response = state
+                .graph_service
+                .post_node_data(
+                    graph_id,
+                    ReqPostNodeData {
+                        node_schema_id: *node_schema_id,
+                        formatted_label: node_schema.formatted_label.clone(),
+                        properties: PropertiesDto(properties),
                     },
-                    ReqPostProperty {
-                        label: "version".to_string(),
-                        formatted_label: "Version".to_string(),
-                        property_type: PropertyType::String,
-                        metadata: PropertyMetadata::default(),
+                )
+                .await
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to create node {} in file {}: {:?}",
+                        node_id,
+                        csv_path,
+                        err
+                    )
+                })?;
+
+            node_data.insert(node_id, response.node_data_id);
+        }
+    }
+
+    Ok(node_data)
+}
+
+async fn create_edge_data(
+    state: &ApiState,
+    graph_id: GraphId,
+    edge_schemas: &HashMap<EdgeSchemaId, EdgeSchema>,
+    node_data_map: &HashMap<String, NodeDataId>,
+) -> anyhow::Result<HashMap<String, EdgeDataId>> {
+    let edge_data: HashMap<String, EdgeDataId> = HashMap::new();
+
+    for (edge_schema_id, edge_schema) in edge_schemas {
+        let (csv_path, content) = read_csv(&edge_schema.formatted_label, false)?;
+        let mut csv_reader = csv::Reader::from_reader(content.as_bytes());
+        let headers = csv_reader
+            .headers()
+            .with_context(|| format!("Failed to read CSV headers for file {}", csv_path))?
+            .clone();
+
+        for result in csv_reader.records() {
+            let record = result
+                .with_context(|| format!("Failed to read CSV record for file {}", csv_path))?;
+            let from_node_id = record
+                .get(1)
+                .with_context(|| format!("Failed to read from node ID in file {}", csv_path))?;
+            let to_node_id = record
+                .get(2)
+                .with_context(|| format!("Failed to read to node ID in file {}", csv_path))?;
+            let properties = record.extract_properties(&headers, 3).with_context(|| {
+                format!(
+                    "Failed to extract properties for edge {} -> {} in file {}",
+                    from_node_id, to_node_id, csv_path
+                )
+            })?;
+            let from_node_data_id = node_data_map
+                .get(from_node_id)
+                .with_context(|| format!("Node not found: {}", from_node_id))?;
+            let to_node_data_id = node_data_map
+                .get(to_node_id)
+                .with_context(|| format!("Node not found: {}", to_node_id))?;
+
+            state
+                .graph_service
+                .post_edge_data(
+                    graph_id,
+                    ReqPostEdgeData {
+                        edge_schema_id: *edge_schema_id,
+                        from_node_data_id: *from_node_data_id,
+                        to_node_data_id: *to_node_data_id,
+                        formatted_label: edge_schema.formatted_label.clone(),
+                        properties: PropertiesDto(properties),
                     },
-                ],
-            },
-        )
-        .await
-        .expect("Failed to create Package node schema");
+                )
+                .await
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to create edge {} ({} -> {}) in file {}: {:?}",
+                        edge_schema.formatted_label,
+                        from_node_id,
+                        to_node_id,
+                        csv_path,
+                        err
+                    )
+                })?;
+        }
+    }
 
-    let module_schema = graph_service
-        .post_node_schema(
-            graph1.graph.graph_id,
-            ReqPostNodeSchema {
-                label: "Module".to_string(),
-                formatted_label: "Module".to_string(),
-                color: "#10B981".to_string(),
-                properties: vec![ReqPostProperty {
-                    label: "path".to_string(),
-                    formatted_label: "Path".to_string(),
-                    property_type: PropertyType::String,
-                    metadata: PropertyMetadata::default(),
-                }],
-            },
-        )
-        .await
-        .expect("Failed to create Module node schema");
-
-    let depends_on_schema = graph_service
-        .post_edge_schema(
-            graph1.graph.graph_id,
-            ReqPostEdgeSchema {
-                label: "DependsOn".to_string(),
-                formatted_label: "Depends_On".to_string(),
-                color: "#EF4444".to_string(),
-                properties: vec![ReqPostProperty {
-                    label: "constraint".to_string(),
-                    formatted_label: "Version_Constraint".to_string(),
-                    property_type: PropertyType::String,
-                    metadata: PropertyMetadata::default(),
-                }],
-            },
-        )
-        .await
-        .expect("Failed to create DependsOn edge schema");
-
-    tracing::info!("✓ Added schemas to Project Graph");
-
-    tracing::info!("Adding schemas to Research Notes...");
-
-    let paper_schema = graph_service
-        .post_node_schema(
-            graph2.graph.graph_id,
-            ReqPostNodeSchema {
-                label: "Paper".to_string(),
-                formatted_label: "Paper".to_string(),
-                color: "#8B5CF6".to_string(),
-                properties: vec![
-                    ReqPostProperty {
-                        label: "title".to_string(),
-                        formatted_label: "Title".to_string(),
-                        property_type: PropertyType::String,
-                        metadata: PropertyMetadata::default(),
-                    },
-                    ReqPostProperty {
-                        label: "year".to_string(),
-                        formatted_label: "Publication_Year".to_string(),
-                        property_type: PropertyType::Number,
-                        metadata: PropertyMetadata::default(),
-                    },
-                ],
-            },
-        )
-        .await
-        .expect("Failed to create Paper node schema");
-
-    let author_schema = graph_service
-        .post_node_schema(
-            graph2.graph.graph_id,
-            ReqPostNodeSchema {
-                label: "Author".to_string(),
-                formatted_label: "Author".to_string(),
-                color: "#F59E0B".to_string(),
-                properties: vec![ReqPostProperty {
-                    label: "full_name".to_string(),
-                    formatted_label: "Full_Name".to_string(),
-                    property_type: PropertyType::String,
-                    metadata: PropertyMetadata::default(),
-                }],
-            },
-        )
-        .await
-        .expect("Failed to create Author node schema");
-
-    let cites_schema = graph_service
-        .post_edge_schema(
-            graph2.graph.graph_id,
-            ReqPostEdgeSchema {
-                label: "Cites".to_string(),
-                formatted_label: "Cites".to_string(),
-                color: "#06B6D4".to_string(),
-                properties: vec![],
-            },
-        )
-        .await
-        .expect("Failed to create Cites edge schema");
-
-    let authored_by_schema = graph_service
-        .post_edge_schema(
-            graph2.graph.graph_id,
-            ReqPostEdgeSchema {
-                label: "AuthoredBy".to_string(),
-                formatted_label: "Authored_By".to_string(),
-                color: "#EC4899".to_string(),
-                properties: vec![],
-            },
-        )
-        .await
-        .expect("Failed to create AuthoredBy edge schema");
-
-    tracing::info!("✓ Added schemas to Research Notes");
-
-    tracing::info!("Adding schemas to Knowledge Base...");
-
-    let topic_schema = graph_service
-        .post_node_schema(
-            graph3.graph.graph_id,
-            ReqPostNodeSchema {
-                label: "Topic".to_string(),
-                formatted_label: "Topic".to_string(),
-                color: "#14B8A6".to_string(),
-                properties: vec![
-                    ReqPostProperty {
-                        label: "name".to_string(),
-                        formatted_label: "Name".to_string(),
-                        property_type: PropertyType::String,
-                        metadata: PropertyMetadata::default(),
-                    },
-                    ReqPostProperty {
-                        label: "importance".to_string(),
-                        formatted_label: "Importance_Level".to_string(),
-                        property_type: PropertyType::Number,
-                        metadata: PropertyMetadata::default(),
-                    },
-                ],
-            },
-        )
-        .await
-        .expect("Failed to create Topic node schema");
-
-    let document_schema = graph_service
-        .post_node_schema(
-            graph3.graph.graph_id,
-            ReqPostNodeSchema {
-                label: "Document".to_string(),
-                formatted_label: "Document".to_string(),
-                color: "#A855F7".to_string(),
-                properties: vec![],
-            },
-        )
-        .await
-        .expect("Failed to create Document node schema");
-
-    let tag_schema = graph_service
-        .post_node_schema(
-            graph3.graph.graph_id,
-            ReqPostNodeSchema {
-                label: "Tag".to_string(),
-                formatted_label: "Tag".to_string(),
-                color: "#F97316".to_string(),
-                properties: vec![],
-            },
-        )
-        .await
-        .expect("Failed to create Tag node schema");
-
-    let contains_schema = graph_service
-        .post_edge_schema(
-            graph3.graph.graph_id,
-            ReqPostEdgeSchema {
-                label: "Contains".to_string(),
-                formatted_label: "Contains".to_string(),
-                color: "#84CC16".to_string(),
-                properties: vec![ReqPostProperty {
-                    label: "order".to_string(),
-                    formatted_label: "Order".to_string(),
-                    property_type: PropertyType::Number,
-                    metadata: PropertyMetadata::default(),
-                }],
-            },
-        )
-        .await
-        .expect("Failed to create Contains edge schema");
-
-    let tagged_with_schema = graph_service
-        .post_edge_schema(
-            graph3.graph.graph_id,
-            ReqPostEdgeSchema {
-                label: "TaggedWith".to_string(),
-                formatted_label: "Tagged_With".to_string(),
-                color: "#6366F1".to_string(),
-                properties: vec![],
-            },
-        )
-        .await
-        .expect("Failed to create TaggedWith edge schema");
-
-    tracing::info!("✓ Added schemas to Knowledge Base");
-
-    tracing::info!("Adding nodes and edges to Project Graph...");
-
-    let mut props1 = HashMap::new();
-    props1.insert("Name".to_string(), json!("tokio"));
-    props1.insert("Version".to_string(), json!("1.41.0"));
-    let tokio_node = graph_service
-        .post_node_data(
-            graph1.graph.graph_id,
-            ReqPostNodeData {
-                node_schema_id: package_schema.node_schema.node_schema_id,
-                formatted_label: "Package".to_string(),
-                properties: PropertiesDto(props1),
-            },
-        )
-        .await
-        .expect("Failed to insert tokio node");
-
-    let mut props2 = HashMap::new();
-    props2.insert("Name".to_string(), json!("axum"));
-    props2.insert("Version".to_string(), json!("0.7.0"));
-    let axum_node = graph_service
-        .post_node_data(
-            graph1.graph.graph_id,
-            ReqPostNodeData {
-                node_schema_id: package_schema.node_schema.node_schema_id,
-                formatted_label: "Package".to_string(),
-                properties: PropertiesDto(props2),
-            },
-        )
-        .await
-        .expect("Failed to insert axum node");
-
-    let mut props3 = HashMap::new();
-    props3.insert("Path".to_string(), json!("src/main.rs"));
-    let main_node = graph_service
-        .post_node_data(
-            graph1.graph.graph_id,
-            ReqPostNodeData {
-                node_schema_id: module_schema.node_schema.node_schema_id,
-                formatted_label: "Module".to_string(),
-                properties: PropertiesDto(props3),
-            },
-        )
-        .await
-        .expect("Failed to insert main module node");
-
-    let mut edge_props1 = HashMap::new();
-    edge_props1.insert("Version_Constraint".to_string(), json!("^1.0"));
-    graph_service
-        .post_edge_data(
-            graph1.graph.graph_id,
-            ReqPostEdgeData {
-                edge_schema_id: depends_on_schema.edge_schema.edge_schema_id,
-                from_node_data_id: axum_node.node_data_id,
-                to_node_data_id: tokio_node.node_data_id,
-                formatted_label: "Depends_On".to_string(),
-                properties: PropertiesDto(edge_props1),
-            },
-        )
-        .await
-        .expect("Failed to insert DependsOn edge");
-
-    let mut edge_props2 = HashMap::new();
-    edge_props2.insert("Version_Constraint".to_string(), json!("^0.7"));
-    graph_service
-        .post_edge_data(
-            graph1.graph.graph_id,
-            ReqPostEdgeData {
-                edge_schema_id: depends_on_schema.edge_schema.edge_schema_id,
-                from_node_data_id: main_node.node_data_id,
-                to_node_data_id: axum_node.node_data_id,
-                formatted_label: "Depends_On".to_string(),
-                properties: PropertiesDto(edge_props2),
-            },
-        )
-        .await
-        .expect("Failed to insert DependsOn edge");
-
-    tracing::info!("✓ Added data to Project Graph (3 nodes, 2 edges)");
-
-    tracing::info!("Adding nodes and edges to Research Notes...");
-
-    let mut props4 = HashMap::new();
-    props4.insert("Title".to_string(), json!("Attention Is All You Need"));
-    props4.insert("Publication_Year".to_string(), json!(2017));
-    let paper1_node = graph_service
-        .post_node_data(
-            graph2.graph.graph_id,
-            ReqPostNodeData {
-                node_schema_id: paper_schema.node_schema.node_schema_id,
-                formatted_label: "Paper".to_string(),
-                properties: PropertiesDto(props4),
-            },
-        )
-        .await
-        .expect("Failed to insert paper1 node");
-
-    let mut props5 = HashMap::new();
-    props5.insert(
-        "Title".to_string(),
-        json!("BERT: Pre-training of Deep Bidirectional Transformers"),
-    );
-    props5.insert("Publication_Year".to_string(), json!(2018));
-    let paper2_node = graph_service
-        .post_node_data(
-            graph2.graph.graph_id,
-            ReqPostNodeData {
-                node_schema_id: paper_schema.node_schema.node_schema_id,
-                formatted_label: "Paper".to_string(),
-                properties: PropertiesDto(props5),
-            },
-        )
-        .await
-        .expect("Failed to insert paper2 node");
-
-    let mut props6 = HashMap::new();
-    props6.insert("Full_Name".to_string(), json!("Ashish Vaswani"));
-    let author_node = graph_service
-        .post_node_data(
-            graph2.graph.graph_id,
-            ReqPostNodeData {
-                node_schema_id: author_schema.node_schema.node_schema_id,
-                formatted_label: "Author".to_string(),
-                properties: PropertiesDto(props6),
-            },
-        )
-        .await
-        .expect("Failed to insert author node");
-
-    graph_service
-        .post_edge_data(
-            graph2.graph.graph_id,
-            ReqPostEdgeData {
-                edge_schema_id: cites_schema.edge_schema.edge_schema_id,
-                from_node_data_id: paper2_node.node_data_id,
-                to_node_data_id: paper1_node.node_data_id,
-                formatted_label: "Cites".to_string(),
-                properties: PropertiesDto(HashMap::new()),
-            },
-        )
-        .await
-        .expect("Failed to insert Cites edge");
-
-    graph_service
-        .post_edge_data(
-            graph2.graph.graph_id,
-            ReqPostEdgeData {
-                edge_schema_id: authored_by_schema.edge_schema.edge_schema_id,
-                from_node_data_id: paper1_node.node_data_id,
-                to_node_data_id: author_node.node_data_id,
-                formatted_label: "Authored_By".to_string(),
-                properties: PropertiesDto(HashMap::new()),
-            },
-        )
-        .await
-        .expect("Failed to insert AuthoredBy edge");
-
-    tracing::info!("✓ Added data to Research Notes (3 nodes, 2 edges)");
-
-    tracing::info!("Adding nodes and edges to Knowledge Base...");
-
-    let mut props7 = HashMap::new();
-    props7.insert("Name".to_string(), json!("Rust Programming"));
-    props7.insert("Importance_Level".to_string(), json!(10));
-    let topic1_node = graph_service
-        .post_node_data(
-            graph3.graph.graph_id,
-            ReqPostNodeData {
-                node_schema_id: topic_schema.node_schema.node_schema_id,
-                formatted_label: "Topic".to_string(),
-                properties: PropertiesDto(props7),
-            },
-        )
-        .await
-        .expect("Failed to insert topic1 node");
-
-    let mut props8 = HashMap::new();
-    props8.insert("Name".to_string(), json!("Async Programming"));
-    props8.insert("Importance_Level".to_string(), json!(8));
-    let topic2_node = graph_service
-        .post_node_data(
-            graph3.graph.graph_id,
-            ReqPostNodeData {
-                node_schema_id: topic_schema.node_schema.node_schema_id,
-                formatted_label: "Topic".to_string(),
-                properties: PropertiesDto(props8),
-            },
-        )
-        .await
-        .expect("Failed to insert topic2 node");
-
-    let doc_node = graph_service
-        .post_node_data(
-            graph3.graph.graph_id,
-            ReqPostNodeData {
-                node_schema_id: document_schema.node_schema.node_schema_id,
-                formatted_label: "Document".to_string(),
-                properties: PropertiesDto(HashMap::new()),
-            },
-        )
-        .await
-        .expect("Failed to insert document node");
-
-    let tag_node = graph_service
-        .post_node_data(
-            graph3.graph.graph_id,
-            ReqPostNodeData {
-                node_schema_id: tag_schema.node_schema.node_schema_id,
-                formatted_label: "Tag".to_string(),
-                properties: PropertiesDto(HashMap::new()),
-            },
-        )
-        .await
-        .expect("Failed to insert tag node");
-
-    let mut edge_props3 = HashMap::new();
-    edge_props3.insert("Order".to_string(), json!(1));
-    graph_service
-        .post_edge_data(
-            graph3.graph.graph_id,
-            ReqPostEdgeData {
-                edge_schema_id: contains_schema.edge_schema.edge_schema_id,
-                from_node_data_id: topic1_node.node_data_id,
-                to_node_data_id: topic2_node.node_data_id,
-                formatted_label: "Contains".to_string(),
-                properties: PropertiesDto(edge_props3),
-            },
-        )
-        .await
-        .expect("Failed to insert Contains edge");
-
-    graph_service
-        .post_edge_data(
-            graph3.graph.graph_id,
-            ReqPostEdgeData {
-                edge_schema_id: tagged_with_schema.edge_schema.edge_schema_id,
-                from_node_data_id: doc_node.node_data_id,
-                to_node_data_id: tag_node.node_data_id,
-                formatted_label: "Tagged_With".to_string(),
-                properties: PropertiesDto(HashMap::new()),
-            },
-        )
-        .await
-        .expect("Failed to insert TaggedWith edge");
-
-    tracing::info!("✓ Added data to Knowledge Base (4 nodes, 2 edges)");
-
-    tracing::info!("🎉 Database seeding completed successfully!");
-    Ok(())
+    Ok(edge_data)
 }

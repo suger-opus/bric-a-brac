@@ -126,9 +126,9 @@ impl From<HashMap<String, PropertyValue>> for PropertiesDto {
     }
 }
 
-impl Into<HashMap<String, PropertyValue>> for PropertiesDto {
-    fn into(self) -> HashMap<String, PropertyValue> {
-        self.0
+impl From<PropertiesDto> for HashMap<String, PropertyValue> {
+    fn from(dto: PropertiesDto) -> HashMap<String, PropertyValue> {
+        dto.0
             .into_iter()
             .map(|(formatted_label, value)| {
                 let proto_value = match value {

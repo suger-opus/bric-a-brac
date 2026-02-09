@@ -19,6 +19,20 @@ pub enum PropertyType {
     Select,
 }
 
+impl TryFrom<&str> for PropertyType {
+    type Error = String;
+
+    fn try_from(type_str: &str) -> Result<Self, Self::Error> {
+        match type_str.to_lowercase().as_str() {
+            "number" => Ok(PropertyType::Number),
+            "string" => Ok(PropertyType::String),
+            "boolean" => Ok(PropertyType::Boolean),
+            "select" => Ok(PropertyType::Select),
+            _ => Err(format!("Unsupported property type: {}", type_str)),
+        }
+    }
+}
+
 // TODO: rename Property to PropertySchema
 // Also rename tables edge_schemas and node_schemas to edges_schemas and node_schemas
 #[derive(Debug, Serialize)]

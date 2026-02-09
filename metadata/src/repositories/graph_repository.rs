@@ -584,11 +584,11 @@ impl From<Vec<SchemaRow>> for ResGraphSchema {
         }
 
         ResGraphSchema {
-            node_schemas: node_schemas_map
+            nodes: node_schemas_map
                 .into_iter()
                 .map(|(_, schemas)| schemas.into())
                 .collect(),
-            edge_schemas: edge_schemas_map
+            edges: edge_schemas_map
                 .into_iter()
                 .map(|(_, schemas)| schemas.into())
                 .collect(),

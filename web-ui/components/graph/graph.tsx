@@ -4,6 +4,7 @@ import { useGraph } from "@/contexts/graph-context";
 import { sampleProcessedGraphData } from "@/lib/api/data";
 import { ProcessedEdgeData, ProcessedNodeData } from "@/types";
 import dynamic from "next/dynamic";
+import { useCallback, useRef } from "react";
 import SpriteText from "three-spritetext";
 
 const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
@@ -30,6 +31,9 @@ const Graph = ({ dimensions, setOpenCommand }: GraphProps) => {
     focusEdge
   } = useGraph();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const graphRef = useRef<any>(null);
+
   const handleNodeClick = (id: string) => {
     setOpenCommand(false);
     setFocusEdge(null);
@@ -54,13 +58,33 @@ const Graph = ({ dimensions, setOpenCommand }: GraphProps) => {
     setOpenCommand(true);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const zoomNode = useCallback((node: any) => {
+    const distance = 40;
+    const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
+
+    if (graphRef.current) {
+      graphRef.current.cameraPosition(
+        { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new position
+        node, // lookAt ({ x, y, z })
+        3000 // ms transition duration
+      );
+    }
+  }, [graphRef]);
+
   return (
     <ForceGraph3D
+      ref={graphRef}
       graphData={isLoaded ? processedData! : sampleProcessedGraphData}
       backgroundColor="white"
       width={dimensions.width}
       height={dimensions.height}
-      onNodeClick={isLoaded ? (e) => handleNodeClick(e.id as string) : undefined}
+      onNodeClick={isLoaded
+        ? (e) => {
+          handleNodeClick(e.id as string);
+          zoomNode(e);
+        }
+        : undefined}
       onLinkClick={isLoaded ? (e) => handleEdgeClick(e.id as string) : undefined}
       onBackgroundClick={isLoaded ? () => handleBackgroundClick() : undefined}
       nodeThreeObjectExtend={isLoaded}

@@ -53,7 +53,7 @@ export class ApiGraphService implements GraphService {
 
   async getOneMetadata(graph_id: string): Promise<GraphMetadata> {
     try {
-      const response = await this.api(`/${graph_id}/metadata`).get();
+      const response = await this.api(`/${graph_id}`).get();
       return v.parse(graphMetadata, response);
     } catch (error) {
       console.error("Failed to get one graph metadata:", error);

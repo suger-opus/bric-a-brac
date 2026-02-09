@@ -61,10 +61,10 @@ const GraphSidebar = ({ openCommand }: GraphSidebarProps) => {
                     <b>
                       <u>{metadata!.owner_username}</u>
                     </b>{" "}
-                    <i>on {metadata!.created_at.toLocaleDateString()}</i>
+                    <i>on {new Date(metadata!.created_at).toLocaleDateString()}</i>
                   </p>
                   <p>
-                    <i>last edited: {metadata!.updated_at.toLocaleDateString()}</i>
+                    <i>last edited: {new Date(metadata!.updated_at).toLocaleDateString()}</i>
                   </p>
                 </div>
               </div>

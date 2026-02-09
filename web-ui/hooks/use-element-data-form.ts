@@ -106,11 +106,11 @@ export const useElementDataForm = (): UseElementDataFormReturn => {
   };
 
   const submitNode = async () => {
-    // TODO: Implement node schema submission
+    // TODO: Implement node data submission
   };
 
   const submitEdge = async () => {
-    // TODO: Implement edge schema submission
+    // TODO: Implement edge data submission
   };
 
   return {

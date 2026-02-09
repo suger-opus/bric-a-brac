@@ -1,24 +1,24 @@
 import * as v from "valibot";
 
 export enum Role {
-  OWNER = "owner",
-  ADMIN = "admin",
-  EDITOR = "editor",
-  VIEWER = "viewer",
-  NONE = "none"
+  OWNER = "Owner",
+  ADMIN = "Admin",
+  EDITOR = "Editor",
+  VIEWER = "Viewer",
+  NONE = "None"
 }
 export const role = v.enum(Role);
 
 export enum PropertyType {
-  NUMBER = "number",
+  NUMBER = "Number",
   // INTEGER = "integer",
   // FLOAT = "float",
-  STRING = "string",
-  BOOLEAN = "boolean",
+  STRING = "String",
+  BOOLEAN = "Boolean",
   // DATE = "date",
   // TIME = "time",
   // RANGE = "range",
-  SELECT = "select"
+  SELECT = "Select"
   // MULTISELECT = "multiselect"
 }
 export const propertyType = v.enum(PropertyType);
@@ -43,7 +43,7 @@ export const property = v.object({
 });
 
 export const nodeSchema = v.object({
-  node_id: v.string(),
+  node_schema_id: v.string(),
   label: v.string(),
   formatted_label: v.string(),
   color: v.string(),
@@ -51,7 +51,7 @@ export const nodeSchema = v.object({
 });
 
 export const edgeSchema = v.object({
-  edge_id: v.string(),
+  edge_schema_id: v.string(),
   label: v.string(),
   formatted_label: v.string(),
   color: v.string(),
@@ -59,17 +59,15 @@ export const edgeSchema = v.object({
 });
 
 export const nodeData = v.object({
-  graph_id: v.string(),
-  node_id: v.string(),
+  node_data_id: v.string(),
   formatted_label: v.string(),
   properties: v.record(v.string(), propertyValue)
 });
 
 export const edgeData = v.object({
-  graph_id: v.string(),
-  edge_id: v.string(),
-  from_id: v.string(),
-  to_id: v.string(),
+  edge_data_id: v.string(),
+  from_node_data_id: v.string(),
+  to_node_data_id: v.string(),
   formatted_label: v.string(),
   properties: v.record(v.string(), propertyValue)
 });
@@ -87,8 +85,8 @@ export const graphData = v.object({
 export const graphMetadata = v.object({
   graph_id: v.string(),
   owner_username: v.string(),
-  created_at: v.date(),
-  updated_at: v.date(),
+  created_at: v.pipe(v.string(), v.isoTimestamp()),
+  updated_at: v.pipe(v.string(), v.isoTimestamp()),
   name: v.string(),
   description: v.string(),
   user_role: role,
@@ -106,6 +104,6 @@ export const user = v.object({
   user_id: v.string(),
   username: v.string(),
   email: v.string(),
-  created_at: v.date(),
-  updated_at: v.date()
+  created_at: v.pipe(v.string(), v.isoTimestamp()),
+  updated_at: v.pipe(v.string(), v.isoTimestamp())
 });

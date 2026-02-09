@@ -14,7 +14,7 @@ const NewNodeDataContent = () => {
     properties.reset();
     if (nodeSchemaId.value !== null) {
       const selectedSchema = schema!.nodes.find((node: NodeSchema) =>
-        node.node_id === nodeSchemaId.value
+        node.node_schema_id === nodeSchemaId.value
       );
       if (selectedSchema) {
         const initialProperties = selectedSchema.properties.map((prop) => {
@@ -48,7 +48,7 @@ const NewNodeDataContent = () => {
       kind="node"
       onSubmit={async () => {}}
       schemaOptions={schema!.nodes.map((node: NodeSchema) => ({
-        id: node.node_id,
+        id: node.node_schema_id,
         label: node.label,
         color: node.color,
         properties: node.properties

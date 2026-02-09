@@ -106,7 +106,7 @@ const SettingsCard = ({ is_expanded, expand, un_expand }: SettingsProps) => {
             <>
               <Badge variant="secondary">
                 <BadgeCheckIcon />
-                Member since {user.created_at.toDateString()}
+                Member since {new Date(user.created_at).toDateString()}
               </Badge>
               <InputGroup>
                 <InputGroupInput id="user-id" placeholder={user.user_id} readOnly />

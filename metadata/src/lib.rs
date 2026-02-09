@@ -2,7 +2,7 @@ mod clients;
 pub mod config;
 pub mod database;
 pub mod dtos;
-mod error;
+pub mod error;
 mod extractors;
 mod handlers;
 pub mod models;

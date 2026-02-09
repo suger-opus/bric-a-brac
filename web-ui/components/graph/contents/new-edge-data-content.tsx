@@ -14,7 +14,7 @@ const NewEdgeDataContent = () => {
     properties.reset();
     if (edgeSchemaId.value !== null) {
       const selectedSchema = schema!.edges.find((edge: EdgeSchema) =>
-        edge.edge_id === edgeSchemaId.value
+        edge.edge_schema_id === edgeSchemaId.value
       );
       if (selectedSchema) {
         const initialProperties = selectedSchema.properties.map((prop) => {
@@ -48,7 +48,7 @@ const NewEdgeDataContent = () => {
       kind="edge"
       onSubmit={async () => {}}
       schemaOptions={schema!.edges.map((edge: EdgeSchema) => ({
-        id: edge.edge_id,
+        id: edge.edge_schema_id,
         label: edge.label,
         color: edge.color,
         properties: edge.properties

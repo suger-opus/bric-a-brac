@@ -1,0 +1,40 @@
+node_id,Name,Birth_Year,Death_Year,Title,Gender
+PERSON_HUGH_CAPET,Hugh Capet,939,996,King of France,Male
+PERSON_ROBERT_II,Robert II of France,972,1031,King of France,Male
+PERSON_HENRY_I_FR,Henry I of France,1008,1060,King of France,Male
+PERSON_PHILIP_I,Philip I of France,1052,1108,King of France,Male
+PERSON_LOUIS_VI,Louis VI of France,1081,1137,King of France,Male
+PERSON_LOUIS_VII,Louis VII of France,1120,1180,King of France,Male
+PERSON_PHILIP_II_FR,Philip II of France,1165,1223,King of France,Male
+PERSON_LOUIS_VIII,Louis VIII of France,1187,1226,King of France,Male
+PERSON_LOUIS_IX,Louis IX of France,1214,1270,King of France,Male
+PERSON_PHILIP_III,Philip III of France,1245,1285,King of France,Male
+PERSON_PHILIP_IV,Philip IV of France,1268,1314,King of France,Male
+PERSON_LOUIS_X,Louis X of France,1289,1316,King of France,Male
+PERSON_PHILIP_V,Philip V of France,1293,1322,King of France,Male
+PERSON_CHARLES_IV,Charles IV of France,1294,1328,King of France,Male
+PERSON_PHILIP_VI,Philip VI of France,1293,1350,King of France,Male
+PERSON_JOHN_II_FR,John II of France,1319,1364,King of France,Male
+PERSON_CHARLES_V,Charles V of France,1338,1380,King of France,Male
+PERSON_CHARLES_VI,Charles VI of France,1368,1422,King of France,Male
+PERSON_CHARLES_VII,Charles VII of France,1403,1461,King of France,Male
+PERSON_LOUIS_XI,Louis XI of France,1423,1483,King of France,Male
+
+PERSON_WILLIAM_I,William I of England,1028,1087,King of England,Male
+PERSON_WILLIAM_II,William II of England,1056,1100,King of England,Male
+PERSON_HENRY_I_EN,Henry I of England,1068,1135,King of England,Male
+PERSON_STEVEN,Stephen of England,1092,1154,King of England,Male
+PERSON_HENRY_II_EN,Henry II of England,1133,1189,King of England,Male
+PERSON_RICHARD_I,Richard I of England,1157,1199,King of England,Male
+PERSON_JOHN,John of England,1166,1216,King of England,Male
+PERSON_HENRY_III_EN,Henry III of England,1207,1272,King of England,Male
+PERSON_EDWARD_I,Edward I of England,1239,1307,King of England,Male
+PERSON_EDWARD_II,Edward II of England,1284,1327,King of England,Male
+PERSON_EDWARD_III,Edward III of England,1312,1377,King of England,Male
+PERSON_RICHARD_II,Richard II of England,1367,1400,King of England,Male
+PERSON_HENRY_IV,Henry IV of England,1367,1413,King of England,Male
+PERSON_HENRY_V,Henry V of England,1386,1422,King of England,Male
+PERSON_HENRY_VI,Henry VI of England,1421,1471,King of England,Male
+PERSON_EDWARD_IV,Edward IV of England,1442,1483,King of England,Male
+PERSON_RICHARD_III,Richard III of England,1452,1485,King of England,Male
+PERSON_HENRY_VII,Henry VII of England,1457,1509,King of England,Male

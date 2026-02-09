@@ -47,7 +47,7 @@ const processGraphData = (
     const nodeSchema = graphSchema.nodes.find((n) => n.formatted_label === node.formatted_label);
     const color = nodeSchema ? nodeSchema.color : "#888888";
     return {
-      id: node.node_id,
+      id: node.node_data_id,
       formatted_label: node.formatted_label,
       color,
       properties: node.properties
@@ -58,9 +58,9 @@ const processGraphData = (
     const edgeSchema = graphSchema.edges.find((e) => e.formatted_label === edge.formatted_label);
     const color = edgeSchema ? edgeSchema.color : "#888888";
     return {
-      id: edge.edge_id,
-      source: edge.from_id,
-      target: edge.to_id,
+      id: edge.edge_data_id,
+      source: edge.from_node_data_id,
+      target: edge.to_node_data_id,
       formatted_label: edge.formatted_label,
       color,
       properties: edge.properties

@@ -76,8 +76,8 @@ pub struct ResGraphMetadata {
 
 #[derive(Debug, Serialize)]
 pub struct ResGraphSchema {
-    pub node_schemas: Vec<ResNodeSchema>,
-    pub edge_schemas: Vec<ResEdgeSchema>,
+    pub nodes: Vec<ResNodeSchema>,
+    pub edges: Vec<ResEdgeSchema>,
 }
 
 #[derive(Debug, Serialize)]
