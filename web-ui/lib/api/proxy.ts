@@ -3,7 +3,7 @@ import { mande } from "mande";
 
 export const proxy = (path: string) => {
   const api = mande(`${config.env.API_URL}${path}`);
-  api.options.headers.user_id = "019c4329-091b-70c3-a96d-ab176005e68e";
+  api.options.headers.user_id = "019c471c-bd04-7de1-af19-efb5061be6c8";
 
   return api;
 };

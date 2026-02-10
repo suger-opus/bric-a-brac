@@ -354,7 +354,7 @@ async fn create_edge_data(
     edge_schemas: &HashMap<EdgeSchemaId, EdgeSchema>,
     node_data_map: &HashMap<String, NodeDataId>,
 ) -> anyhow::Result<HashMap<String, EdgeDataId>> {
-    let edge_data: HashMap<String, EdgeDataId> = HashMap::new();
+    let mut edge_data: HashMap<String, EdgeDataId> = HashMap::new();
 
     for (edge_schema_id, edge_schema) in edge_schemas {
         let (csv_path, content) = read_csv(&edge_schema.formatted_label, false)?;
@@ -367,6 +367,10 @@ async fn create_edge_data(
         for result in csv_reader.records() {
             let record = result
                 .with_context(|| format!("Failed to read CSV record for file {}", csv_path))?;
+            let edge_id = record
+                .get(0)
+                .with_context(|| format!("Missing record ID in file {}", csv_path))?
+                .to_string();
             let from_node_id = record
                 .get(1)
                 .with_context(|| format!("Failed to read from node ID in file {}", csv_path))?;
@@ -386,7 +390,7 @@ async fn create_edge_data(
                 .get(to_node_id)
                 .with_context(|| format!("Node not found: {}", to_node_id))?;
 
-            state
+            let response = state
                 .graph_service
                 .post_edge_data(
                     graph_id,
@@ -409,6 +413,8 @@ async fn create_edge_data(
                         err
                     )
                 })?;
+
+            edge_data.insert(edge_id, response.edge_data_id);
         }
     }
 

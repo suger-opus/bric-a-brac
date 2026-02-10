@@ -135,6 +135,7 @@ const Graph = ({ dimensions, setOpenCommand }: GraphProps) => {
           }
         }
         : undefined}
+        linkWidth={1}
     />
   );
 };
