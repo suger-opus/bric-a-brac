@@ -18,12 +18,16 @@ impl ValidationService {
         Self { pool, repository }
     }
 
+    pub async fn validate_graph_schema(&self) -> Result<(), ApiError> {
+        // Placeholder for future graph schema validation logic
+        Ok(())
+    }
+
     pub async fn validate_node_data(
         &self,
         node_schema_id: NodeSchemaId,
-        formatted_label: &str,
         properties: &PropertiesData,
-    ) -> Result<(), ApiError> {
+    ) -> Result<String, ApiError> {
         let mut txn = self.pool.begin().await?;
         let node_schema = self
             .repository
@@ -31,28 +35,15 @@ impl ValidationService {
             .await?;
         txn.commit().await?;
 
-        if node_schema.formatted_label != formatted_label {
-            Err(ApiError::ValidationError(ApiErrorContent {
-                message: format!(
-                    "Formatted label '{}' does not match expected '{}'",
-                    formatted_label, node_schema.formatted_label
-                ),
-                details: ValidationContext {
-                    field: "formatted_label".to_string(),
-                    issue: "Formatted label does not match schema".to_string(),
-                },
-            }))?
-        }
-
-        self.validate_properties(properties, &node_schema.properties)
+        self.validate_properties(properties, &node_schema.properties)?;
+        Ok(node_schema.formatted_label)
     }
 
     pub async fn validate_edge_data(
         &self,
         edge_schema_id: EdgeSchemaId,
-        formatted_label: &str,
         properties: &PropertiesData,
-    ) -> Result<(), ApiError> {
+    ) -> Result<String, ApiError> {
         let mut txn = self.pool.begin().await?;
         let edge_schema = self
             .repository
@@ -60,20 +51,8 @@ impl ValidationService {
             .await?;
         txn.commit().await?;
 
-        if edge_schema.formatted_label != formatted_label {
-            Err(ApiError::ValidationError(ApiErrorContent {
-                message: format!(
-                    "Formatted label '{}' does not match expected '{}'",
-                    formatted_label, edge_schema.formatted_label
-                ),
-                details: ValidationContext {
-                    field: "formatted_label".to_string(),
-                    issue: "Formatted label does not match schema".to_string(),
-                },
-            }))?
-        }
-
-        self.validate_properties(properties, &edge_schema.properties)
+        self.validate_properties(properties, &edge_schema.properties)?;
+        Ok(edge_schema.formatted_label)
     }
 
     fn validate_properties(

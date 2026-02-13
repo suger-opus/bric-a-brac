@@ -15,7 +15,6 @@ pub struct EdgeData {
 #[derive(Debug)]
 pub struct NewEdgeData {
     pub edge_schema_id: EdgeSchemaId,
-    pub formatted_label: String,
     pub from_node_data_id: NodeDataId,
     pub to_node_data_id: NodeDataId,
     pub properties: PropertiesData,

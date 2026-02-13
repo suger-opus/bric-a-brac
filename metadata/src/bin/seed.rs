@@ -313,7 +313,6 @@ async fn create_node_data(
 
             let request = CreateNodeDataRequest {
                 node_schema_id: *node_schema_id,
-                formatted_label: node_schema.formatted_label.clone(),
                 properties: serde_json::from_value(serde_json::to_value(properties)?)
                     .context("Failed to convert properties")?,
             };
@@ -384,7 +383,6 @@ async fn create_edge_data(
                 edge_schema_id: *edge_schema_id,
                 from_node_data_id: *from_node_data_id,
                 to_node_data_id: *to_node_data_id,
-                formatted_label: edge_schema.formatted_label.clone(),
                 properties: serde_json::from_value(serde_json::to_value(properties)?)
                     .context("Failed to convert properties")?,
             };

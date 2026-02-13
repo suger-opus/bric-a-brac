@@ -13,6 +13,5 @@ pub struct NodeData {
 #[derive(Debug)]
 pub struct NewNodeData {
     pub node_schema_id: NodeSchemaId,
-    pub formatted_label: String,
     pub properties: PropertiesData,
 }

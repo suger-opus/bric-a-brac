@@ -77,7 +77,9 @@ impl GraphService {
             user_id,
             role: Role::Owner,
         };
-        self.access_repository.create_access(&mut txn, new_access).await?;
+        self.access_repository
+            .create_access(&mut txn, new_access)
+            .await?;
         let graph = self
             .repository
             .get_metadata(&mut txn, user_id, graph.graph_id)
@@ -140,17 +142,14 @@ impl GraphService {
         graph_id: GraphId,
         new_node_data: NewNodeData,
     ) -> Result<NodeData, ApiError> {
-        self.schema_validator
-            .validate_node_data(
-                new_node_data.node_schema_id,
-                &new_node_data.formatted_label,
-                &new_node_data.properties,
-            )
+        let formatted_label = self
+            .schema_validator
+            .validate_node_data(new_node_data.node_schema_id, &new_node_data.properties)
             .await?;
 
         let node_data = self
             .knowledge_client
-            .insert_node(graph_id, new_node_data)
+            .insert_node(graph_id, formatted_label, new_node_data)
             .await?;
 
         Ok(node_data)
@@ -161,15 +160,15 @@ impl GraphService {
         _graph_id: GraphId,
         new_edge_data: NewEdgeData,
     ) -> Result<EdgeData, ApiError> {
-        self.schema_validator
-            .validate_edge_data(
-                new_edge_data.edge_schema_id,
-                &new_edge_data.formatted_label,
-                &new_edge_data.properties,
-            )
+        let formatted_label = self
+            .schema_validator
+            .validate_edge_data(new_edge_data.edge_schema_id, &new_edge_data.properties)
             .await?;
 
-        let edge_data = self.knowledge_client.insert_edge(new_edge_data).await?;
+        let edge_data = self
+            .knowledge_client
+            .insert_edge(formatted_label, new_edge_data)
+            .await?;
 
         Ok(edge_data)
     }

@@ -31,12 +31,13 @@ impl KnowledgeClient {
     pub async fn insert_node(
         &self,
         graph_id: GraphId,
+        formatted_label: String,
         new_node_data: NewNodeData,
     ) -> Result<models::NodeData, ApiError> {
         let request = Request::new(InsertNodeRequest {
             node_data_id: NodeDataId::new().to_string(),
             graph_id: graph_id.to_string(),
-            formatted_label: new_node_data.formatted_label,
+            formatted_label,
             properties: new_node_data.properties.into(),
         });
         let response = self.client.clone().insert_node(request).await?;
@@ -46,13 +47,14 @@ impl KnowledgeClient {
 
     pub async fn insert_edge(
         &self,
+        formatted_label: String,
         new_edge_data: NewEdgeData,
     ) -> Result<models::EdgeData, ApiError> {
         let request = Request::new(InsertEdgeRequest {
             edge_data_id: EdgeDataId::new().to_string(),
             from_node_data_id: new_edge_data.from_node_data_id.to_string(),
             to_node_data_id: new_edge_data.to_node_data_id.to_string(),
-            formatted_label: new_edge_data.formatted_label,
+            formatted_label,
             properties: new_edge_data.properties.into(),
         });
         let response = self.client.clone().insert_edge(request).await?;
