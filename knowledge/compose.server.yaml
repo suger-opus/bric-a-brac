@@ -15,6 +15,7 @@ services:
       - KNOWLEDGE_DB_NAME=${KNOWLEDGE_DB_NAME}
       - KNOWLEDGE_DB_MAX_CONNECTIONS=${KNOWLEDGE_DB_MAX_CONNECTIONS}
       - KNOWLEDGE_DB_FETCH_SIZE=${KNOWLEDGE_DB_FETCH_SIZE}
+      - RUST_LOG=${RUST_LOG}
     restart: on-failure
     networks:
       - bric-a-brac-network

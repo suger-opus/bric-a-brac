@@ -1,4 +1,8 @@
 [env]
+# Metadata Server Configuration
+# METADATA_SERVER_HOST=""
+# METADATA_SERVER_PORT=""
+
 # Metadata Database Configuration
 # METADATA_DB_HOST=""
 # METADATA_DB_PORT=""
@@ -9,14 +13,8 @@
 # METADATA_DB_MAX_CONNECTIONS=""
 # METADATA_DB_SKIP_MIGRATION=""
 
-# Metadata Server Configuration
-# METADATA_SERVER_HOST=""
-# METADATA_SERVER_PORT=""
-
-# Knowledge Service Configuration
-# KNOWLEDGE_SERVER_HOST=""
-# KNOWLEDGE_SERVER_PORT=""
-# KNOWLEDGE_SERVER_URL="http://{{env.KNOWLEDGE_SERVER_HOST}}:{{env.KNOWLEDGE_SERVER_PORT}}"
+# Knowledge Server Configuration
+# KNOWLEDGE_SERVER_URL=""
 
 # SQLX
 # SQLX_OFFLINE="false"
@@ -26,9 +24,9 @@
 # RUST_LOG="seed=trace,metadata=trace,tower_http=trace,sqlx=trace,tonic=trace"
 
 [tasks]
+db-config = "docker compose -f compose.db.yaml config"
 db-start = "docker compose -f compose.db.yaml up --build -d"
 db-stop = "docker compose -f compose.db.yaml down"
-db-config = "docker compose -f compose.db.yaml config"
+server-config = "docker compose -f compose.server.yaml config"
 server-start = "docker compose -f compose.server.yaml up --build -d"
 server-stop = "docker compose -f compose.server.yaml down"
-server-config = "docker compose -f compose.server.yaml config"

@@ -1,0 +1,17 @@
+[env]
+# Ai Server Configuration
+AI_SERVER_HOST=""
+AI_SERVER_PORT=""
+AI_OPENROUTER_API_KEY=""
+AI_OPENROUTER_DEFAULT_MODEL=""
+
+# Metadata Server Configuration
+METADATA_SERVER_URL=""
+
+# LOGS
+RUST_LOG="ai=trace"
+
+[tasks]
+server-config = "docker compose -f compose.server.yaml config"
+server-start = "docker compose -f compose.server.yaml up --build -d"
+server-stop = "docker compose -f compose.server.yaml down"

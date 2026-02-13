@@ -1,5 +1,7 @@
-use crate::error::{ApiError, ApiErrorContent};
-use crate::models::user_model::UserId;
+use crate::{
+    error::{ApiError, ApiErrorContent},
+    models::UserId,
+};
 use axum::{extract::FromRequestParts, http::request::Parts};
 
 pub struct AuthenticatedUser {

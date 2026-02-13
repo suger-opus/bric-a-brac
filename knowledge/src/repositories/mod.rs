@@ -279,7 +279,7 @@ impl TryFrom<HashMap<BoltString, BoltType>> for PropertiesWrapper {
             props
                 .into_iter()
                 .map(|(k, v)| Ok((k.to_string(), PropertyValueWrapper::try_from(v)?.0)))
-                .collect::<Result<HashMap<_, _>, Self::Error>>()?,
+                .collect::<Result<_, Self::Error>>()?,
         ))
     }
 }

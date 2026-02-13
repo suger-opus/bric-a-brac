@@ -12,20 +12,22 @@ RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/ap
 COPY Cargo.toml Cargo.lock ./
 
 # Copy all workspace member Cargo.tomls (Cargo needs to see all members)
-COPY crates/bric-a-brac-protos/Cargo.toml ./crates/bric-a-brac-protos/
-COPY crates/bric-a-brac-id/Cargo.toml ./crates/bric-a-brac-id/
-COPY metadata/Cargo.toml ./metadata/
+COPY crates/bric-a-brac-id/Cargo.toml crates/bric-a-brac-id/
+COPY crates/bric-a-brac-protos/Cargo.toml crates/bric-a-brac-protos/
+COPY ai/Cargo.toml ai/
+COPY knowledge/Cargo.toml knowledge/
+COPY metadata/Cargo.toml metadata/
 
-# Create dummy knowledge manifest and lib to satisfy workspace (won't be built)
-COPY knowledge/Cargo.toml ./knowledge/
-RUN mkdir -p knowledge/src && echo "// Dummy file for workspace" > knowledge/src/lib.rs
+# Create dummy microservices and crates to satisfy workspace (won't be built)
+RUN mkdir -p knowledge/src && echo "fn main() {}" > knowledge/src/main.rs
+RUN mkdir -p ai/src && echo "fn main() {}" > ai/src/main.rs
 
 # Copy actual source code only for metadata and its dependencies
-COPY crates/bric-a-brac-protos ./crates/bric-a-brac-protos
-COPY crates/bric-a-brac-id ./crates/bric-a-brac-id
-COPY metadata/src ./metadata/src
-COPY metadata/migrations ./metadata/migrations
-COPY metadata/.sqlx ./metadata/.sqlx
+COPY crates/bric-a-brac-id/src crates/bric-a-brac-id/src
+COPY crates/bric-a-brac-protos/src crates/bric-a-brac-protos/src
+COPY metadata/src metadata/src
+COPY metadata/migrations metadata/migrations
+COPY metadata/.sqlx metadata/.sqlx
 
 # Build only the metadata package
 RUN cargo build --release --package metadata

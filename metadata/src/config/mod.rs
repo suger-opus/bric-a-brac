@@ -1,9 +1,10 @@
-mod knowledge_server_config;
-mod metadata_db_config;
-mod metadata_server_config;
-pub use knowledge_server_config::KnowledgeServerConfig;
-pub use metadata_db_config::MetadataDatabaseConfig;
-pub use metadata_server_config::MetadataServerConfig;
+mod knowledge_server;
+mod metadata_db;
+mod metadata_server;
+
+pub use knowledge_server::KnowledgeServerConfig;
+pub use metadata_db::MetadataDatabaseConfig;
+pub use metadata_server::MetadataServerConfig;
 
 use anyhow::Context;
 use clap::Parser;

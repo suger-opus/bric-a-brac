@@ -1,8 +1,6 @@
 use metadata::{config::Config, run, setup_tracing};
 
 // TODO for Knowledge microservice:
-// - Clean DTOs
-// - TryFrom conversions (check when defaults are used)
 // - Improve error handling
 // - Improve logs
 // - (tests)

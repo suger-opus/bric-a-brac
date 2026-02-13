@@ -1,1 +1,3 @@
-pub mod knowledge_client;
+mod knowledge;
+
+pub use knowledge::KnowledgeClient;

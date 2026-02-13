@@ -1,4 +1,9 @@
-pub mod access_service;
-pub mod graph_service;
-pub mod validation_service;
-pub mod user_service;
+mod access;
+mod graph;
+mod user;
+mod validation;
+
+pub use access::AccessService;
+pub use graph::GraphService;
+pub use user::UserService;
+pub use validation::ValidationService;

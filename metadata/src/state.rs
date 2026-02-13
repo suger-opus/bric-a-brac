@@ -1,14 +1,8 @@
-use crate::clients::knowledge_client::KnowledgeClient;
+use crate::clients::KnowledgeClient;
 use crate::config::Config;
 use crate::database;
-use crate::repositories::{
-    access_repository::AccessRepository, graph_repository::GraphRepository,
-    user_repository::UserRepository,
-};
-use crate::services::{
-    access_service::AccessService, graph_service::GraphService, user_service::UserService,
-    validation_service::ValidationService,
-};
+use crate::repositories::{AccessRepository, GraphRepository, UserRepository};
+use crate::services::{AccessService, GraphService, UserService, ValidationService};
 
 #[derive(Clone)]
 pub struct ApiState {

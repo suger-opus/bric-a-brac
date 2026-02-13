@@ -1,3 +1,3 @@
-pub mod access_handler;
-pub mod graph_handler;
-pub mod user_handler;
+pub mod access;
+pub mod graph;
+pub mod user;

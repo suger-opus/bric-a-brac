@@ -5,6 +5,7 @@ members = [
     "crates/bric-a-brac-protos",
     "knowledge",
     "metadata",
+    "ai",
 ]
 
 [workspace.package]
@@ -50,6 +51,7 @@ uuid = "1.0"
 axum = "0.8"
 tower = "0.5"
 tower-http = "0.6"
+reqwest = "0.12.8"
 
 # Utilities
 chrono = "0.4"

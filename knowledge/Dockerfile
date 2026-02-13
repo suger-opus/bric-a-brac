@@ -12,18 +12,20 @@ RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/ap
 COPY Cargo.toml Cargo.lock ./
 
 # Copy all workspace member Cargo.tomls (Cargo needs to see all members)
-COPY crates/bric-a-brac-protos/Cargo.toml ./crates/bric-a-brac-protos/
-COPY crates/bric-a-brac-id/Cargo.toml ./crates/bric-a-brac-id/
-COPY knowledge/Cargo.toml ./knowledge/
+COPY crates/bric-a-brac-id/Cargo.toml crates/bric-a-brac-id/
+COPY crates/bric-a-brac-protos/Cargo.toml crates/bric-a-brac-protos/
+COPY ai/Cargo.toml ai/
+COPY knowledge/Cargo.toml knowledge/
+COPY metadata/Cargo.toml metadata/
 
-# Create dummy metadata manifest and binary to satisfy workspace (won't be built)
-COPY metadata/Cargo.toml ./metadata/
+# Create dummy microservices and crates to satisfy workspace (won't be built)
+RUN mkdir -p crates/bric-a-brac-id/src && echo "// ..." > crates/bric-a-brac-id/src/lib.rs
 RUN mkdir -p metadata/src && echo "fn main() {}" > metadata/src/main.rs
+RUN mkdir -p ai/src && echo "fn main() {}" > ai/src/main.rs
 
 # Copy actual source code only for knowledge and its dependencies
-COPY crates/bric-a-brac-protos ./crates/bric-a-brac-protos
-COPY crates/bric-a-brac-id ./crates/bric-a-brac-id
-COPY knowledge/src ./knowledge/src
+COPY crates/bric-a-brac-protos/src crates/bric-a-brac-protos/src
+COPY knowledge/src knowledge/src
 
 # Build only the knowledge package
 RUN cargo build --release --package knowledge

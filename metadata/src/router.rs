@@ -1,42 +1,43 @@
-use crate::handlers::{access_handler, graph_handler, user_handler};
+use crate::handlers;
 use crate::state::ApiState;
 use axum::{
     routing::{get, post},
     Router,
 };
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 
 pub fn build(state: ApiState) -> Router {
     Router::new()
-        .route("/users", post(user_handler::post))
-        .route("/users", get(user_handler::get))
-        .route("/graphs", get(graph_handler::get_all_metadata))
-        .route("/graphs/{graph_id}", get(graph_handler::get_metadata))
-        .route("/graphs/{graph_id}/schema", get(graph_handler::get_schema))
-        .route("/graphs", post(graph_handler::post))
+        .route("/users", post(handlers::user::create))
+        .route("/users/me", get(handlers::user::get_current))
+        .route("/graphs", get(handlers::graph::get_all_metadata))
+        .route("/graphs/{graph_id}", get(handlers::graph::get_metadata))
+        .route(
+            "/graphs/{graph_id}/schema",
+            get(handlers::graph::get_schema),
+        )
+        .route("/graphs/{graph_id}/data", get(handlers::graph::get_data))
+        .route("/graphs", post(handlers::graph::create_graph))
         .route(
             "/graphs/{graph_id}/schema/nodes",
-            post(graph_handler::post_node_schema),
+            post(handlers::graph::create_node_schema),
         )
         .route(
             "/graphs/{graph_id}/schema/edges",
-            post(graph_handler::post_edge_schema),
+            post(handlers::graph::create_edge_schema),
         )
-        .route("/graphs/{graph_id}/data", get(graph_handler::get_data))
         .route(
             "/graphs/{graph_id}/data/nodes",
-            get(graph_handler::post_node_data),
+            post(handlers::graph::insert_node_data),
         )
         .route(
             "/graphs/{graph_id}/data/edges",
-            get(graph_handler::post_edge_data),
+            post(handlers::graph::insert_edge_data),
         )
-        .route("/accesses/graphs/{graph_id}", post(access_handler::post))
-        .layer(
-            CorsLayer::new()
-                .allow_origin(Any)
-                .allow_methods(Any)
-                .allow_headers(Any),
+        .route(
+            "/accesses/graphs/{graph_id}",
+            post(handlers::access::create),
         )
+        .layer(CorsLayer::permissive())
         .with_state(state)
 }

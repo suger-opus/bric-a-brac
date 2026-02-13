@@ -2,20 +2,13 @@ use anyhow::Context;
 use metadata::config::Config;
 use metadata::database;
 use metadata::dtos::{
-    graph_dto::{
-        PropertiesDto, ReqPostEdgeData, ReqPostEdgeSchema, ReqPostGraph, ReqPostNodeData,
-        ReqPostNodeSchema, ReqPostProperty, ResGraphMetadata,
-    },
-    user_dto::PostUser,
+    CreateEdgeDataRequest, CreateEdgeSchemaRequest, CreateGraphRequest, CreateNodeDataRequest,
+    CreateNodeSchemaRequest, CreatePropertySchemaRequest, CreateUserRequest, PropertyMetadataDto,
+    PropertyTypeDto,
 };
 use metadata::models::{
-    edge_data_model::EdgeDataId,
-    edge_schema_model::{EdgeSchema, EdgeSchemaId},
-    graph_model::GraphId,
-    node_data_model::NodeDataId,
-    node_schema_model::{NodeSchema, NodeSchemaId},
-    property_model::{PropertyMetadata, PropertyType},
-    user_model::User,
+    EdgeDataId, EdgeSchema, EdgeSchemaId, GraphId, GraphMetadata, NodeDataId, NodeSchema,
+    NodeSchemaId, User,
 };
 use metadata::setup_tracing;
 use metadata::state::ApiState;
@@ -50,26 +43,31 @@ struct PropertyJson {
     metadata: PropertyMetadataJson,
 }
 
-impl TryFrom<&PropertyJson> for ReqPostProperty {
+impl TryFrom<&PropertyJson> for CreatePropertySchemaRequest {
     type Error = anyhow::Error;
 
     fn try_from(property: &PropertyJson) -> Result<Self, Self::Error> {
-        Ok(ReqPostProperty {
+        let model_property_type = metadata::models::PropertyType::try_from(
+            property.property_type.as_str(),
+        )
+        .map_err(|err| {
+            anyhow::anyhow!(
+                "Invalid property type '{}': {}",
+                property.property_type,
+                err
+            )
+        })?;
+
+        Ok(CreatePropertySchemaRequest {
+            node_schema_id: None,
+            edge_schema_id: None,
             label: property.label.clone(),
             formatted_label: property.formatted_label.clone(),
-            property_type: PropertyType::try_from(property.property_type.as_str()).map_err(
-                |err| {
-                    anyhow::anyhow!(
-                        "Invalid property type '{}': {}",
-                        property.property_type,
-                        err
-                    )
-                },
-            )?,
+            property_type: PropertyTypeDto::from(model_property_type),
             metadata: if property.metadata.options.is_empty() {
-                PropertyMetadata::default()
+                PropertyMetadataDto { options: None }
             } else {
-                PropertyMetadata {
+                PropertyMetadataDto {
                     options: Some(property.metadata.options.clone()),
                 }
             },
@@ -105,16 +103,15 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("✓ Created graph: European Royalty");
     let node_schemas = load_node_schemas().await?;
     tracing::info!("✓ Loaded {} node schemas", node_schemas.len());
-    let node_schemas = create_node_schemas(&state, graph.graph.graph_id, node_schemas).await?;
+    let node_schemas = create_node_schemas(&state, graph.graph_id, node_schemas).await?;
     tracing::info!("✓ Created {} node schemas", node_schemas.len());
     let edge_schemas = load_edge_schemas().await?;
     tracing::info!("✓ Loaded {} edge schemas", edge_schemas.len());
-    let edge_schemas = create_edge_schemas(&state, graph.graph.graph_id, edge_schemas).await?;
+    let edge_schemas = create_edge_schemas(&state, graph.graph_id, edge_schemas).await?;
     tracing::info!("✓ Created {} edge schemas", edge_schemas.len());
-    let node_data = create_node_data(&state, graph.graph.graph_id, &node_schemas).await?;
+    let node_data = create_node_data(&state, graph.graph_id, &node_schemas).await?;
     tracing::info!("✓ Created {} nodes", node_data.len());
-    let edge_data =
-        create_edge_data(&state, graph.graph.graph_id, &edge_schemas, &node_data).await?;
+    let edge_data = create_edge_data(&state, graph.graph_id, &edge_schemas, &node_data).await?;
     tracing::info!("✓ Created {} edges", edge_data.len());
     tracing::info!("🎉 Database seeding completed successfully!");
     tracing::info!("✅ All done!");
@@ -123,28 +120,29 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn create_user(state: &ApiState) -> anyhow::Result<User> {
+    let request = CreateUserRequest {
+        username: "admin".to_string(),
+        email: "admin@example.com".to_string(),
+    };
+
     state
         .user_service
-        .post(PostUser {
-            username: "admin".to_string(),
-            email: "admin@example.com".to_string(),
-        })
+        .create(request.into_domain())
         .await
         .map_err(|err| anyhow::anyhow!("Failed to create user: {:?}", err))
 }
 
-async fn create_graph(state: &ApiState, user: &User) -> anyhow::Result<ResGraphMetadata> {
+async fn create_graph(state: &ApiState, user: &User) -> anyhow::Result<GraphMetadata> {
+    let request = CreateGraphRequest {
+        name: "European Royalty".to_string(),
+        description: "Historical graph of European monarchies, dynasties, and conflicts"
+            .to_string(),
+        is_public: true,
+    };
+
     state
         .graph_service
-        .post(
-            user.user_id,
-            ReqPostGraph {
-                name: "European Royalty".to_string(),
-                description: "Historical graph of European monarchies, dynasties, and conflicts"
-                    .to_string(),
-                is_public: true,
-            },
-        )
+        .create_graph(user.user_id, request.into_domain())
         .await
         .map_err(|err| anyhow::anyhow!("Failed to create graph: {:?}", err))
 }
@@ -175,33 +173,29 @@ async fn create_node_schemas(
     let mut node_schema_map = HashMap::new();
 
     for schema in &node_schemas {
-        let properties: Vec<ReqPostProperty> = schema
+        let properties: Vec<CreatePropertySchemaRequest> = schema
             .properties
             .iter()
             .map(|property| property.try_into())
             .collect::<Result<Vec<_>, _>>()
             .with_context(|| format!("Invalid properties in node schema {}", schema.label))?;
 
-        let response = state
+        let request = CreateNodeSchemaRequest {
+            label: schema.label.clone(),
+            formatted_label: schema.formatted_label.clone(),
+            color: schema.color.clone(),
+            properties,
+        };
+
+        let node_schema = state
             .graph_service
-            .post_node_schema(
-                graph_id,
-                ReqPostNodeSchema {
-                    label: schema.label.clone(),
-                    formatted_label: schema.formatted_label.clone(),
-                    color: schema.color.clone(),
-                    properties,
-                },
-            )
+            .create_node_schema(graph_id, request.into_domain())
             .await
             .map_err(|err| {
                 anyhow::anyhow!("Failed to create node schema {}: {:?}", schema.label, err)
             })?;
 
-        node_schema_map.insert(
-            response.node_schema.node_schema_id.clone(),
-            response.node_schema,
-        );
+        node_schema_map.insert(node_schema.node_schema_id, node_schema);
     }
 
     Ok(node_schema_map)
@@ -215,33 +209,29 @@ async fn create_edge_schemas(
     let mut edge_schema_map = HashMap::new();
 
     for schema in &edge_schemas {
-        let properties: Vec<ReqPostProperty> = schema
+        let properties: Vec<CreatePropertySchemaRequest> = schema
             .properties
             .iter()
             .map(|property| property.try_into())
             .collect::<Result<Vec<_>, _>>()
             .with_context(|| format!("Invalid properties in edge schema {}", schema.label))?;
 
-        let response = state
+        let request = CreateEdgeSchemaRequest {
+            label: schema.label.clone(),
+            formatted_label: schema.formatted_label.clone(),
+            color: schema.color.clone(),
+            properties,
+        };
+
+        let edge_schema = state
             .graph_service
-            .post_edge_schema(
-                graph_id,
-                ReqPostEdgeSchema {
-                    label: schema.label.clone(),
-                    formatted_label: schema.formatted_label.clone(),
-                    color: schema.color.clone(),
-                    properties,
-                },
-            )
+            .create_edge_schema(graph_id, request.into_domain())
             .await
             .map_err(|err| {
                 anyhow::anyhow!("Failed to create edge schema {}: {:?}", schema.label, err)
             })?;
 
-        edge_schema_map.insert(
-            response.edge_schema.edge_schema_id.clone(),
-            response.edge_schema,
-        );
+        edge_schema_map.insert(edge_schema.edge_schema_id, edge_schema);
     }
 
     Ok(edge_schema_map)
@@ -321,16 +311,16 @@ async fn create_node_data(
                 )
             })?;
 
-            let response = state
+            let request = CreateNodeDataRequest {
+                node_schema_id: *node_schema_id,
+                formatted_label: node_schema.formatted_label.clone(),
+                properties: serde_json::from_value(serde_json::to_value(properties)?)
+                    .context("Failed to convert properties")?,
+            };
+
+            let node_data_result = state
                 .graph_service
-                .post_node_data(
-                    graph_id,
-                    ReqPostNodeData {
-                        node_schema_id: *node_schema_id,
-                        formatted_label: node_schema.formatted_label.clone(),
-                        properties: PropertiesDto(properties),
-                    },
-                )
+                .insert_node_data(graph_id, request.into_domain())
                 .await
                 .map_err(|err| {
                     anyhow::anyhow!(
@@ -341,7 +331,7 @@ async fn create_node_data(
                     )
                 })?;
 
-            node_data.insert(node_id, response.node_data_id);
+            node_data.insert(node_id, node_data_result.node_data_id);
         }
     }
 
@@ -390,18 +380,18 @@ async fn create_edge_data(
                 .get(to_node_id)
                 .with_context(|| format!("Node not found: {}", to_node_id))?;
 
-            let response = state
+            let request = CreateEdgeDataRequest {
+                edge_schema_id: *edge_schema_id,
+                from_node_data_id: *from_node_data_id,
+                to_node_data_id: *to_node_data_id,
+                formatted_label: edge_schema.formatted_label.clone(),
+                properties: serde_json::from_value(serde_json::to_value(properties)?)
+                    .context("Failed to convert properties")?,
+            };
+
+            let edge_data_result = state
                 .graph_service
-                .post_edge_data(
-                    graph_id,
-                    ReqPostEdgeData {
-                        edge_schema_id: *edge_schema_id,
-                        from_node_data_id: *from_node_data_id,
-                        to_node_data_id: *to_node_data_id,
-                        formatted_label: edge_schema.formatted_label.clone(),
-                        properties: PropertiesDto(properties),
-                    },
-                )
+                .insert_edge_data(graph_id, request.into_domain())
                 .await
                 .map_err(|err| {
                     anyhow::anyhow!(
@@ -414,7 +404,7 @@ async fn create_edge_data(
                     )
                 })?;
 
-            edge_data.insert(edge_id, response.edge_data_id);
+            edge_data.insert(edge_id, edge_data_result.edge_data_id);
         }
     }
 

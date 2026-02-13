@@ -33,6 +33,9 @@ pub enum ApiError {
     NotFound(ApiErrorContent<String>),
     Conflict(ApiErrorContent<ConstraintViolationContext>),
     Unauthorized(ApiErrorContent<String>),
+    UuidConversionError(ApiErrorContent<String>),
+    ConversionKnowledgeError(ApiErrorContent<String>),
+    ConversionDatabaseError(ApiErrorContent<String>),
     UnknownDatabaseError(ApiErrorContent<sqlx::Error>),
     ValidationError(ApiErrorContent<ValidationContext>),
     KnowledgeError(ApiErrorContent<String>),
@@ -46,6 +49,9 @@ impl From<&ApiError> for StatusCode {
             ApiError::NotFound(_) => StatusCode::NOT_FOUND,
             ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
+            ApiError::UuidConversionError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::ConversionKnowledgeError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::ConversionDatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ApiError::UnknownDatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ApiError::KnowledgeError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -67,6 +73,9 @@ impl IntoResponse for ApiError {
                 details: content.details.to_string(),
             })),
             Self::KnowledgeError(content) => Json(json!(content)),
+            Self::UuidConversionError(content) => Json(json!(content)),
+            Self::ConversionKnowledgeError(content) => Json(json!(content)),
+            Self::ConversionDatabaseError(content) => Json(json!(content)),
         };
         (status, payload).into_response()
     }
@@ -145,6 +154,15 @@ impl From<Status> for ApiError {
         ApiError::KnowledgeError(ApiErrorContent {
             message: "(knowledge) gRPC Status Error".to_string(),
             details: status.message().to_string(),
+        })
+    }
+}
+impl From<uuid::Error> for ApiError {
+    fn from(err: uuid::Error) -> Self {
+        tracing::error!(error=?err, "UUID error occurred");
+        ApiError::UuidConversionError(ApiErrorContent {
+            message: "UUID conversion error".to_string(),
+            details: err.to_string(),
         })
     }
 }

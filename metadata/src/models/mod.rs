@@ -1,8 +1,11 @@
-pub mod access_model;
-pub mod edge_data_model;
-pub mod edge_schema_model;
-pub mod graph_model;
-pub mod node_data_model;
-pub mod node_schema_model;
-pub mod property_model;
-pub mod user_model;
+mod access;
+mod data;
+mod graph;
+mod schema;
+mod user;
+
+pub use access::*;
+pub use data::*;
+pub use graph::*;
+pub use schema::*;
+pub use user::*;
