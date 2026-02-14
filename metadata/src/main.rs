@@ -1,7 +1,8 @@
-use metadata::{config::Config, run, setup_tracing};
+use metadata::{infrastructure::config::Config, run, setup_tracing};
 
 // TODO for Knowledge microservice:
-// - Improve error handling (use thiserror, add more context to errors, etc.)
+// - Remove super use
+// - Clean errors
 // - Improve logs
 // - (tests)
 

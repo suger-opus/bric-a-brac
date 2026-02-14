@@ -1,17 +1,15 @@
 use anyhow::Context;
-use metadata::config::Config;
-use metadata::database;
-use metadata::dtos::{
-    CreateEdgeDataRequest, CreateEdgeSchemaRequest, CreateGraphRequest, CreateNodeDataRequest,
-    CreateNodeSchemaRequest, CreatePropertySchemaRequest, CreateUserRequest, PropertyMetadataDto,
-    PropertyTypeDto,
+use metadata::{
+    application::dtos::{
+        CreateEdgeDataDto, CreateEdgeSchemaDto, CreateGraphDto, CreateNodeDataDto,
+        CreateNodeSchemaDto, CreatePropertySchemaDto, CreateUserDto, EdgeSchemaDto,
+        GraphMetadataDto, NodeSchemaDto, PropertyMetadataDto, PropertyTypeDto, UserDto,
+    },
+    domain::models::{EdgeDataId, EdgeSchemaId, GraphId, NodeDataId, NodeSchemaId},
+    infrastructure::{config::Config, database},
+    presentation::state::ApiState,
+    setup_tracing,
 };
-use metadata::models::{
-    EdgeDataId, EdgeSchema, EdgeSchemaId, GraphId, GraphMetadata, NodeDataId, NodeSchema,
-    NodeSchemaId, User,
-};
-use metadata::setup_tracing;
-use metadata::state::ApiState;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -43,22 +41,17 @@ struct PropertyJson {
     metadata: PropertyMetadataJson,
 }
 
-impl TryFrom<&PropertyJson> for CreatePropertySchemaRequest {
+impl TryFrom<&PropertyJson> for CreatePropertySchemaDto {
     type Error = anyhow::Error;
 
     fn try_from(property: &PropertyJson) -> Result<Self, Self::Error> {
-        let model_property_type = metadata::models::PropertyType::try_from(
-            property.property_type.as_str(),
-        )
-        .map_err(|err| {
-            anyhow::anyhow!(
-                "Invalid property type '{}': {}",
-                property.property_type,
-                err
-            )
-        })?;
+        let model_property_type =
+            metadata::domain::models::PropertyType::try_from(property.property_type.as_str())
+                .map_err(|e| {
+                    anyhow::anyhow!("Invalid property type '{}': {}", property.property_type, e)
+                })?;
 
-        Ok(CreatePropertySchemaRequest {
+        Ok(CreatePropertySchemaDto {
             node_schema_id: None,
             edge_schema_id: None,
             label: property.label.clone(),
@@ -119,21 +112,21 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn create_user(state: &ApiState) -> anyhow::Result<User> {
-    let request = CreateUserRequest {
+async fn create_user(state: &ApiState) -> anyhow::Result<UserDto> {
+    let request = CreateUserDto {
         username: "admin".to_string(),
         email: "admin@example.com".to_string(),
     };
 
     state
         .user_service
-        .create(request.into_domain())
+        .create(request)
         .await
         .map_err(|err| anyhow::anyhow!("Failed to create user: {:?}", err))
 }
 
-async fn create_graph(state: &ApiState, user: &User) -> anyhow::Result<GraphMetadata> {
-    let request = CreateGraphRequest {
+async fn create_graph(state: &ApiState, user: &UserDto) -> anyhow::Result<GraphMetadataDto> {
+    let request = CreateGraphDto {
         name: "European Royalty".to_string(),
         description: "Historical graph of European monarchies, dynasties, and conflicts"
             .to_string(),
@@ -142,7 +135,7 @@ async fn create_graph(state: &ApiState, user: &User) -> anyhow::Result<GraphMeta
 
     state
         .graph_service
-        .create_graph(user.user_id, request.into_domain())
+        .create_graph(user.user_id, request)
         .await
         .map_err(|err| anyhow::anyhow!("Failed to create graph: {:?}", err))
 }
@@ -169,18 +162,18 @@ async fn create_node_schemas(
     state: &ApiState,
     graph_id: GraphId,
     node_schemas: Vec<NodeSchemaJson>,
-) -> anyhow::Result<HashMap<NodeSchemaId, NodeSchema>> {
+) -> anyhow::Result<HashMap<NodeSchemaId, NodeSchemaDto>> {
     let mut node_schema_map = HashMap::new();
 
     for schema in &node_schemas {
-        let properties: Vec<CreatePropertySchemaRequest> = schema
+        let properties: Vec<CreatePropertySchemaDto> = schema
             .properties
             .iter()
             .map(|property| property.try_into())
             .collect::<Result<Vec<_>, _>>()
             .with_context(|| format!("Invalid properties in node schema {}", schema.label))?;
 
-        let request = CreateNodeSchemaRequest {
+        let request = CreateNodeSchemaDto {
             label: schema.label.clone(),
             formatted_label: schema.formatted_label.clone(),
             color: schema.color.clone(),
@@ -189,7 +182,7 @@ async fn create_node_schemas(
 
         let node_schema = state
             .graph_service
-            .create_node_schema(graph_id, request.into_domain())
+            .create_node_schema(graph_id, request)
             .await
             .map_err(|err| {
                 anyhow::anyhow!("Failed to create node schema {}: {:?}", schema.label, err)
@@ -205,18 +198,18 @@ async fn create_edge_schemas(
     state: &ApiState,
     graph_id: GraphId,
     edge_schemas: Vec<EdgeSchemaJson>,
-) -> anyhow::Result<HashMap<EdgeSchemaId, EdgeSchema>> {
+) -> anyhow::Result<HashMap<EdgeSchemaId, EdgeSchemaDto>> {
     let mut edge_schema_map = HashMap::new();
 
     for schema in &edge_schemas {
-        let properties: Vec<CreatePropertySchemaRequest> = schema
+        let properties: Vec<CreatePropertySchemaDto> = schema
             .properties
             .iter()
             .map(|property| property.try_into())
             .collect::<Result<Vec<_>, _>>()
             .with_context(|| format!("Invalid properties in edge schema {}", schema.label))?;
 
-        let request = CreateEdgeSchemaRequest {
+        let request = CreateEdgeSchemaDto {
             label: schema.label.clone(),
             formatted_label: schema.formatted_label.clone(),
             color: schema.color.clone(),
@@ -225,7 +218,7 @@ async fn create_edge_schemas(
 
         let edge_schema = state
             .graph_service
-            .create_edge_schema(graph_id, request.into_domain())
+            .create_edge_schema(graph_id, request)
             .await
             .map_err(|err| {
                 anyhow::anyhow!("Failed to create edge schema {}: {:?}", schema.label, err)
@@ -285,7 +278,7 @@ fn read_csv(formatted_label: &str, is_node: bool) -> anyhow::Result<(String, Str
 async fn create_node_data(
     state: &ApiState,
     graph_id: GraphId,
-    node_schemas: &HashMap<NodeSchemaId, NodeSchema>,
+    node_schemas: &HashMap<NodeSchemaId, NodeSchemaDto>,
 ) -> anyhow::Result<HashMap<String, NodeDataId>> {
     let mut node_data: HashMap<String, NodeDataId> = HashMap::new();
 
@@ -311,7 +304,7 @@ async fn create_node_data(
                 )
             })?;
 
-            let request = CreateNodeDataRequest {
+            let request = CreateNodeDataDto {
                 node_schema_id: *node_schema_id,
                 properties: serde_json::from_value(serde_json::to_value(properties)?)
                     .context("Failed to convert properties")?,
@@ -319,7 +312,7 @@ async fn create_node_data(
 
             let node_data_result = state
                 .graph_service
-                .insert_node_data(graph_id, request.into_domain())
+                .insert_node_data(graph_id, request)
                 .await
                 .map_err(|err| {
                     anyhow::anyhow!(
@@ -340,7 +333,7 @@ async fn create_node_data(
 async fn create_edge_data(
     state: &ApiState,
     graph_id: GraphId,
-    edge_schemas: &HashMap<EdgeSchemaId, EdgeSchema>,
+    edge_schemas: &HashMap<EdgeSchemaId, EdgeSchemaDto>,
     node_data_map: &HashMap<String, NodeDataId>,
 ) -> anyhow::Result<HashMap<String, EdgeDataId>> {
     let mut edge_data: HashMap<String, EdgeDataId> = HashMap::new();
@@ -379,7 +372,7 @@ async fn create_edge_data(
                 .get(to_node_id)
                 .with_context(|| format!("Node not found: {}", to_node_id))?;
 
-            let request = CreateEdgeDataRequest {
+            let request = CreateEdgeDataDto {
                 edge_schema_id: *edge_schema_id,
                 from_node_data_id: *from_node_data_id,
                 to_node_data_id: *to_node_data_id,
@@ -389,7 +382,7 @@ async fn create_edge_data(
 
             let edge_data_result = state
                 .graph_service
-                .insert_edge_data(graph_id, request.into_domain())
+                .insert_edge_data(graph_id, request)
                 .await
                 .map_err(|err| {
                     anyhow::anyhow!(

@@ -1,18 +1,12 @@
-mod clients;
-pub mod config;
-pub mod database;
-pub mod dtos;
-pub mod error;
-mod extractors;
-mod handlers;
-pub mod models;
-mod repositories;
-mod router;
-pub mod services;
-pub mod state;
+pub mod application;
+pub mod domain;
+pub mod infrastructure;
+pub mod presentation;
 
-use crate::config::Config;
-use crate::state::ApiState;
+use crate::{
+    infrastructure::config::Config,
+    presentation::{router, state::ApiState},
+};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt};
 
 pub async fn run(config: &Config) -> anyhow::Result<()> {
