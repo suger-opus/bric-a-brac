@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package metadata;
+
+// Service for AI-related operations in Metadata service
+service Metadata {
+  // Get the OpenAPI specification for schema DTOs
+  rpc GetOpenAPISpec(Empty) returns (OpenAPISpecResponse);
+  
+  // Validate a schema against business rules
+  rpc ValidateSchema(ValidateSchemaRequest) returns (ValidateSchemaResponse);
+  
+  // Format a label according to business rules
+  rpc FormatLabel(FormatLabelRequest) returns (FormatLabelResponse);
+}
+
+// Empty message for requests with no parameters
+message Empty {}
+
+// Response containing the OpenAPI specification as JSON string
+message OpenAPISpecResponse {
+  string openapi_json = 1;
+}
+
+// Request to validate a schema
+message ValidateSchemaRequest {
+  // Schema as JSON string (contains nodes, edges, properties)
+  string schema_json = 1;
+}
+
+// Response from schema validation
+message ValidateSchemaResponse {
+  bool is_valid = 1;
+  repeated ValidationError errors = 2;
+}
+
+// Validation error details
+message ValidationError {
+  string field = 1;
+  string message = 2;
+}
+
+// Request to format a label
+message FormatLabelRequest {
+  string label = 1;
+}
+
+// Response with formatted label
+message FormatLabelResponse {
+  string formatted_label = 1;
+}

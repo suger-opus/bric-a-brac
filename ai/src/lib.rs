@@ -1,9 +1,31 @@
-pub mod config;
+pub mod application;
+pub mod infrastructure;
+pub mod presentation;
 
-use crate::config::Config;
+use crate::{
+    application::services::SchemaService,
+    infrastructure::{
+        clients::{MetadataClient, OpenRouterClient},
+        config::Config,
+    },
+    presentation::grpc::AiService,
+};
+use bric_a_brac_protos::ai::ai_server::AiServer;
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt};
 
-pub async fn run(_config: Config) -> anyhow::Result<()> {
+pub async fn run(config: Config) -> anyhow::Result<()> {
+    let openrouter_client = OpenRouterClient::new(config.openrouter());
+    let metadata_client = MetadataClient::connect(config.metadata_server()).await?;
+    let schema_service = SchemaService::new(openrouter_client, metadata_client);
+    let ai_service = AiService::new(schema_service);
+    let grpc_addr = config.ai_server().url();
+    tracing::info!(grpc_addr = %grpc_addr, "AI gRPC server starting");
+
+    tonic::transport::Server::builder()
+        .add_service(AiServer::new(ai_service))
+        .serve(grpc_addr)
+        .await?;
+
     Ok(())
 }
 

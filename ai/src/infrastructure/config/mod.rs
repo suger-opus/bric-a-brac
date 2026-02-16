@@ -1,10 +1,10 @@
-mod ai_server;
-mod metadata_server;
-mod openrouter;
+mod ai_server_config;
+mod metadata_server_config;
+mod openrouter_config;
 
-pub use ai_server::*;
-pub use metadata_server::*;
-pub use openrouter::*;
+pub use ai_server_config::AiServerConfig;
+pub use metadata_server_config::MetadataServerConfig;
+pub use openrouter_config::OpenRouterConfig;
 
 use anyhow::Context;
 use clap::Parser;

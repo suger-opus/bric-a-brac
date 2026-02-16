@@ -81,11 +81,11 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("🌱 Starting database seed");
     let config = Config::load()?;
     tracing::info!("🔌 Connecting to database...");
-    let pool = database::connect(&config.metadata_db).await?;
+    let pool = database::connect(config.metadata_db()).await?;
     tracing::info!("🗑️  Resetting database schema...");
     database::reset(&pool).await?;
     tracing::info!("⬆️  Running migrations...");
-    database::migrate(&config.metadata_db, &pool).await?;
+    database::migrate(config.metadata_db(), &pool).await?;
     tracing::info!("🌱 Seeding database...");
     pool.close().await;
     let state = ApiState::build(&config).await?;

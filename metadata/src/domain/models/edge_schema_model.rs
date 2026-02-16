@@ -1,6 +1,7 @@
-use super::{GraphId, CreatePropertySchema, PropertySchema};
+use super::{CreatePropertySchema, GraphId, PropertySchema};
 use bric_a_brac_id::id;
 use chrono::{DateTime, Utc};
+use serde::Deserialize;
 
 id!(EdgeSchemaId);
 
@@ -16,7 +17,7 @@ pub struct EdgeSchema {
     pub properties: Vec<PropertySchema>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct CreateEdgeSchema {
     pub label: String,
     pub formatted_label: String,

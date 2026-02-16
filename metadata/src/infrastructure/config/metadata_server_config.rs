@@ -6,13 +6,21 @@ pub struct MetadataServerConfig {
     #[arg(long, env = "METADATA_SERVER_HOST", required = true)]
     metadata_server_host: IpAddr,
 
-    /// Metadata server port
-    #[arg(long, env = "METADATA_SERVER_PORT", required = true)]
-    metadata_server_port: u16,
+    /// Metadata server port (REST API)
+    #[arg(long, env = "METADATA_HTTP_SERVER_PORT", required = true)]
+    metadata_http_server_port: u16,
+    
+    /// Metadata server gRPC port
+    #[arg(long, env = "METADATA_GRPC_PORT", required = true)]
+    metadata_grpc_port: u16,
 }
 
 impl MetadataServerConfig {
-    pub fn url(&self) -> SocketAddr {
-        (self.metadata_server_host, self.metadata_server_port).into()
+    pub fn http_url(&self) -> SocketAddr {
+        (self.metadata_server_host, self.metadata_http_server_port).into()
+    }
+    
+    pub fn grpc_url(&self) -> SocketAddr {
+        (self.metadata_server_host, self.metadata_grpc_port).into()
     }
 }

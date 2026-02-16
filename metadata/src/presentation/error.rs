@@ -29,6 +29,9 @@ pub enum DomainError {
         required_permission: String,
     },
 
+    #[error("Invalid input: {reason}")]
+    InvalidInput { reason: String },
+
     #[error("Unauthorized: {reason}")]
     Unauthorized { reason: String },
 
@@ -135,16 +138,19 @@ impl IntoResponse for AppError {
                     "required": required_permission
                 }),
             ),
-
             AppError::Domain(DomainError::Unauthorized { reason }) => (
                 StatusCode::UNAUTHORIZED,
                 "Unauthorized".to_string(),
                 json!({ "reason": reason }),
             ),
-
             AppError::Domain(DomainError::InvalidSchema { reason }) => (
                 StatusCode::BAD_REQUEST,
                 "Invalid graph schema".to_string(),
+                json!({ "reason": reason }),
+            ),
+            AppError::Domain(DomainError::InvalidInput { reason }) => (
+                StatusCode::BAD_REQUEST,
+                "Invalid input".to_string(),
                 json!({ "reason": reason }),
             ),
             AppError::Domain(DomainError::PropertyValidation { property, reason }) => (
@@ -177,7 +183,6 @@ impl IntoResponse for AppError {
                     "detail": detail
                 }),
             ),
-
             AppError::Infra(InfraError::Database { source, context }) => {
                 if matches!(source, sqlx::Error::RowNotFound) {
                     (
@@ -194,7 +199,6 @@ impl IntoResponse for AppError {
                     )
                 }
             }
-
             AppError::Infra(InfraError::GrpcService {
                 service,
                 message,
@@ -213,7 +217,6 @@ impl IntoResponse for AppError {
                     json!({ "service": service, "message": message }),
                 )
             }
-
             AppError::Infra(InfraError::GrpcTransport { source }) => {
                 tracing::error!(error = ?source, "gRPC transport error");
                 (
@@ -222,7 +225,6 @@ impl IntoResponse for AppError {
                     json!({ "error": source.to_string() }),
                 )
             }
-
             AppError::Infra(InfraError::UuidConversion { source, context }) => {
                 tracing::error!(error = ?source, context = %context, "UUID conversion error");
                 (
@@ -231,13 +233,11 @@ impl IntoResponse for AppError {
                     json!({ "context": context }),
                 )
             }
-
             AppError::Infra(InfraError::DatabaseState { reason }) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Unexpected database state".to_string(),
                 json!({ "reason": reason }),
             ),
-
             AppError::Contextual { context: _, source } => return (*source).into_response(),
         };
 

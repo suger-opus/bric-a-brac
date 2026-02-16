@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package knowledge;
 
-service KnowledgeService {
+service Knowledge {
   rpc InsertNode(InsertNodeRequest) returns (NodeData);
   rpc InsertEdge(InsertEdgeRequest) returns (EdgeData);
   rpc LoadGraph(LoadGraphRequest) returns (GraphData);

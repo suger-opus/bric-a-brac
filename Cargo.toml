@@ -52,13 +52,18 @@ axum = "0.8"
 tower = "0.5"
 tower-http = "0.6"
 reqwest = "0.12.8"
+multer = "3.1"
 
 # Utilities
 chrono = "0.4"
+futures-util = "0.3"
 regex = "1.10"
 thiserror = "2.0"
 validator = "0.18"
 secrecy = "0.10.3"
+utoipa = "5.3"
+utoipa-swagger-ui = "8.0"
+lazy_static = "1.5"
 
 # Graph database
 neo4rs = "0.8.0"

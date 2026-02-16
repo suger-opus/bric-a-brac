@@ -1,7 +1,8 @@
 [env]
 # Metadata Server Configuration
 # METADATA_SERVER_HOST=""
-# METADATA_SERVER_PORT=""
+# METADATA_HTTP_SERVER_PORT=""
+# METADATA_GRPC_SERVER_PORT=""
 
 # Metadata Database Configuration
 # METADATA_DB_HOST=""

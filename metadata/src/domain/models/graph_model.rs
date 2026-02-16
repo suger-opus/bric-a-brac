@@ -1,3 +1,5 @@
+use crate::domain::models::{CreateEdgeSchema, CreateNodeSchema};
+
 use super::{EdgeData, EdgeSchema, NodeData, NodeSchema, Role};
 use bric_a_brac_id::id;
 use chrono::{DateTime, Utc};
@@ -53,6 +55,13 @@ pub struct GraphSchema {
     pub edges: Vec<EdgeSchema>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CreateGraphSchema {
+    pub nodes: Vec<CreateNodeSchema>,
+    pub edges: Vec<CreateEdgeSchema>,
+}
+
+#[derive(Debug)]
 pub struct GraphData {
     pub nodes: Vec<NodeData>,
     pub edges: Vec<EdgeData>,

@@ -1,7 +1,7 @@
 use crate::{
     application::services::{AccessService, GraphService, UserService, ValidationService},
     infrastructure::{
-        clients::KnowledgeClient,
+        clients::{AiClient, KnowledgeClient},
         config::Config,
         database,
         repositories::{AccessRepository, GraphRepository, UserRepository},
@@ -17,9 +17,10 @@ pub struct ApiState {
 
 impl ApiState {
     pub async fn build(config: &Config) -> anyhow::Result<Self> {
-        let db_pool = database::connect(&config.metadata_db).await?;
-        database::migrate(&config.metadata_db, &db_pool).await?;
-        let knowledge_client = KnowledgeClient::connect(&config.knowledge_server).await?;
+        let db_pool = database::connect(config.metadata_db()).await?;
+        database::migrate(config.metadata_db(), &db_pool).await?;
+        let knowledge_client = KnowledgeClient::connect(config.knowledge_server()).await?;
+        let ai_client = AiClient::connect(config.ai_server()).await?;
 
         let access_repository = AccessRepository::new();
         let graph_repository = GraphRepository::new();
@@ -31,6 +32,7 @@ impl ApiState {
             graph_repository,
             access_repository,
             knowledge_client,
+            ai_client,
             validation_service,
         );
         let user_service = UserService::new(db_pool, user_repository);

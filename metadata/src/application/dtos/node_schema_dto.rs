@@ -1,13 +1,31 @@
 use super::{CreatePropertySchemaDto, PropertySchemaDto};
 use crate::domain::models::{CreateNodeSchema, GraphId, NodeSchema, NodeSchemaId};
 use chrono::{DateTime, Utc};
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+use validator::Validate;
 
-#[derive(Debug, Clone, Deserialize)]
+lazy_static! {
+    static ref COLOR_REGEX: Regex = Regex::new(r"^#[0-9A-Fa-f]{6}$").unwrap();
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateNodeSchemaDto {
+    #[validate(length(min = 1, max = 100))]
+    #[schema(example = "Person", min_length = 1, max_length = 100)]
     pub label: String,
+
+    #[validate(length(min = 1, max = 100))]
+    #[schema(example = "person", min_length = 1, max_length = 100)]
     pub formatted_label: String,
+
+    #[validate(regex(path = "*COLOR_REGEX"))]
+    #[schema(example = "#3B82F6", pattern = "^#[0-9A-Fa-f]{6}$")]
     pub color: String,
+
+    #[validate(nested)]
     pub properties: Vec<CreatePropertySchemaDto>,
 }
 
@@ -21,6 +39,21 @@ impl CreateNodeSchemaDto {
                 .properties
                 .into_iter()
                 .map(|prop| prop.into_domain())
+                .collect(),
+        }
+    }
+}
+
+impl From<CreateNodeSchema> for CreateNodeSchemaDto {
+    fn from(node_schema: CreateNodeSchema) -> Self {
+        Self {
+            label: node_schema.label,
+            formatted_label: node_schema.formatted_label,
+            color: node_schema.color,
+            properties: node_schema
+                .properties
+                .into_iter()
+                .map(CreatePropertySchemaDto::from)
                 .collect(),
         }
     }

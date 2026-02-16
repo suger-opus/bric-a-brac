@@ -5,17 +5,38 @@ pub mod presentation;
 
 use crate::{
     infrastructure::config::Config,
-    presentation::{router, state::ApiState},
+    presentation::{grpc::MetadataService, router, state::ApiState},
 };
+use bric_a_brac_protos::metadata::metadata_server::MetadataServer;
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt};
 
 pub async fn run(config: &Config) -> anyhow::Result<()> {
     let state = ApiState::build(config).await?;
-    let listener = tokio::net::TcpListener::bind(&config.metadata_server.url()).await?;
-    let routes = router::build(state);
 
-    tracing::info!(server_url = %config.metadata_server.url(), "Metadata REST API ready");
-    axum::serve(listener, routes).await?;
+    let grpc_addr = config.metadata_server().grpc_url();
+    let grpc_service = MetadataService::new();
+    let grpc_server = tonic::transport::Server::builder()
+        .add_service(MetadataServer::new(grpc_service))
+        .serve(grpc_addr);
+    tracing::info!(grpc_addr = %grpc_addr, "Metadata gRPC server starting");
+
+    let rest_listener = tokio::net::TcpListener::bind(&config.metadata_server().http_url()).await?;
+    let rest_routes = router::build(state);
+    let rest_addr = config.metadata_server().http_url();
+    tracing::info!(rest_addr = %rest_addr, "Metadata REST API starting");
+
+    tokio::select! {
+        result = grpc_server => {
+            if let Err(e) = result {
+                tracing::error!(error = ?e, "gRPC server error");
+            }
+        }
+        result = axum::serve(rest_listener, rest_routes) => {
+            if let Err(e) = result {
+                tracing::error!(error = ?e, "REST server error");
+            }
+        }
+    }
 
     Ok(())
 }

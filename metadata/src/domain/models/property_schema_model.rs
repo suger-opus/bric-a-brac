@@ -10,7 +10,7 @@ pub struct PropertyMetadata {
     pub options: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, sqlx::Type)]
+#[derive(Debug, Clone, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "property_type")]
 pub enum PropertyType {
     Number,
@@ -46,7 +46,7 @@ pub struct PropertySchema {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct CreatePropertySchema {
     pub node_schema_id: Option<NodeSchemaId>,
     pub edge_schema_id: Option<EdgeSchemaId>,

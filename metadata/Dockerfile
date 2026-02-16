@@ -44,5 +44,6 @@ WORKDIR /app
 COPY --from=builder /app/target/release/metadata /app/metadata
 
 EXPOSE 8080
+EXPOSE 50051
 
 CMD ["/app/metadata"]

@@ -2,11 +2,13 @@
 # Ai Server Configuration
 AI_SERVER_HOST=""
 AI_SERVER_PORT=""
-AI_OPENROUTER_API_KEY=""
-AI_OPENROUTER_DEFAULT_MODEL=""
+
+# OpenRouter Configuration
+OPENROUTER_API_KEY=""
+OPENROUTER_DEFAULT_MODEL=""
 
 # Metadata Server Configuration
-METADATA_SERVER_URL=""
+METADATA_GRPC_SERVER_URL=""
 
 # LOGS
 RUST_LOG="ai=trace"

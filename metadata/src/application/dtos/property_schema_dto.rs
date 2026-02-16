@@ -4,8 +4,10 @@ use crate::domain::models::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct PropertyMetadataDto {
     pub options: Option<Vec<String>>,
 }
@@ -26,7 +28,7 @@ impl From<PropertyMetadata> for PropertyMetadataDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum PropertyTypeDto {
     Number,
     String,
@@ -56,13 +58,25 @@ impl From<PropertyType> for PropertyTypeDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreatePropertySchemaDto {
+    #[schema(value_type = Option<String>)]
     pub node_schema_id: Option<NodeSchemaId>,
+
+    #[schema(value_type = Option<String>)]
     pub edge_schema_id: Option<EdgeSchemaId>,
+
+    #[validate(length(min = 1, max = 100))]
+    #[schema(example = "Name", min_length = 1, max_length = 100)]
     pub label: String,
+
+    #[validate(length(min = 1, max = 100))]
+    #[schema(example = "name", min_length = 1, max_length = 100)]
     pub formatted_label: String,
+
     pub property_type: PropertyTypeDto,
+
+    #[validate(nested)]
     pub metadata: PropertyMetadataDto,
 }
 
@@ -75,6 +89,19 @@ impl CreatePropertySchemaDto {
             formatted_label: self.formatted_label,
             property_type: self.property_type.into(),
             metadata: self.metadata.into(),
+        }
+    }
+}
+
+impl From<CreatePropertySchema> for CreatePropertySchemaDto {
+    fn from(property_schema: CreatePropertySchema) -> Self {
+        Self {
+            node_schema_id: property_schema.node_schema_id,
+            edge_schema_id: property_schema.edge_schema_id,
+            label: property_schema.label,
+            formatted_label: property_schema.formatted_label,
+            property_type: property_schema.property_type.into(),
+            metadata: property_schema.metadata.into(),
         }
     }
 }

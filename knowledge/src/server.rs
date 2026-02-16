@@ -1,7 +1,7 @@
 use crate::services::Service;
 use bric_a_brac_protos::knowledge::{
-    knowledge_service_server::{KnowledgeService, KnowledgeServiceServer},
-    EdgeData, GraphData, InsertEdgeRequest, InsertNodeRequest, LoadGraphRequest, NodeData,
+    knowledge_server::{Knowledge, KnowledgeServer as KnowledgeGrpcServer}, EdgeData, GraphData,
+    InsertEdgeRequest, InsertNodeRequest, LoadGraphRequest, NodeData,
 };
 use tonic::{Request, Response, Status};
 
@@ -14,13 +14,13 @@ impl KnowledgeServer {
         Ok(Self { service })
     }
 
-    pub fn into_service(self) -> KnowledgeServiceServer<Self> {
-        KnowledgeServiceServer::new(self)
+    pub fn into_service(self) -> KnowledgeGrpcServer<Self> {
+        KnowledgeGrpcServer::new(self)
     }
 }
 
 #[tonic::async_trait]
-impl KnowledgeService for KnowledgeServer {
+impl Knowledge for KnowledgeServer {
     async fn insert_node(
         &self,
         request: Request<InsertNodeRequest>,

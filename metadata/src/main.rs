@@ -1,7 +1,7 @@
 use metadata::{infrastructure::config::Config, run, setup_tracing};
 
 // TODO for Knowledge microservice:
-// - Remove super use
+// - Remove (or clean) super use
 // - Clean errors
 // - Improve logs
 // - (tests)

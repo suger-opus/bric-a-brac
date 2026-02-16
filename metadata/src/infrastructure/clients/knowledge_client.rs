@@ -7,7 +7,7 @@ use crate::{
     presentation::error::{AppError, DomainError, ResultExt},
 };
 use bric_a_brac_protos::knowledge::{
-    knowledge_service_client::KnowledgeServiceClient, property_value, EdgeData, GraphData,
+    knowledge_client::KnowledgeClient as KnowledgeGrpcClient, property_value, EdgeData, GraphData,
     InsertEdgeRequest, InsertNodeRequest, LoadGraphRequest, NodeData, PropertyValue,
 };
 use std::{collections::HashMap, str::FromStr};
@@ -15,12 +15,12 @@ use tonic::Request;
 
 #[derive(Clone)]
 pub struct KnowledgeClient {
-    client: KnowledgeServiceClient<tonic::transport::Channel>,
+    client: KnowledgeGrpcClient<tonic::transport::Channel>,
 }
 
 impl KnowledgeClient {
     pub async fn connect(config: &KnowledgeServerConfig) -> Result<Self, AppError> {
-        let client = KnowledgeServiceClient::connect(config.url().clone())
+        let client = KnowledgeGrpcClient::connect(config.url().clone())
             .await
             .map_err(AppError::from)
             .context("Failed to connect to Knowledge service")?;
@@ -45,7 +45,7 @@ impl KnowledgeClient {
             .clone()
             .insert_node(request)
             .await
-            .context("Failed to insert node in knowledge service")?;
+            .context("Failed to insert node in Knowledge service")?;
 
         response.into_inner().try_into()
     }
@@ -67,7 +67,7 @@ impl KnowledgeClient {
             .clone()
             .insert_edge(request)
             .await
-            .context("Failed to insert edge in knowledge service")?;
+            .context("Failed to insert edge in Knowledge service")?;
 
         response.into_inner().try_into()
     }
@@ -81,7 +81,7 @@ impl KnowledgeClient {
             .clone()
             .load_graph(request)
             .await
-            .context("Failed to load graph from knowledge service")?;
+            .context("Failed to load graph from Knowledge service")?;
 
         response.into_inner().try_into()
     }

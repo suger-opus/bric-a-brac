@@ -4,7 +4,10 @@ use crate::{
         CreateNodeSchemaDto,
     },
     domain::models::GraphId,
-    presentation::{extractors::AuthenticatedUser, state::ApiState},
+    presentation::{
+        extractors::{AuthenticatedUser, MultipartFileUpload},
+        state::ApiState,
+    },
 };
 use axum::{
     extract::{Path, State},
@@ -70,6 +73,19 @@ pub async fn create_graph(
         .create_graph(user_id, payload)
         .await
         .map(|graph| (StatusCode::CREATED, Json(graph)))
+}
+
+pub async fn generate_schema(
+    State(state): State<ApiState>,
+    Path(graph_id): Path<GraphId>,
+    AuthenticatedUser { user_id: _ }: AuthenticatedUser,
+    MultipartFileUpload(file_content, file_type): MultipartFileUpload,
+) -> Result<impl IntoResponse, impl IntoResponse> {
+    state
+        .graph_service
+        .generate_schema(graph_id, file_content, file_type)
+        .await
+        .map(|schema| (StatusCode::OK, Json(schema)))
 }
 
 pub async fn create_node_schema(

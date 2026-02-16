@@ -1,15 +1,15 @@
 use crate::{
     application::{
         dtos::{
-            CreateEdgeDataDto, CreateEdgeSchemaDto, CreateGraphDto, CreateNodeDataDto,
-            CreateNodeSchemaDto, EdgeDataDto, EdgeSchemaDto, GraphDataDto, GraphMetadataDto,
-            GraphSchemaDto, NodeDataDto, NodeSchemaDto,
+            CreateEdgeDataDto, CreateEdgeSchemaDto, CreateGraphDto, CreateGraphSchemaDto,
+            CreateNodeDataDto, CreateNodeSchemaDto, EdgeDataDto, EdgeSchemaDto, GraphDataDto,
+            GraphMetadataDto, GraphSchemaDto, NodeDataDto, NodeSchemaDto,
         },
         services::ValidationService,
     },
     domain::models::{CreateAccess, GraphId, Role, UserId},
     infrastructure::{
-        clients::KnowledgeClient,
+        clients::{AiClient, KnowledgeClient},
         repositories::{AccessRepository, GraphRepository},
     },
     presentation::error::{AppError, ResultExt},
@@ -22,6 +22,7 @@ pub struct GraphService {
     repository: GraphRepository,
     access_repository: AccessRepository,
     knowledge_client: KnowledgeClient,
+    ai_client: AiClient,
     schema_validator: ValidationService,
 }
 
@@ -31,6 +32,7 @@ impl GraphService {
         repository: GraphRepository,
         access_repository: AccessRepository,
         knowledge_client: KnowledgeClient,
+        ai_client: AiClient,
         schema_validator: ValidationService,
     ) -> Self {
         GraphService {
@@ -38,6 +40,7 @@ impl GraphService {
             repository,
             access_repository,
             knowledge_client,
+            ai_client,
             schema_validator,
         }
     }
@@ -137,6 +140,21 @@ impl GraphService {
             .context("Failed to commit transaction after creating graph")?;
 
         Ok(graph.into())
+    }
+
+    pub async fn generate_schema(
+        &self,
+        _graph_id: GraphId,
+        file_content: Vec<u8>,
+        file_type: String,
+    ) -> Result<CreateGraphSchemaDto, AppError> {
+        let schema = self
+            .ai_client
+            .generate_schema(file_content, file_type)
+            .await
+            .context("Failed to generate schema using AI client")?;
+
+        Ok(schema.into())
     }
 
     pub async fn create_node_schema(

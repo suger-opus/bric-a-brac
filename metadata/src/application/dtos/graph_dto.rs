@@ -1,5 +1,10 @@
 use super::{EdgeDataDto, EdgeSchemaDto, NodeDataDto, NodeSchemaDto, RoleDto};
-use crate::domain::models::{CreateGraph, GraphData, GraphId, GraphMetadata, GraphSchema, Reddit};
+use crate::{
+    application::dtos::{CreateEdgeSchemaDto, CreateNodeSchemaDto},
+    domain::models::{
+        CreateGraph, CreateGraphSchema, GraphData, GraphId, GraphMetadata, GraphSchema, Reddit,
+    },
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -81,6 +86,46 @@ impl From<GraphSchema> for GraphSchemaDto {
         Self {
             nodes: schema.nodes.into_iter().map(NodeSchemaDto::from).collect(),
             edges: schema.edges.into_iter().map(EdgeSchemaDto::from).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateGraphSchemaDto {
+    pub nodes: Vec<CreateNodeSchemaDto>,
+    pub edges: Vec<CreateEdgeSchemaDto>,
+}
+
+impl CreateGraphSchemaDto {
+    pub fn into_domain(self) -> CreateGraphSchema {
+        CreateGraphSchema {
+            nodes: self
+                .nodes
+                .into_iter()
+                .map(|node| node.into_domain())
+                .collect(),
+            edges: self
+                .edges
+                .into_iter()
+                .map(|edge| edge.into_domain())
+                .collect(),
+        }
+    }
+}
+
+impl From<CreateGraphSchema> for CreateGraphSchemaDto {
+    fn from(schema: CreateGraphSchema) -> Self {
+        Self {
+            nodes: schema
+                .nodes
+                .into_iter()
+                .map(CreateNodeSchemaDto::from)
+                .collect(),
+            edges: schema
+                .edges
+                .into_iter()
+                .map(CreateEdgeSchemaDto::from)
+                .collect(),
         }
     }
 }
