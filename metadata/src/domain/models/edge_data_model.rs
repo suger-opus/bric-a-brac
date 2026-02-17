@@ -12,7 +12,7 @@ pub struct EdgeData {
     pub properties: PropertiesData,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CreateEdgeData {
     pub edge_schema_id: EdgeSchemaId,
     pub from_node_data_id: NodeDataId,

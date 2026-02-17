@@ -19,8 +19,8 @@ impl ApiState {
     pub async fn build(config: &Config) -> anyhow::Result<Self> {
         let db_pool = database::connect(config.metadata_db()).await?;
         database::migrate(config.metadata_db(), &db_pool).await?;
-        let knowledge_client = KnowledgeClient::connect(config.knowledge_server()).await?;
-        let ai_client = AiClient::connect(config.ai_server()).await?;
+        let knowledge_client = KnowledgeClient::new(config.knowledge_server().clone());
+        let ai_client = AiClient::new(config.ai_server().clone());
 
         let access_repository = AccessRepository::new();
         let graph_repository = GraphRepository::new();

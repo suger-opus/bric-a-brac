@@ -1,31 +1,34 @@
-use super::super::config::KnowledgeServerConfig;
 use crate::{
     domain::models::{
         self, CreateEdgeData, CreateNodeData, EdgeDataId, GraphId, NodeDataId, PropertiesData,
         PropertyData,
     },
-    presentation::error::{AppError, DomainError, ResultExt},
+    infrastructure::config::KnowledgeServerConfig,
+    presentation::error::{AppError, DomainError, InfraError, ResultExt},
 };
 use bric_a_brac_protos::knowledge::{
     knowledge_client::KnowledgeClient as KnowledgeGrpcClient, property_value, EdgeData, GraphData,
     InsertEdgeRequest, InsertNodeRequest, LoadGraphRequest, NodeData, PropertyValue,
 };
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 use tonic::Request;
 
 #[derive(Clone)]
 pub struct KnowledgeClient {
-    client: KnowledgeGrpcClient<tonic::transport::Channel>,
+    config: KnowledgeServerConfig,
+    client: Arc<Mutex<Option<KnowledgeGrpcClient<tonic::transport::Channel>>>>,
 }
 
 impl KnowledgeClient {
-    pub async fn connect(config: &KnowledgeServerConfig) -> Result<Self, AppError> {
-        let client = KnowledgeGrpcClient::connect(config.url().clone())
-            .await
-            .map_err(AppError::from)
-            .context("Failed to connect to Knowledge service")?;
-
-        Ok(Self { client })
+    pub fn new(config: KnowledgeServerConfig) -> Self {
+        Self {
+            config,
+            client: Arc::new(Mutex::new(None)),
+        }
     }
 
     pub async fn insert_node(
@@ -34,20 +37,22 @@ impl KnowledgeClient {
         formatted_label: String,
         create_node_data: CreateNodeData,
     ) -> Result<models::NodeData, AppError> {
-        let request = Request::new(InsertNodeRequest {
-            node_data_id: NodeDataId::new().to_string(),
-            graph_id: graph_id.to_string(),
-            formatted_label,
-            properties: create_node_data.properties.into(),
-        });
-        let response = self
-            .client
-            .clone()
-            .insert_node(request)
+        match self
+            .try_insert_node(graph_id, formatted_label.clone(), create_node_data.clone())
             .await
-            .context("Failed to insert node in Knowledge service")?;
-
-        response.into_inner().try_into()
+        {
+            Ok(node) => Ok(node),
+            Err(e) => {
+                if e.is_grpc_connection_error() {
+                    tracing::warn!("Connection error detected, reconnecting: {}", e);
+                    self.reset_connection();
+                    self.try_insert_node(graph_id, formatted_label, create_node_data)
+                        .await
+                } else {
+                    Err(e)
+                }
+            }
+        }
     }
 
     pub async fn insert_edge(
@@ -55,6 +60,71 @@ impl KnowledgeClient {
         formatted_label: String,
         create_edge_data: CreateEdgeData,
     ) -> Result<models::EdgeData, AppError> {
+        match self
+            .try_insert_edge(formatted_label.clone(), create_edge_data.clone())
+            .await
+        {
+            Ok(edge) => Ok(edge),
+            Err(e) => {
+                if e.is_grpc_connection_error() {
+                    tracing::warn!("Connection error detected, reconnecting: {}", e);
+                    self.reset_connection();
+                    self.try_insert_edge(formatted_label, create_edge_data)
+                        .await
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+
+    pub async fn load_graph(&self, graph_id: GraphId) -> Result<models::GraphData, AppError> {
+        match self.try_load_graph(graph_id).await {
+            Ok(graph) => Ok(graph),
+            Err(e) => {
+                if e.is_grpc_connection_error() {
+                    tracing::warn!("Connection error detected, reconnecting: {}", e);
+                    self.reset_connection();
+                    self.try_load_graph(graph_id).await
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+
+    async fn try_insert_node(
+        &self,
+        graph_id: GraphId,
+        formatted_label: String,
+        create_node_data: CreateNodeData,
+    ) -> Result<models::NodeData, AppError> {
+        self.ensure_connection().await?;
+        let mut client = self.clone_client()?;
+
+        let request = Request::new(InsertNodeRequest {
+            node_data_id: NodeDataId::new().to_string(),
+            graph_id: graph_id.to_string(),
+            formatted_label,
+            properties: create_node_data.properties.into(),
+        });
+
+        let response = client
+            .insert_node(request)
+            .await
+            .context("Failed to insert node in Knowledge service")?;
+
+        response.into_inner().try_into()
+    }
+
+    async fn try_insert_edge(
+        &self,
+        formatted_label: String,
+        create_edge_data: CreateEdgeData,
+    ) -> Result<models::EdgeData, AppError> {
+        self.ensure_connection().await?;
+        let mut client = self.clone_client()?;
+
         let request = Request::new(InsertEdgeRequest {
             edge_data_id: EdgeDataId::new().to_string(),
             from_node_data_id: create_edge_data.from_node_data_id.to_string(),
@@ -62,9 +132,8 @@ impl KnowledgeClient {
             formatted_label,
             properties: create_edge_data.properties.into(),
         });
-        let response = self
-            .client
-            .clone()
+
+        let response = client
             .insert_edge(request)
             .await
             .context("Failed to insert edge in Knowledge service")?;
@@ -72,18 +141,86 @@ impl KnowledgeClient {
         response.into_inner().try_into()
     }
 
-    pub async fn load_graph(&self, graph_id: GraphId) -> Result<models::GraphData, AppError> {
+    async fn try_load_graph(&self, graph_id: GraphId) -> Result<models::GraphData, AppError> {
+        self.ensure_connection().await?;
+        let mut client = self.clone_client()?;
+
         let request = Request::new(LoadGraphRequest {
             graph_id: graph_id.to_string(),
         });
-        let response = self
-            .client
-            .clone()
+        let response = client
             .load_graph(request)
             .await
             .context("Failed to load graph from Knowledge service")?;
 
         response.into_inner().try_into()
+    }
+
+    fn reset_connection(&self) {
+        if let Ok(mut client_lock) = self.client.lock() {
+            *client_lock = None;
+            tracing::info!("Reset Knowledge service connection");
+        }
+    }
+
+    async fn ensure_connection(&self) -> Result<(), AppError> {
+        {
+            let client_lock = self.client.lock().map_err(|e| {
+                AppError::Infra(InfraError::MutexPoisoned {
+                    message: format!("Failed to acquire lock: {}", e),
+                })
+            })?;
+
+            if client_lock.is_some() {
+                return Ok(());
+            }
+        } // Lock dropped here - Holding mutex guards across .await is an anti-pattern
+
+        tracing::info!("Connecting to Knowledge service at {}", self.config.url());
+
+        let client = KnowledgeGrpcClient::connect(self.config.url().clone())
+            .await
+            .map_err(|e| {
+                AppError::Infra(InfraError::GrpcService {
+                    service: "knowledge".to_string(),
+                    message: format!("Failed to connect to Knowledge service: {}", e),
+                    source: None,
+                })
+            })?;
+
+        {
+            let mut client_lock = self.client.lock().map_err(|e| {
+                AppError::Infra(InfraError::MutexPoisoned {
+                    message: format!("Failed to acquire lock: {}", e),
+                })
+            })?;
+
+            *client_lock = Some(client);
+        }
+
+        tracing::info!(
+            "Successfully connected to Knowledge service at {}",
+            self.config.url()
+        );
+
+        Ok(())
+    }
+
+    fn clone_client(&self) -> Result<KnowledgeGrpcClient<tonic::transport::Channel>, AppError> {
+        let client_lock = self.client.lock().map_err(|e| {
+            AppError::Infra(InfraError::MutexPoisoned {
+                message: format!("Failed to acquire lock: {}", e),
+            })
+        })?;
+
+        client_lock
+            .as_ref()
+            .ok_or_else(|| {
+                AppError::Infra(InfraError::ClientNotConnected {
+                    message: "Client not connected".to_string(),
+                })
+            })
+            .map(|client| client.clone()) // Clone the client to avoid holding the lock across await
     }
 }
 

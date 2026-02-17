@@ -76,6 +76,12 @@ pub enum InfraError {
         source: tonic::transport::Error,
     },
 
+    #[error("Mutex lock poisoned: {message}")]
+    MutexPoisoned { message: String },
+
+    #[error("Client not connected: {message}")]
+    ClientNotConnected { message: String },
+
     #[error("UUID conversion error: {context}")]
     UuidConversion {
         #[source]
@@ -101,6 +107,23 @@ pub enum AppError {
         #[source]
         source: Box<AppError>,
     },
+}
+
+impl AppError {
+    pub fn is_grpc_connection_error(&self) -> bool {
+        if let AppError::Infra(InfraError::GrpcService { source, .. }) = self {
+            if let Some(status) = source {
+                return matches!(
+                    status.code(),
+                    tonic::Code::Unavailable
+                        | tonic::Code::DeadlineExceeded
+                        | tonic::Code::Cancelled
+                        | tonic::Code::Unknown
+                );
+            }
+        }
+        false
+    }
 }
 
 impl IntoResponse for AppError {
@@ -223,6 +246,22 @@ impl IntoResponse for AppError {
                     StatusCode::BAD_GATEWAY,
                     "Failed to communicate with external service".to_string(),
                     json!({ "error": source.to_string() }),
+                )
+            }
+            AppError::Infra(InfraError::MutexPoisoned { message }) => {
+                tracing::error!(message = %message, "Mutex lock poisoned");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal synchronization error".to_string(),
+                    json!({ "message": message }),
+                )
+            }
+            AppError::Infra(InfraError::ClientNotConnected { message }) => {
+                tracing::error!(message = %message, "Client not connected error");
+                (
+                    StatusCode::BAD_GATEWAY,
+                    "External service client not connected".to_string(),
+                    json!({ "message": message }),
                 )
             }
             AppError::Infra(InfraError::UuidConversion { source, context }) => {

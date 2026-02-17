@@ -10,7 +10,7 @@ pub struct NodeData {
     pub properties: PropertiesData,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CreateNodeData {
     pub node_schema_id: NodeSchemaId,
     pub properties: PropertiesData,

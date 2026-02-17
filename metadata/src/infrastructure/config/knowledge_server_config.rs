@@ -1,6 +1,6 @@
 use axum::http::Uri;
 
-#[derive(clap::Args, derive_more::Debug)]
+#[derive(Clone, clap::Args, derive_more::Debug)]
 pub struct KnowledgeServerConfig {
     /// Knowledge server URL
     #[arg(long, env = "KNOWLEDGE_SERVER_URL", required = true)]
