@@ -2,7 +2,7 @@ use super::super::dtos::{AccessDto, CreateAccessDto};
 use crate::{
     domain::models::GraphId,
     infrastructure::repositories::AccessRepository,
-    presentation::error::{AppError, ResultExt},
+    presentation::errors::{AppError, DatabaseError},
 };
 use sqlx::PgPool;
 
@@ -17,24 +17,19 @@ impl AccessService {
         AccessService { pool, repository }
     }
 
-    pub async fn create_access(
+    #[tracing::instrument(level = "trace", skip(self, graph_id, create_access_dto))]
+    pub async fn create(
         &self,
         graph_id: GraphId,
         create_access_dto: CreateAccessDto,
     ) -> Result<AccessDto, AppError> {
-        let mut txn = self
-            .pool
-            .begin()
-            .await
-            .context("Failed to start transaction for access creation")?;
+        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
         let access = self
             .repository
-            .create_access(&mut txn, create_access_dto.into_domain(graph_id))
+            .create(&mut txn, create_access_dto.into_domain(graph_id))
             .await
-            .context("Failed to create access in repository")?;
-        txn.commit()
-            .await
-            .context("Failed to commit transaction after creating access")?;
+            .map_err(DatabaseError::from)?;
+        txn.commit().await.map_err(DatabaseError::from)?;
 
         Ok(access.into())
     }

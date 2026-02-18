@@ -9,7 +9,8 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use tower_http::cors::CorsLayer;
+use tower_http::{classify::ServerErrorsFailureClass, cors::CorsLayer, trace::TraceLayer};
+use uuid::Uuid;
 
 async fn openapi_spec() -> Response {
     let json = openapi::get_openapi_json();
@@ -27,7 +28,7 @@ pub fn build(state: ApiState) -> Router {
         .route("/graphs/{graph_id}/data", get(graph_handler::get_data))
         .route("/graphs", post(graph_handler::create_graph))
         .route(
-            "/graphs/{graph_id}/schemas/generate",
+            "/graphs/{graph_id}/schema/generate",
             post(graph_handler::generate_schema),
         )
         .route(
@@ -47,6 +48,46 @@ pub fn build(state: ApiState) -> Router {
             post(graph_handler::insert_edge_data),
         )
         .route("/accesses/graphs/{graph_id}", post(access_handler::create))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|_request: &axum::http::Request<axum::body::Body>| {
+                    let request_id = Uuid::new_v4();
+                    tracing::info_span!("http_request", id = ?request_id)
+                })
+                .on_request(
+                    |request: &axum::http::Request<axum::body::Body>, span: &tracing::Span| {
+                        tracing::info!(parent: span,
+                            method = ?request.method(),
+                            uri = ?request.uri(),
+                            headers = ?request.headers(),
+                            "Request received"
+                        );
+                    },
+                )
+                .on_response(
+                    |response: &axum::http::Response<axum::body::Body>,
+                     latency: std::time::Duration,
+                     span: &tracing::Span| {
+                        tracing::info!(parent: span,
+                            status = ?response.status(),
+                            latency = ?latency,
+                            headers = ?response.headers(),
+                            "Response sent"
+                        );
+                    },
+                )
+                .on_failure(
+                    |error: ServerErrorsFailureClass,
+                     latency: std::time::Duration,
+                     span: &tracing::Span| {
+                        tracing::error!(parent: span,
+                            latency = ?latency,
+                            error = ?error,
+                            "Request failed"
+                        );
+                    },
+                ),
+        )
         .layer(CorsLayer::permissive())
         .with_state(state)
 }

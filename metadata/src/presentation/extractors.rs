@@ -1,10 +1,9 @@
-use super::error::{AppError, DomainError};
+use super::errors::AppError;
 use crate::domain::models::UserId;
 use axum::{
     body::Body,
     extract::{FromRequest, FromRequestParts, Request},
-    http::{request::Parts, StatusCode},
-    response::IntoResponse,
+    http::request::Parts,
 };
 use futures_util::TryStreamExt;
 
@@ -21,22 +20,23 @@ where
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        tracing::debug!("Extracting authenticated user from request");
+
         let user_id_str = parts
             .headers
             .get("user_id")
             .and_then(|v| v.to_str().ok())
-            .ok_or_else(|| {
-                AppError::Domain(DomainError::Unauthorized {
-                    reason: "Missing user_id header".to_string(),
-                })
+            .ok_or_else(|| AppError::Unauthorized {
+                reason: "Missing user_id header".to_string(),
             })?;
 
-        let user_id = user_id_str.parse::<UserId>().map_err(|_| {
-            AppError::Domain(DomainError::Unauthorized {
+        let user_id = user_id_str
+            .parse::<UserId>()
+            .map_err(|_| AppError::Unauthorized {
                 reason: "Invalid user_id format - must be a valid UUID".to_string(),
-            })
-        })?;
+            })?;
 
+        tracing::debug!(user_id = ?user_id, "Successfully extracted authenticated user");
         Ok(AuthenticatedUser { user_id })
     }
 }
@@ -47,65 +47,67 @@ impl<S> FromRequest<S> for MultipartFileUpload
 where
     S: Send + Sync,
 {
-    type Rejection = axum::http::Response<axum::body::Body>;
+    type Rejection = AppError;
 
     async fn from_request(req: Request<Body>, _state: &S) -> Result<Self, Self::Rejection> {
+        tracing::debug!("Extracting multipart file upload from request");
+
         let headers = req.headers();
         let content_type = headers
             .get("content-type")
             .and_then(|v| v.to_str().ok())
-            .ok_or_else(|| {
-                (StatusCode::BAD_REQUEST, "Missing content-type header").into_response()
+            .ok_or_else(|| AppError::InvalidHeader {
+                issue: "Missing content-type header".to_string(),
+                header: "content-type".to_string(),
+                value: "".to_string(),
             })?;
 
-        let boundary = multer::parse_boundary(content_type)
-            .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid content-type").into_response())?;
+        let boundary =
+            multer::parse_boundary(content_type).map_err(|_| AppError::InvalidHeader {
+                issue: "Invalid content-type".to_string(),
+                header: "content-type".to_string(),
+                value: content_type.to_string(),
+            })?;
 
         let stream = req
             .into_body()
             .into_data_stream()
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e));
+            .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err));
         let mut multipart = multer::Multipart::new(stream, boundary);
 
         let mut file_content: Option<Vec<u8>> = None;
         let mut file_type: Option<String> = None;
 
-        while let Some(field) = multipart.next_field().await.map_err(|e| {
-            (
-                StatusCode::BAD_REQUEST,
-                format!("Failed to read field: {}", e),
-            )
-                .into_response()
-        })? {
+        while let Some(field) =
+            multipart
+                .next_field()
+                .await
+                .map_err(|err| AppError::InvalidFile {
+                    issue: format!("Failed to read field: {}", err),
+                })?
+        {
             let name = field.name().unwrap_or("").to_string();
 
             match name.as_str() {
                 "file" => {
-                    let data = field.bytes().await.map_err(|e| {
-                        (
-                            StatusCode::BAD_REQUEST,
-                            format!("Failed to read file: {}", e),
-                        )
-                            .into_response()
+                    let data = field.bytes().await.map_err(|err| AppError::InvalidFile {
+                        issue: format!("Failed to read file: {}", err),
                     })?;
 
                     if data.len() > MAX_FILE_SIZE {
-                        return Err((
-                            StatusCode::PAYLOAD_TOO_LARGE,
-                            format!("File size exceeds maximum of {}KB", MAX_FILE_SIZE / 1024),
-                        )
-                            .into_response());
+                        return Err(AppError::InvalidFile {
+                            issue: format!(
+                                "File size exceeds maximum of {}KB",
+                                MAX_FILE_SIZE / 1024
+                            ),
+                        });
                     }
 
                     file_content = Some(data.to_vec());
                 }
                 "file_type" => {
-                    let value = field.text().await.map_err(|e| {
-                        (
-                            StatusCode::BAD_REQUEST,
-                            format!("Failed to read file_type: {}", e),
-                        )
-                            .into_response()
+                    let value = field.text().await.map_err(|err| AppError::InvalidFile {
+                        issue: format!("Failed to read file_type: {}", err),
                     })?;
 
                     file_type = Some(value.to_lowercase());
@@ -114,12 +116,17 @@ where
             }
         }
 
-        let file_content = file_content
-            .ok_or_else(|| (StatusCode::BAD_REQUEST, "Missing 'file' field").into_response())?;
-        let file_type = file_type.ok_or_else(|| {
-            (StatusCode::BAD_REQUEST, "Missing 'file_type' field").into_response()
+        let file_content = file_content.ok_or_else(|| AppError::InvalidFile {
+            issue: "Missing 'file' field".to_string(),
+        })?;
+        let file_type = file_type.ok_or_else(|| AppError::InvalidFile {
+            issue: "Missing 'file_type' field".to_string(),
         })?;
 
+        tracing::debug!(
+            file_type = %file_type,
+            "Successfully extracted multipart file upload",
+        );
         Ok(MultipartFileUpload(file_content, file_type))
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     domain::models::{CreateUser, User, UserId},
-    presentation::error::AppError,
+    presentation::errors::DatabaseError,
 };
 use sqlx::PgConnection;
 
@@ -12,11 +12,12 @@ impl UserRepository {
         UserRepository
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection))]
     pub async fn create(
         &self,
         connection: &mut PgConnection,
         create_user: CreateUser,
-    ) -> Result<User, AppError> {
+    ) -> Result<User, DatabaseError> {
         let user = sqlx::query_as!(
             User,
             r#"
@@ -39,11 +40,12 @@ RETURNING
         Ok(user)
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection))]
     pub async fn get(
         &self,
         connection: &mut PgConnection,
         user_id: UserId,
-    ) -> Result<User, AppError> {
+    ) -> Result<User, DatabaseError> {
         let user = sqlx::query_as!(
             User,
             r#"

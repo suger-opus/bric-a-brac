@@ -4,7 +4,7 @@ use crate::{
         EdgeSchemaId, Graph, GraphId, GraphMetadata, GraphSchema, NodeSchema, NodeSchemaId,
         PropertyMetadata, PropertySchema, PropertySchemaId, PropertyType, Reddit, Role, UserId,
     },
-    presentation::error::{AppError, InfraError},
+    presentation::errors::DatabaseError,
 };
 use chrono::{DateTime, Utc};
 use sqlx::{types::Json, PgConnection};
@@ -18,11 +18,12 @@ impl GraphRepository {
         GraphRepository
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection))]
     pub async fn get_all_metadata(
         &self,
         connection: &mut PgConnection,
         user_id: UserId,
-    ) -> Result<Vec<GraphMetadata>, AppError> {
+    ) -> Result<Vec<GraphMetadata>, DatabaseError> {
         let graphs = sqlx::query_as!(
             GraphMetadataRow,
             r#"
@@ -55,12 +56,13 @@ JOIN users u ON owner_access.user_id = u.user_id
         Ok(graphs.into_iter().map(GraphMetadataRow::into).collect())
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection))]
     pub async fn get_metadata(
         &self,
         connection: &mut PgConnection,
-        user_id: UserId,
         graph_id: GraphId,
-    ) -> Result<GraphMetadata, AppError> {
+        user_id: UserId,
+    ) -> Result<GraphMetadata, DatabaseError> {
         let graph = sqlx::query_as!(
             GraphMetadataRow,
             r#"
@@ -95,11 +97,12 @@ WHERE g.graph_id = $2
         Ok(graph.into())
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection))]
     pub async fn get_schema(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphId,
-    ) -> Result<GraphSchema, AppError> {
+    ) -> Result<GraphSchema, DatabaseError> {
         let schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -160,11 +163,12 @@ ORDER BY "schema_type!:_"
         schemas.try_into()
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection))]
     pub async fn get_node_schema(
         &self,
         connection: &mut PgConnection,
         node_schema_id: NodeSchemaId,
-    ) -> Result<NodeSchema, AppError> {
+    ) -> Result<NodeSchema, DatabaseError> {
         let nodes_schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -199,11 +203,12 @@ WHERE ns.node_schema_id = $1
         nodes_schemas.try_into()
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection))]
     pub async fn get_edge_schema(
         &self,
         connection: &mut PgConnection,
         edge_schema_id: EdgeSchemaId,
-    ) -> Result<EdgeSchema, AppError> {
+    ) -> Result<EdgeSchema, DatabaseError> {
         let edges_schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -238,11 +243,14 @@ WHERE es.edge_schema_id = $1
         edges_schemas.try_into()
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection, create_graph))]
     pub async fn create_graph(
         &self,
         connection: &mut PgConnection,
         create_graph: CreateGraph,
-    ) -> Result<Graph, AppError> {
+    ) -> Result<Graph, DatabaseError> {
+        tracing::debug!(create_graph_name = ?create_graph.name);
+
         let graph = sqlx::query_as!(
             GraphRow,
             r#"
@@ -270,12 +278,15 @@ RETURNING
         Ok(graph.into())
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection, create_node_schema))]
     pub async fn create_node_schema(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphId,
         create_node_schema: CreateNodeSchema,
-    ) -> Result<NodeSchema, AppError> {
+    ) -> Result<NodeSchema, DatabaseError> {
+        tracing::debug!(create_node_schema_formatted_label = ?create_node_schema.formatted_label);
+
         let node_schema = sqlx::query_as!(
             NodeSchemaRow,
             r#"
@@ -302,12 +313,15 @@ RETURNING
         Ok(node_schema.into())
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection, create_edge_schema))]
     pub async fn create_edge_schema(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphId,
         create_edge_schema: CreateEdgeSchema,
-    ) -> Result<EdgeSchema, AppError> {
+    ) -> Result<EdgeSchema, DatabaseError> {
+        tracing::debug!(create_edge_schema_formatted_label = ?create_edge_schema.formatted_label);
+
         let edge_schema = sqlx::query_as!(
             EdgeSchemaRow,
             r#"
@@ -334,11 +348,14 @@ RETURNING
         Ok(edge_schema.into())
     }
 
+    #[tracing::instrument(level = "debug", skip(self, connection, create_properties))]
     pub async fn create_properties(
         &self,
         connection: &mut PgConnection,
         create_properties: Vec<CreatePropertySchema>,
-    ) -> Result<Vec<PropertySchema>, AppError> {
+    ) -> Result<Vec<PropertySchema>, DatabaseError> {
+        tracing::debug!(create_properties_len = ?create_properties.len());
+
         let mut ids = vec![];
         let mut node_schema_ids = vec![];
         let mut edge_schema_ids = vec![];
@@ -607,7 +624,7 @@ impl SchemaRow {
 }
 
 impl TryFrom<Vec<SchemaRow>> for GraphSchema {
-    type Error = AppError;
+    type Error = DatabaseError;
 
     fn try_from(schemas: Vec<SchemaRow>) -> Result<Self, Self::Error> {
         let mut nodes_schemas_map: HashMap<NodeSchemaId, Vec<SchemaRow>> = HashMap::new();
@@ -645,23 +662,23 @@ impl TryFrom<Vec<SchemaRow>> for GraphSchema {
 }
 
 impl TryFrom<Vec<SchemaRow>> for NodeSchema {
-    type Error = AppError;
+    type Error = DatabaseError;
 
     fn try_from(schemas: Vec<SchemaRow>) -> Result<Self, Self::Error> {
         let first_row = if let Some(row) = schemas.first() {
-            row
+            Ok(row)
         } else {
-            return Err(InfraError::DatabaseState {
+            Err(DatabaseError::UnexpectedState {
                 reason: "No rows returned for node schema".to_string(),
-            }
-            .into());
-        };
+            })
+        }?;
 
-        let node_schema_id = first_row
-            .node_schema_id
-            .ok_or_else(|| InfraError::DatabaseState {
-                reason: "Missing node_schema_id in node schema row".to_string(),
-            })?;
+        let node_schema_id =
+            first_row
+                .node_schema_id
+                .ok_or_else(|| DatabaseError::UnexpectedState {
+                    reason: "Missing node_schema_id in node schema row".to_string(),
+                })?;
 
         let properties = schemas
             .iter()
@@ -682,23 +699,23 @@ impl TryFrom<Vec<SchemaRow>> for NodeSchema {
 }
 
 impl TryFrom<Vec<SchemaRow>> for EdgeSchema {
-    type Error = AppError;
+    type Error = DatabaseError;
 
     fn try_from(schemas: Vec<SchemaRow>) -> Result<Self, Self::Error> {
         let first_row = if let Some(row) = schemas.first() {
-            row
+            Ok(row)
         } else {
-            return Err(InfraError::DatabaseState {
+            Err(DatabaseError::UnexpectedState {
                 reason: "No rows returned for edge schema".to_string(),
-            }
-            .into());
-        };
+            })
+        }?;
 
-        let edge_schema_id = first_row
-            .edge_schema_id
-            .ok_or_else(|| InfraError::DatabaseState {
-                reason: "Missing edge_schema_id in edge schema row".to_string(),
-            })?;
+        let edge_schema_id =
+            first_row
+                .edge_schema_id
+                .ok_or_else(|| DatabaseError::UnexpectedState {
+                    reason: "Missing edge_schema_id in edge schema row".to_string(),
+                })?;
 
         let properties = schemas
             .iter()

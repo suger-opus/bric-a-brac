@@ -3,7 +3,7 @@ use crate::{
         EdgeSchemaId, NodeSchemaId, PropertiesData, PropertyData, PropertySchema, PropertyType,
     },
     infrastructure::repositories::GraphRepository,
-    presentation::error::{AppError, DomainError, InfraError, ResultExt},
+    presentation::errors::{AppError, DatabaseError},
 };
 use sqlx::PgPool;
 
@@ -18,74 +18,41 @@ impl ValidationService {
         Self { pool, repository }
     }
 
+    #[tracing::instrument(level = "trace", skip(self, node_schema_id, properties))]
     pub async fn validate_node_data(
         &self,
         node_schema_id: NodeSchemaId,
         properties: &PropertiesData,
     ) -> Result<String, AppError> {
-        let mut txn = self
-            .pool
-            .begin()
-            .await
-            .context("Failed to start transaction for node validation")?;
+        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
         let node_schema = self
             .repository
             .get_node_schema(&mut txn, node_schema_id)
-            .await
-            .map_err(|e| match e {
-                AppError::Infra(InfraError::Database { source, .. })
-                    if matches!(source, sqlx::Error::RowNotFound) =>
-                {
-                    DomainError::NotFound {
-                        entity: "NodeSchema".to_string(),
-                        identifier: node_schema_id.to_string(),
-                    }
-                    .into()
-                }
-                other => other,
-            })?;
-        txn.commit()
-            .await
-            .context("Failed to commit transaction after node schema fetch")?;
+            .await?;
+        txn.commit().await.map_err(DatabaseError::from)?;
 
         self.validate_properties(properties, &node_schema.properties)?;
         Ok(node_schema.formatted_label)
     }
 
+    #[tracing::instrument(level = "trace", skip(self, edge_schema_id, properties))]
     pub async fn validate_edge_data(
         &self,
         edge_schema_id: EdgeSchemaId,
         properties: &PropertiesData,
     ) -> Result<String, AppError> {
-        let mut txn = self
-            .pool
-            .begin()
-            .await
-            .context("Failed to start transaction for edge validation")?;
+        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
         let edge_schema = self
             .repository
             .get_edge_schema(&mut txn, edge_schema_id)
-            .await
-            .map_err(|e| match e {
-                AppError::Infra(InfraError::Database { source, .. })
-                    if matches!(source, sqlx::Error::RowNotFound) =>
-                {
-                    DomainError::NotFound {
-                        entity: "EdgeSchema".to_string(),
-                        identifier: edge_schema_id.to_string(),
-                    }
-                    .into()
-                }
-                other => other,
-            })?;
-        txn.commit()
-            .await
-            .context("Failed to commit transaction after edge schema fetch")?;
+            .await?;
+        txn.commit().await.map_err(DatabaseError::from)?;
 
         self.validate_properties(properties, &edge_schema.properties)?;
         Ok(edge_schema.formatted_label)
     }
 
+    #[tracing::instrument(level = "trace", skip(self, properties_data, properties_schemas))]
     fn validate_properties(
         &self,
         properties_data: &PropertiesData,
@@ -99,9 +66,9 @@ impl ValidationService {
                 {
                     Ok(())
                 } else {
-                    Err(DomainError::PropertyValidation {
+                    Err(AppError::PropertyValidation {
                         property: property_data_formatted_label.clone(),
-                        reason: "Property is not defined in schema".to_string(),
+                        issue: "Property is not defined in schema".to_string(),
                     }
                     .into())
                 }
@@ -112,15 +79,16 @@ impl ValidationService {
             if let Some(property_data) = properties_data.0.get(&property_schema.formatted_label) {
                 self.validate_property(property_data, property_schema)
             } else {
-                Err(DomainError::PropertyValidation {
+                Err(AppError::PropertyValidation {
                     property: property_schema.formatted_label.clone(),
-                    reason: "Required property is missing".to_string(),
+                    issue: "Required property is missing".to_string(),
                 }
                 .into())
             }
         })
     }
 
+    #[tracing::instrument(level = "trace", skip(self, property_data_value, property_schema))]
     fn validate_property(
         &self,
         property_data_value: &PropertyData,
@@ -133,9 +101,9 @@ impl ValidationService {
             (PropertyType::Select, PropertyData::String(value)) => {
                 if let Some(options) = &property_schema.metadata.options {
                     if !options.contains(value) {
-                        return Err(DomainError::PropertyValidation {
+                        return Err(AppError::PropertyValidation {
                             property: property_schema.formatted_label.clone(),
-                            reason: format!(
+                            issue: format!(
                                 "Invalid value '{}', expected one of {:?}",
                                 value, options
                             ),
@@ -145,9 +113,9 @@ impl ValidationService {
                 }
                 Ok(())
             }
-            _ => Err(DomainError::PropertyValidation {
+            _ => Err(AppError::PropertyValidation {
                 property: property_schema.formatted_label.clone(),
-                reason: format!(
+                issue: format!(
                     "Incorrect property type, expected {:?}, found {}",
                     property_schema.property_type, property_data_value
                 ),

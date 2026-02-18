@@ -20,10 +20,10 @@ pub async fn run(config: &Config) -> anyhow::Result<()> {
         .serve(grpc_addr);
     tracing::info!(grpc_addr = %grpc_addr, "Metadata gRPC server starting");
 
-    let rest_listener = tokio::net::TcpListener::bind(&config.metadata_server().http_url()).await?;
-    let rest_routes = router::build(state);
-    let rest_addr = config.metadata_server().http_url();
-    tracing::info!(rest_addr = %rest_addr, "Metadata REST API starting");
+    let http_listener = tokio::net::TcpListener::bind(&config.metadata_server().http_url()).await?;
+    let http_routes = router::build(state);
+    let http_addr = config.metadata_server().http_url();
+    tracing::info!(http_addr = %http_addr, "Metadata REST API starting");
 
     tokio::select! {
         result = grpc_server => {
@@ -31,7 +31,7 @@ pub async fn run(config: &Config) -> anyhow::Result<()> {
                 tracing::error!(error = ?e, "gRPC server error");
             }
         }
-        result = axum::serve(rest_listener, rest_routes) => {
+        result = axum::serve(http_listener, http_routes) => {
             if let Err(e) = result {
                 tracing::error!(error = ?e, "REST server error");
             }
@@ -44,16 +44,15 @@ pub async fn run(config: &Config) -> anyhow::Result<()> {
 pub fn setup_tracing() {
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                "metadata=trace,tower_http=trace,sqlx=trace,tonic=trace".into()
-            }),
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "metadata=trace".into()),
         )
         .with(
             tracing_subscriber::fmt::layer()
                 .with_target(true)
                 .with_thread_ids(true)
                 .with_line_number(true)
-                .with_span_events(FmtSpan::FULL),
+                .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE),
         )
         .init();
 }

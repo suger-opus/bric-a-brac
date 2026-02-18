@@ -17,7 +17,7 @@ pub async fn connect(config: &MetadataDatabaseConfig) -> anyhow::Result<PgPool> 
 }
 
 pub async fn reset(pool: &PgPool) -> anyhow::Result<()> {
-    tracing::debug!("Resetting database schema");
+    tracing::warn!("Resetting database schema");
 
     sqlx::query("DROP SCHEMA public CASCADE")
         .execute(pool)
@@ -29,7 +29,7 @@ pub async fn reset(pool: &PgPool) -> anyhow::Result<()> {
         .await
         .context("Failed to create schema")?;
 
-    tracing::debug!("Database schema reset");
+    tracing::warn!("Database schema reset");
     Ok(())
 }
 

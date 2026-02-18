@@ -1,6 +1,6 @@
 use crate::{
     domain::models::{Access, CreateAccess},
-    presentation::error::AppError,
+    presentation::errors::DatabaseError,
 };
 use sqlx::PgConnection;
 
@@ -12,11 +12,12 @@ impl AccessRepository {
         AccessRepository
     }
 
-    pub async fn create_access(
+    #[tracing::instrument(level = "debug", skip(self, connection))]
+    pub async fn create(
         &self,
         connection: &mut PgConnection,
         create_access: CreateAccess,
-    ) -> Result<Access, AppError> {
+    ) -> Result<Access, DatabaseError> {
         let access = sqlx::query_as!(
             Access,
             r#"

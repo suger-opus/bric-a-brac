@@ -7,15 +7,18 @@ use axum::{
     Json,
 };
 
+#[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn create(
     State(state): State<ApiState>,
-    AuthenticatedUser { user_id: _ }: AuthenticatedUser,
     Path(graph_id): Path<GraphId>,
+    AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateAccessDto>,
 ) -> impl IntoResponse {
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, payload = ?payload);
+
     state
         .access_service
-        .create_access(graph_id, payload)
+        .create(graph_id, payload)
         .await
         .map(|access| (StatusCode::CREATED, Json(access)))
 }

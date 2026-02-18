@@ -47,8 +47,8 @@ impl TryFrom<&PropertyJson> for CreatePropertySchemaDto {
     fn try_from(property: &PropertyJson) -> Result<Self, Self::Error> {
         let model_property_type =
             metadata::domain::models::PropertyType::try_from(property.property_type.as_str())
-                .map_err(|e| {
-                    anyhow::anyhow!("Invalid property type '{}': {}", property.property_type, e)
+                .map_err(|err| {
+                    anyhow::anyhow!("Invalid property type '{}': {}", property.property_type, err)
                 })?;
 
         Ok(CreatePropertySchemaDto {

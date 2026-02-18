@@ -12,6 +12,7 @@ pub struct User {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug)]
 pub struct CreateUser {
     pub username: String,
     pub email: String,
