@@ -11,7 +11,7 @@ OPENROUTER_DEFAULT_MODEL=""
 METADATA_GRPC_SERVER_URL=""
 
 # LOGS
-RUST_LOG="ai=trace"
+RUST_LOG="warn,ai=trace,bric_a_brac_protos=trace"
 
 [tasks]
 server-config = "docker compose -f compose.server.yaml config"

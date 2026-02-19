@@ -1,0 +1,25 @@
+use super::tracing::grpc_tracing_layer;
+use std::{future::Future, net::SocketAddr};
+use tonic::server::NamedService;
+
+pub fn build_grpc_server<S>(
+    service: S,
+    addr: SocketAddr,
+) -> impl Future<Output = Result<(), tonic::transport::Error>>
+where
+    S: tower::Service<
+            http::Request<tonic::body::Body>,
+            Response = http::Response<tonic::body::Body>,
+            Error = std::convert::Infallible,
+        > + NamedService
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+    S::Future: Send + 'static,
+{
+    tonic::transport::Server::builder()
+        .layer(grpc_tracing_layer())
+        .add_service(service)
+        .serve(addr)
+}

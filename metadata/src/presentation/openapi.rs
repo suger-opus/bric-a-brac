@@ -1,6 +1,6 @@
 use crate::application::dtos::{
-    CreateEdgeSchemaDto, CreateNodeSchemaDto, CreatePropertySchemaDto, PropertyMetadataDto,
-    PropertyTypeDto,
+    CreateEdgeSchemaDto, CreateGraphSchemaDto, CreateNodeSchemaDto, CreatePropertySchemaDto,
+    PropertyMetadataDto, PropertyTypeDto,
 };
 use utoipa::OpenApi;
 
@@ -12,6 +12,7 @@ use utoipa::OpenApi;
         description = "Graph metadata microservice for managing schemas and data"
     ),
     components(schemas(
+        CreateGraphSchemaDto,
         CreateNodeSchemaDto,
         CreateEdgeSchemaDto,
         CreatePropertySchemaDto,
@@ -23,7 +24,9 @@ pub struct ApiDoc;
 
 /// Get the OpenAPI specification as JSON
 pub fn get_openapi_json() -> String {
-    ApiDoc::openapi().to_json().expect("Failed to serialize OpenAPI spec")
+    ApiDoc::openapi()
+        .to_json()
+        .expect("Failed to serialize OpenAPI spec")
 }
 
 #[cfg(test)]
@@ -35,6 +38,7 @@ mod tests {
         let json = get_openapi_json();
         assert!(json.contains("CreateNodeSchemaDto"));
         assert!(json.contains("CreateEdgeSchemaDto"));
+        assert!(json.contains("CreateGraphSchemaDto"));
         assert!(json.contains("CreatePropertySchemaDto"));
     }
 }

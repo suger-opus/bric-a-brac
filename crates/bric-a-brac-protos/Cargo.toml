@@ -4,8 +4,17 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+derive_more = { workspace = true, features = ["display"] }
+http = { workspace = true }
 prost = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 tonic = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }

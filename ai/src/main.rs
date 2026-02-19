@@ -1,9 +1,4 @@
-use ai::{infrastructure::config::Config, run, setup_tracing};
-
-// TODO:
-// 1. Errors
-// 2. Logs
-// (tests)
+use ai::{infrastructure::config::Config, presentation::tracing::setup as setup_tracing, run};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

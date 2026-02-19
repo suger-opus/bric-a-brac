@@ -1,9 +1,10 @@
-use super::{AppError, DatabaseError, GrpcClientError, RequestError, ServiceKind};
+use super::{AppError, DatabaseError, GrpcClientError, RequestError};
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
+use bric_a_brac_protos::{BaseGrpcClientError, GrpcServiceKind};
 use serde_json::{json, Value};
 
 pub struct HttpError {
@@ -22,7 +23,7 @@ impl HttpError {
     }
 
     // 400 - { field, issue, value }
-    pub fn bad_request(field: &str, issue: &str) -> Self {
+    fn bad_request(field: &str, issue: &str) -> Self {
         Self::new(
             StatusCode::BAD_REQUEST,
             "Invalid request",
@@ -31,7 +32,7 @@ impl HttpError {
     }
 
     // 401 - { reason }
-    pub fn unauthorized(reason: &str) -> Self {
+    fn unauthorized(reason: &str) -> Self {
         Self::new(
             StatusCode::UNAUTHORIZED,
             "Unauthorized",
@@ -40,19 +41,19 @@ impl HttpError {
     }
 
     // // 403 - { user_id, action }
-    // pub fn forbidden(message: Option<&str>, user_id: &str, action: &str) -> Self {
+    // fn forbidden(message: Option<&str>, user_id: &str, action: &str) -> Self {
     //     let message = message.unwrap_or("Insufficient permissions");
     //     Self::new(StatusCode::FORBIDDEN, message,
     //         json!({ "user_id": user_id, "action": action }))
     // }
 
     // 404 - {}
-    pub fn not_found() -> Self {
+    fn not_found() -> Self {
         Self::new(StatusCode::NOT_FOUND, "Not Found", json!({}))
     }
 
     // 409 - { resource, field, detail }
-    pub fn conflict(resource: &str, field: &str, detail: &str) -> Self {
+    fn conflict(resource: &str, field: &str, detail: &str) -> Self {
         Self::new(
             StatusCode::CONFLICT,
             "Element already exists",
@@ -61,7 +62,7 @@ impl HttpError {
     }
 
     // 500 - { detail }
-    pub fn internal_server_error(detail: &str) -> Self {
+    fn internal_server_error(detail: &str) -> Self {
         Self::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Internal Server Error",
@@ -70,7 +71,7 @@ impl HttpError {
     }
 
     // 502 - { service, detail }
-    pub fn bad_gateway(message: &str, service: ServiceKind, detail: &str) -> Self {
+    fn bad_gateway(message: &str, service: GrpcServiceKind, detail: &str) -> Self {
         Self::new(
             StatusCode::BAD_GATEWAY,
             message,
@@ -153,16 +154,21 @@ impl From<AppError> for HttpError {
                 HttpError::internal_server_error("Unknown database error")
             }
 
-            // --- gRPC service errors ---
-            AppError::GrpcService(GrpcClientError::Inaccessible { service, source: _ }) => {
+            // --- gRPC client errors ---
+            AppError::GrpcClient(GrpcClientError::Base(BaseGrpcClientError::Inaccessible {
+                service,
+                source: _,
+            })) => {
                 tracing::error!(error = ?err, "Request failed: (gRPC) Inaccessible");
                 HttpError::bad_gateway("External service not accessible", *service, "")
             }
-            AppError::GrpcService(GrpcClientError::Disconnected { service }) => {
+            AppError::GrpcClient(GrpcClientError::Base(BaseGrpcClientError::Disconnected {
+                service,
+            })) => {
                 tracing::error!(error = ?err, "Request failed: (gRPC) Disconnected");
                 HttpError::bad_gateway("External service disconnected", *service, "")
             }
-            AppError::GrpcService(GrpcClientError::Deserialization {
+            AppError::GrpcClient(GrpcClientError::Deserialization {
                 service,
                 expected_struct,
                 source: _,
@@ -174,15 +180,15 @@ impl From<AppError> for HttpError {
                     expected_struct,
                 )
             }
-            AppError::GrpcService(GrpcClientError::Request {
+            AppError::GrpcClient(GrpcClientError::Base(BaseGrpcClientError::Request {
                 service,
                 message,
                 source: _,
-            }) => {
+            })) => {
                 tracing::error!(error = ?err, "Request failed: (gRPC) Request");
                 HttpError::bad_gateway("External service request failed", *service, message)
             }
-            AppError::GrpcService(GrpcClientError::DomainConversion { service, reason }) => {
+            AppError::GrpcClient(GrpcClientError::DomainConversion { service, reason }) => {
                 tracing::error!(error = ?err, "Request failed: (gRPC) Domain Conversion");
                 HttpError::bad_gateway(
                     "External service response conversion to domain model failed",
@@ -190,7 +196,7 @@ impl From<AppError> for HttpError {
                     reason,
                 )
             }
-            AppError::GrpcService(GrpcClientError::DomainUuidConversion { service, source: _ }) => {
+            AppError::GrpcClient(GrpcClientError::DomainUuidConversion { service, source: _ }) => {
                 tracing::error!(error = ?err, "Request failed: (gRPC) Domain UUID Conversion");
                 HttpError::bad_gateway(
                     "External service response UUID conversion to domain UUID failed",
@@ -198,7 +204,9 @@ impl From<AppError> for HttpError {
                     "UUID conversion error",
                 )
             }
-            AppError::GrpcService(GrpcClientError::MutexPoisoned { message }) => {
+            AppError::GrpcClient(GrpcClientError::Base(BaseGrpcClientError::MutexPoisoned {
+                message,
+            })) => {
                 tracing::error!(error = ?err, "Request failed: (gRPC) Mutex Poisoned");
                 HttpError::internal_server_error(
                     format!("Synchronization failed: {}", message).as_str(),

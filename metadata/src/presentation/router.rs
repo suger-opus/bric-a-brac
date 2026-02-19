@@ -1,5 +1,5 @@
 use super::{
-    handlers::{access_handler, graph_handler, user_handler},
+    http::{access_handler, graph_handler, user_handler},
     openapi,
     state::ApiState,
     tracing::http_tracing_layer,

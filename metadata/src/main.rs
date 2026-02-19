@@ -2,10 +2,6 @@ use metadata::{
     infrastructure::config::Config, presentation::tracing::setup as setup_tracing, run,
 };
 
-// TODO for Knowledge microservice:
-// - Remove (or clean) super use
-// - (tests)
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     setup_tracing();

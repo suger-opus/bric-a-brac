@@ -1,15 +1,13 @@
-use super::GrpcClient;
 use crate::{
-    domain::models::CreateGraphSchema,
-    infrastructure::config::AiServerConfig,
-    presentation::errors::{GrpcClientError, ServiceKind},
+    domain::models::CreateGraphSchema, infrastructure::config::AiServerConfig,
+    presentation::errors::GrpcClientError,
 };
 use axum::http::Uri;
-use bric_a_brac_protos::ai::{
-    ai_client::AiClient as AiGrpcClient, FileType, GenerateSchemaRequest,
+use bric_a_brac_protos::{
+    ai::{ai_client::AiClient as AiGrpcClient, FileType, GenerateSchemaRequest},
+    BaseGrpcClientError, GrpcClient, GrpcServiceKind,
 };
 use std::sync::{Arc, Mutex};
-use tonic::async_trait;
 
 #[derive(Clone)]
 pub struct AiClient {
@@ -17,7 +15,7 @@ pub struct AiClient {
     client: Arc<Mutex<Option<AiGrpcClient<tonic::transport::Channel>>>>,
 }
 
-#[async_trait]
+#[tonic::async_trait]
 impl GrpcClient for AiClient {
     type Client = AiGrpcClient<tonic::transport::Channel>;
 
@@ -25,21 +23,16 @@ impl GrpcClient for AiClient {
         &self.client
     }
 
-    fn service_kind(&self) -> ServiceKind {
-        ServiceKind::Ai
+    fn service_kind(&self) -> GrpcServiceKind {
+        GrpcServiceKind::Ai
     }
 
     fn url(&self) -> &Uri {
         self.config.url()
     }
 
-    async fn connect(&self) -> Result<Self::Client, GrpcClientError> {
-        AiGrpcClient::connect(self.url().clone())
-            .await
-            .map_err(|err| GrpcClientError::Inaccessible {
-                service: self.service_kind(),
-                source: err,
-            })
+    async fn connect(&self) -> Result<Self::Client, tonic::transport::Error> {
+        AiGrpcClient::connect(self.url().clone()).await
     }
 }
 
@@ -88,9 +81,9 @@ impl AiClient {
         let mut client = self.clone_client()?;
 
         let file_type = match file_type.to_lowercase().as_str() {
-            "csv" => Ok(FileType::Csv),
-            _ => Ok(FileType::Txt),
-        }?;
+            "csv" => FileType::Csv,
+            _ => FileType::Txt,
+        };
 
         let request = GenerateSchemaRequest {
             file_content,
@@ -100,8 +93,8 @@ impl AiClient {
             client
                 .generate_schema(request)
                 .await
-                .map_err(|err| GrpcClientError::Request {
-                    service: ServiceKind::Ai,
+                .map_err(|err| BaseGrpcClientError::Request {
+                    service: GrpcServiceKind::Ai,
                     message: "Failed to generate schema using AI service".to_string(),
                     source: err,
                 })?;
@@ -110,7 +103,7 @@ impl AiClient {
         let schema =
             serde_json::from_str::<CreateGraphSchema>(&schema_serialize).map_err(|err| {
                 GrpcClientError::Deserialization {
-                    service: ServiceKind::Ai,
+                    service: GrpcServiceKind::Ai,
                     expected_struct: "CreateGraphSchema".to_string(),
                     source: err,
                 }

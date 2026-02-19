@@ -10,3 +10,13 @@ pub mod metadata {
 pub mod ai {
     tonic::include_proto!("ai");
 }
+
+// Base trait & error
+mod client;
+mod error;
+mod tracing;
+mod server;
+
+pub use server::build_grpc_server;
+pub use client::GrpcClient;
+pub use error::{BaseGrpcClientError, GrpcServiceKind};

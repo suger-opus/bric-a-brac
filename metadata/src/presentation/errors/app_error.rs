@@ -1,29 +1,16 @@
 use super::HttpError;
 use axum::response::{IntoResponse, Response};
-use serde::Serialize;
+use bric_a_brac_protos::{BaseGrpcClientError, GrpcServiceKind};
 use sqlx::{error::ErrorKind, postgres::PgDatabaseError};
-
-#[derive(Debug, Clone, Copy, Serialize, derive_more::Display)]
-pub enum ServiceKind {
-    Ai,
-    Knowledge,
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum GrpcClientError {
-    #[error("gRPC service {service}: inaccessible")]
-    Inaccessible {
-        service: ServiceKind,
-        #[source]
-        source: tonic::transport::Error,
-    },
-
-    #[error("gRPC service {service}: disconnected")]
-    Disconnected { service: ServiceKind },
+    #[error(transparent)]
+    Base(#[from] BaseGrpcClientError),
 
     #[error("gRPC service {service}: failed to deserialize response into {expected_struct}")]
     Deserialization {
-        service: ServiceKind,
+        service: GrpcServiceKind,
         expected_struct: String,
         #[source]
         source: serde_json::Error,
@@ -31,7 +18,7 @@ pub enum GrpcClientError {
 
     #[error("gRPC service {service}: response could not be converted to domain model - {reason}")]
     DomainConversion {
-        service: ServiceKind,
+        service: GrpcServiceKind,
         reason: String,
     },
 
@@ -39,21 +26,19 @@ pub enum GrpcClientError {
         "gRPC service {service}: response uuid could not be converted to domain uuid - {source}"
     )]
     DomainUuidConversion {
-        service: ServiceKind,
+        service: GrpcServiceKind,
         #[source]
         source: uuid::Error,
     },
+}
 
-    #[error("gRPC service {service}: request failed - {message}")]
-    Request {
-        service: ServiceKind,
-        message: String,
-        #[source]
-        source: tonic::Status,
-    },
-
-    #[error("Mutex lock poisoned")]
-    MutexPoisoned { message: String },
+impl GrpcClientError {
+    pub fn is_connection_error(&self) -> bool {
+        match self {
+            GrpcClientError::Base(base_err) => base_err.is_connection_error(),
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -124,29 +109,10 @@ pub enum AppError {
     Database(#[from] DatabaseError),
 
     #[error(transparent)]
-    GrpcService(#[from] GrpcClientError),
+    GrpcClient(#[from] GrpcClientError),
 
     #[error(transparent)]
     Request(#[from] RequestError),
-}
-
-impl GrpcClientError {
-    pub fn is_connection_error(&self) -> bool {
-        match self {
-            GrpcClientError::Inaccessible { .. } => true,
-            GrpcClientError::Disconnected { .. } => true,
-            GrpcClientError::Request { source, .. } => {
-                return matches!(
-                    source.code(),
-                    tonic::Code::Unavailable
-                        | tonic::Code::DeadlineExceeded
-                        | tonic::Code::Cancelled
-                        | tonic::Code::Unknown
-                );
-            }
-            _ => false,
-        }
-    }
 }
 
 impl IntoResponse for AppError {

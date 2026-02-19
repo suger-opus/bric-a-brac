@@ -7,6 +7,7 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateGraphDto {
@@ -90,7 +91,7 @@ impl From<GraphSchema> for GraphSchemaDto {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct CreateGraphSchemaDto {
     pub nodes: Vec<CreateNodeSchemaDto>,
     pub edges: Vec<CreateEdgeSchemaDto>,

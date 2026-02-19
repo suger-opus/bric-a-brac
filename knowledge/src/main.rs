@@ -1,10 +1,5 @@
 use knowledge::{config::Config, run, setup_tracing};
 
-// TODO for Knowledge microservice:
-// - Improve error handling
-// - Improve logs
-// - (tests)
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     setup_tracing();

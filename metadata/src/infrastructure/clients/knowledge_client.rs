@@ -1,23 +1,25 @@
-use super::GrpcClient;
 use crate::{
     domain::models::{
         self, CreateEdgeData, CreateNodeData, EdgeDataId, GraphId, NodeDataId, PropertiesData,
         PropertyData,
     },
     infrastructure::config::KnowledgeServerConfig,
-    presentation::errors::{GrpcClientError, ServiceKind},
+    presentation::errors::GrpcClientError,
 };
 use axum::http::Uri;
-use bric_a_brac_protos::knowledge::{
-    knowledge_client::KnowledgeClient as KnowledgeGrpcClient, property_value, EdgeData, GraphData,
-    InsertEdgeRequest, InsertNodeRequest, LoadGraphRequest, NodeData, PropertyValue,
+use bric_a_brac_protos::{
+    knowledge::{
+        knowledge_client::KnowledgeClient as KnowledgeGrpcClient, property_value, EdgeData,
+        GraphData, InsertEdgeRequest, InsertNodeRequest, LoadGraphRequest, NodeData, PropertyValue,
+    },
+    BaseGrpcClientError, GrpcClient, GrpcServiceKind,
 };
 use std::{
     collections::HashMap,
     str::FromStr,
     sync::{Arc, Mutex},
 };
-use tonic::{async_trait, Request};
+use tonic::Request;
 
 #[derive(Clone)]
 pub struct KnowledgeClient {
@@ -25,7 +27,7 @@ pub struct KnowledgeClient {
     client: Arc<Mutex<Option<KnowledgeGrpcClient<tonic::transport::Channel>>>>,
 }
 
-#[async_trait]
+#[tonic::async_trait]
 impl GrpcClient for KnowledgeClient {
     type Client = KnowledgeGrpcClient<tonic::transport::Channel>;
 
@@ -33,21 +35,16 @@ impl GrpcClient for KnowledgeClient {
         &self.client
     }
 
-    fn service_kind(&self) -> ServiceKind {
-        ServiceKind::Knowledge
+    fn service_kind(&self) -> GrpcServiceKind {
+        GrpcServiceKind::Knowledge
     }
 
     fn url(&self) -> &Uri {
         self.config.url()
     }
 
-    async fn connect(&self) -> Result<Self::Client, GrpcClientError> {
-        KnowledgeGrpcClient::connect(self.url().clone())
-            .await
-            .map_err(|err| GrpcClientError::Inaccessible {
-                service: self.service_kind(),
-                source: err,
-            })
+    async fn connect(&self) -> Result<Self::Client, tonic::transport::Error> {
+        KnowledgeGrpcClient::connect(self.url().clone()).await
     }
 }
 
@@ -136,7 +133,10 @@ impl KnowledgeClient {
         }
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, formatted_label, create_node_data))]
+    #[tracing::instrument(
+        level = "trace",
+        skip(self, graph_id, formatted_label, create_node_data)
+    )]
     async fn try_insert_node(
         &self,
         graph_id: GraphId,
@@ -157,8 +157,8 @@ impl KnowledgeClient {
             client
                 .insert_node(request)
                 .await
-                .map_err(|err| GrpcClientError::Request {
-                    service: ServiceKind::Knowledge,
+                .map_err(|err| BaseGrpcClientError::Request {
+                    service: GrpcServiceKind::Knowledge,
                     message: "Failed to insert node in Knowledge service".to_string(),
                     source: err,
                 })?;
@@ -187,8 +187,8 @@ impl KnowledgeClient {
             client
                 .insert_edge(request)
                 .await
-                .map_err(|err| GrpcClientError::Request {
-                    service: ServiceKind::Knowledge,
+                .map_err(|err| BaseGrpcClientError::Request {
+                    service: GrpcServiceKind::Knowledge,
                     message: "Failed to insert edge in Knowledge service".to_string(),
                     source: err,
                 })?;
@@ -211,8 +211,8 @@ impl KnowledgeClient {
             client
                 .load_graph(request)
                 .await
-                .map_err(|err| GrpcClientError::Request {
-                    service: ServiceKind::Knowledge,
+                .map_err(|err| BaseGrpcClientError::Request {
+                    service: GrpcServiceKind::Knowledge,
                     message: "Failed to load graph from Knowledge service".to_string(),
                     source: err,
                 })?;
@@ -247,7 +247,7 @@ impl TryFrom<NodeData> for models::NodeData {
         Ok(Self {
             node_data_id: NodeDataId::from_str(&node_data.node_data_id).map_err(|err| {
                 GrpcClientError::DomainUuidConversion {
-                    service: ServiceKind::Knowledge,
+                    service: GrpcServiceKind::Knowledge,
                     source: err,
                 }
             })?,
@@ -264,20 +264,20 @@ impl TryFrom<EdgeData> for models::EdgeData {
         Ok(Self {
             edge_data_id: EdgeDataId::from_str(&edge_data.edge_data_id).map_err(|err| {
                 GrpcClientError::DomainUuidConversion {
-                    service: ServiceKind::Knowledge,
+                    service: GrpcServiceKind::Knowledge,
                     source: err,
                 }
             })?,
             formatted_label: edge_data.formatted_label,
             from_node_data_id: NodeDataId::from_str(&edge_data.from_node_data_id).map_err(
                 |err| GrpcClientError::DomainUuidConversion {
-                    service: ServiceKind::Knowledge,
+                    service: GrpcServiceKind::Knowledge,
                     source: err,
                 },
             )?,
             to_node_data_id: NodeDataId::from_str(&edge_data.to_node_data_id).map_err(|err| {
                 GrpcClientError::DomainUuidConversion {
-                    service: ServiceKind::Knowledge,
+                    service: GrpcServiceKind::Knowledge,
                     source: err,
                 }
             })?,
@@ -317,7 +317,7 @@ impl TryFrom<PropertyValue> for PropertyData {
             Some(property_value::Value::NumberValue(n)) => Ok(PropertyData::Number(n)),
             Some(property_value::Value::BoolValue(b)) => Ok(PropertyData::Boolean(b)),
             None => Err(GrpcClientError::DomainConversion {
-                service: ServiceKind::Knowledge,
+                service: GrpcServiceKind::Knowledge,
                 reason: "Property value is missing - PropertyValue does not contain a value"
                     .to_string(),
             }),

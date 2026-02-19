@@ -1,46 +1,53 @@
-use crate::infrastructure::config::OpenRouterConfig;
-use anyhow::Context;
+use crate::{
+    infrastructure::config::OpenRouterConfig, presentation::errors::OpenRouterClientError,
+};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
+struct Plugin {
+    id: String,
+}
+
+#[derive(Debug, Serialize)]
 struct ChatRequest {
     model: String,
     messages: Vec<Message>,
     response_format: ResponseFormat,
+    plugins: Vec<Plugin>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct Message {
     role: String,
     content: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct ResponseFormat {
     #[serde(rename = "type")]
     type_: String,
     json_schema: JsonSchemaFormat,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct JsonSchemaFormat {
     name: String,
     strict: bool,
     schema: serde_json::Value,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct ChatResponse {
     choices: Vec<Choice>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Choice {
     message: ChatMessage,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct ChatMessage {
     content: String,
 }
@@ -61,13 +68,17 @@ impl OpenRouterClient {
         }
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        skip(self, system_prompt, user_prompt, schema, previous_error)
+    )]
     pub async fn chat(
         &self,
         system_prompt: &str,
         user_prompt: &str,
         schema: serde_json::Value,
         previous_error: Option<&str>,
-    ) -> anyhow::Result<serde_json::Value> {
+    ) -> Result<serde_json::Value, OpenRouterClientError> {
         let user_content = if let Some(errors) = previous_error {
             format!(
                 "{}\n\nPrevious attempt had validation errors:\n{}",
@@ -101,9 +112,15 @@ impl OpenRouterClient {
             model: self.default_model.clone(),
             messages,
             response_format,
+            plugins: vec![Plugin {
+                id: "response-healing".to_string(),
+            }],
         };
 
-        tracing::debug!("Calling OpenRouter API with model: {}", self.default_model);
+        tracing::debug!(
+            "Calling OpenRouter API with request: {}",
+            serde_json::to_string_pretty(&request).unwrap()
+        );
 
         let response = self
             .client
@@ -116,46 +133,62 @@ impl OpenRouterClient {
             .json(&request)
             .send()
             .await
-            .context("Failed to call OpenRouter API")?;
+            .map_err(|err| OpenRouterClientError::Request {
+                message: "Failed to call OpenRouter API".to_string(),
+                source: err,
+            })?;
 
         let status = response.status();
-        let response_text = response
-            .text()
-            .await
-            .context("Failed to read response body")?;
+        let response_text =
+            response
+                .text()
+                .await
+                .map_err(|err| OpenRouterClientError::ReadResponse {
+                    message: "Failed to read OpenRouter API response".to_string(),
+                    source: err,
+                })?;
+
+        tracing::debug!(
+            "Response: {}",
+            serde_json::to_string_pretty(
+                &serde_json::from_str::<serde_json::Value>(&response_text).unwrap()
+            )
+            .unwrap()
+        );
 
         if !status.is_success() {
-            anyhow::bail!(
-                "OpenRouter API returned error {}: {}",
+            return Err(OpenRouterClientError::NoSuccessResponse {
                 status,
-                response_text
-            );
+                body: response_text,
+            });
         }
 
-        tracing::debug!("OpenRouter response: {}", response_text);
-
-        let chat_response: ChatResponse =
-            serde_json::from_str(&response_text).context("Failed to parse OpenRouter response")?;
+        let chat_response: ChatResponse = serde_json::from_str(&response_text)
+            .map_err(|err| OpenRouterClientError::Deserialization { source: err })?;
 
         let content = chat_response
             .choices
             .first()
-            .ok_or_else(|| anyhow::anyhow!("No choices in OpenRouter response"))?
+            .ok_or_else(|| OpenRouterClientError::Response {
+                reason: "No choices in OpenRouter response".to_string(),
+            })?
             .message
             .content
             .clone();
 
-        serde_json::from_str(&content).context("Failed to parse generated schema JSON")
+        serde_json::from_str(&content)
+            .map_err(|err| OpenRouterClientError::Deserialization { source: err })
     }
 
+    #[tracing::instrument(level = "debug", skip(openapi_spec))]
     pub fn openai_to_structured_output_schema(
         openapi_spec: &serde_json::Value,
-    ) -> anyhow::Result<serde_json::Value> {
+    ) -> serde_json::Value {
         let mut schema = openapi_spec
             .get("components")
             .and_then(|c| c.get("schemas"))
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("No schemas in OpenAPI spec"))?;
+            .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new()));
 
         // Remove $schema field if present
         if let Some(obj) = schema.as_object_mut() {
@@ -176,7 +209,7 @@ impl OpenRouterClient {
             }
         }
 
-        Ok(schema)
+        schema
     }
 }
 
@@ -203,7 +236,7 @@ mod tests {
             }
         });
 
-        let result = OpenRouterClient::openai_to_structured_output_schema(&openapi_spec).unwrap();
+        let result = OpenRouterClient::openai_to_structured_output_schema(&openapi_spec);
         let schema = result.get("CreateNodeSchemaDto").unwrap();
 
         assert!(schema.get("$defs").is_some());
