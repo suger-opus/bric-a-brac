@@ -1,4 +1,4 @@
-use super::{AppError, DatabaseError, GrpcClientError, ServiceKind};
+use super::{AppError, DatabaseError, GrpcClientError, RequestError, ServiceKind};
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -22,11 +22,11 @@ impl HttpError {
     }
 
     // 400 - { field, issue, value }
-    pub fn bad_request(field: &str, issue: &str, value: &str) -> Self {
+    pub fn bad_request(field: &str, issue: &str) -> Self {
         Self::new(
             StatusCode::BAD_REQUEST,
             "Invalid request",
-            json!({ "field": field, "issue": issue, "value": value }),
+            json!({ "field": field, "issue": issue }),
         )
     }
 
@@ -203,39 +203,23 @@ impl From<AppError> for HttpError {
                     format!("Synchronization failed: {}", message).as_str(),
                 )
             }
-            AppError::GrpcService(GrpcClientError::InvalidInput {
-                field,
-                issue,
-                value,
-            }) => {
-                tracing::warn!(error = ?err, "Request failed: (gRPC) Invalid Input");
-                HttpError::bad_request(field, issue, value)
-            }
 
-            // --- Other app errors ---
-            AppError::Unauthorized { reason } => {
+            // --- Request errors ---
+            AppError::Request(RequestError::Unauthorized { reason }) => {
                 tracing::warn!(error = ?err, "Request failed: (Domain) Unauthorized");
                 HttpError::unauthorized(reason)
             }
-
-            // TODO: bad_request rework
-            AppError::InvalidHeader {
-                issue,
-                header,
-                value,
-            } => {
+            AppError::Request(RequestError::InvalidHeader { issue, header }) => {
                 tracing::warn!(error = ?err, "Request failed: (Domain) Invalid Header");
-                HttpError::bad_request(header, issue, value)
+                HttpError::bad_request(format!("Header {header}").as_str(), issue)
             }
-
-            AppError::InvalidFile { issue } => {
+            AppError::Request(RequestError::InvalidFile { issue }) => {
                 tracing::warn!(error = ?err, "Request failed: (Domain) Invalid File");
-                HttpError::bad_request("file", issue, "")
+                HttpError::bad_request("Body file", issue)
             }
-
-            AppError::PropertyValidation { property, issue } => {
-                tracing::warn!(error = ?err, "Request failed: (Domain) Property Validation");
-                HttpError::bad_request(property, issue, "")
+            AppError::Request(RequestError::InvalidInput { field, issue }) => {
+                tracing::warn!(error = ?err, "Request failed: (gRPC) Invalid Input");
+                HttpError::bad_request(field, issue)
             }
         }
     }

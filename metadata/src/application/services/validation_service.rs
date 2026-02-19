@@ -3,7 +3,7 @@ use crate::{
         EdgeSchemaId, NodeSchemaId, PropertiesData, PropertyData, PropertySchema, PropertyType,
     },
     infrastructure::repositories::GraphRepository,
-    presentation::errors::{AppError, DatabaseError},
+    presentation::errors::{AppError, RequestError},
 };
 use sqlx::PgPool;
 
@@ -24,12 +24,12 @@ impl ValidationService {
         node_schema_id: NodeSchemaId,
         properties: &PropertiesData,
     ) -> Result<String, AppError> {
-        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
+        let mut txn = self.pool.begin().await?;
         let node_schema = self
             .repository
             .get_node_schema(&mut txn, node_schema_id)
             .await?;
-        txn.commit().await.map_err(DatabaseError::from)?;
+        txn.commit().await?;
 
         self.validate_properties(properties, &node_schema.properties)?;
         Ok(node_schema.formatted_label)
@@ -41,12 +41,12 @@ impl ValidationService {
         edge_schema_id: EdgeSchemaId,
         properties: &PropertiesData,
     ) -> Result<String, AppError> {
-        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
+        let mut txn = self.pool.begin().await?;
         let edge_schema = self
             .repository
             .get_edge_schema(&mut txn, edge_schema_id)
             .await?;
-        txn.commit().await.map_err(DatabaseError::from)?;
+        txn.commit().await?;
 
         self.validate_properties(properties, &edge_schema.properties)?;
         Ok(edge_schema.formatted_label)
@@ -66,8 +66,8 @@ impl ValidationService {
                 {
                     Ok(())
                 } else {
-                    Err(AppError::PropertyValidation {
-                        property: property_data_formatted_label.clone(),
+                    Err(RequestError::InvalidInput {
+                        field: format!("Property {property_data_formatted_label}"),
                         issue: "Property is not defined in schema".to_string(),
                     }
                     .into())
@@ -79,8 +79,8 @@ impl ValidationService {
             if let Some(property_data) = properties_data.0.get(&property_schema.formatted_label) {
                 self.validate_property(property_data, property_schema)
             } else {
-                Err(AppError::PropertyValidation {
-                    property: property_schema.formatted_label.clone(),
+                Err(RequestError::InvalidInput {
+                    field: format!("Property {}", property_schema.formatted_label),
                     issue: "Required property is missing".to_string(),
                 }
                 .into())
@@ -101,8 +101,8 @@ impl ValidationService {
             (PropertyType::Select, PropertyData::String(value)) => {
                 if let Some(options) = &property_schema.metadata.options {
                     if !options.contains(value) {
-                        return Err(AppError::PropertyValidation {
-                            property: property_schema.formatted_label.clone(),
+                        return Err(RequestError::InvalidInput {
+                            field: format!("Property {}", property_schema.formatted_label),
                             issue: format!(
                                 "Invalid value '{}', expected one of {:?}",
                                 value, options
@@ -113,8 +113,8 @@ impl ValidationService {
                 }
                 Ok(())
             }
-            _ => Err(AppError::PropertyValidation {
-                property: property_schema.formatted_label.clone(),
+            _ => Err(RequestError::InvalidInput {
+                field: format!("Property {}", property_schema.formatted_label),
                 issue: format!(
                     "Incorrect property type, expected {:?}, found {}",
                     property_schema.property_type, property_data_value

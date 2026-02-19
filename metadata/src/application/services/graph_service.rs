@@ -12,7 +12,7 @@ use crate::{
         clients::{AiClient, KnowledgeClient},
         repositories::{AccessRepository, GraphRepository},
     },
-    presentation::errors::{AppError, DatabaseError},
+    presentation::errors::AppError,
 };
 use sqlx::PgPool;
 
@@ -50,9 +50,9 @@ impl GraphService {
         &self,
         user_id: UserId,
     ) -> Result<Vec<GraphMetadataDto>, AppError> {
-        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
+        let mut txn = self.pool.begin().await?;
         let graphs = self.repository.get_all_metadata(&mut txn, user_id).await?;
-        txn.commit().await.map_err(DatabaseError::from)?;
+        txn.commit().await?;
 
         Ok(graphs.into_iter().map(GraphMetadataDto::from).collect())
     }
@@ -63,21 +63,21 @@ impl GraphService {
         graph_id: GraphId,
         user_id: UserId,
     ) -> Result<GraphMetadataDto, AppError> {
-        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
+        let mut txn = self.pool.begin().await?;
         let graph = self
             .repository
             .get_metadata(&mut txn, graph_id, user_id)
             .await?;
-        txn.commit().await.map_err(DatabaseError::from)?;
+        txn.commit().await?;
 
         Ok(graph.into())
     }
 
     #[tracing::instrument(level = "trace", skip(self, graph_id))]
     pub async fn get_schema(&self, graph_id: GraphId) -> Result<GraphSchemaDto, AppError> {
-        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
+        let mut txn = self.pool.begin().await?;
         let schema = self.repository.get_schema(&mut txn, graph_id).await?;
-        txn.commit().await.map_err(DatabaseError::from)?;
+        txn.commit().await?;
 
         Ok(schema.into())
     }
@@ -88,7 +88,7 @@ impl GraphService {
         user_id: UserId,
         create_graph_dto: CreateGraphDto,
     ) -> Result<GraphMetadataDto, AppError> {
-        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
+        let mut txn = self.pool.begin().await?;
         let graph = self
             .repository
             .create_graph(&mut txn, create_graph_dto.into_domain())
@@ -105,7 +105,7 @@ impl GraphService {
             .repository
             .get_metadata(&mut txn, graph.graph_id, user_id)
             .await?;
-        txn.commit().await.map_err(DatabaseError::from)?;
+        txn.commit().await?;
 
         Ok(graph.into())
     }
@@ -131,7 +131,7 @@ impl GraphService {
         graph_id: GraphId,
         create_node_schema: CreateNodeSchemaDto,
     ) -> Result<NodeSchemaDto, AppError> {
-        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
+        let mut txn = self.pool.begin().await?;
         let node_schema = self
             .repository
             .create_node_schema(&mut txn, graph_id, create_node_schema.clone().into_domain())
@@ -140,7 +140,7 @@ impl GraphService {
             .repository
             .create_properties(&mut txn, create_node_schema.into_domain().properties)
             .await?;
-        txn.commit().await.map_err(DatabaseError::from)?;
+        txn.commit().await?;
 
         Ok(NodeSchemaDto {
             properties: properties.into_iter().map(|p| p.into()).collect(),
@@ -154,7 +154,7 @@ impl GraphService {
         graph_id: GraphId,
         create_edge_schema: CreateEdgeSchemaDto,
     ) -> Result<EdgeSchemaDto, AppError> {
-        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
+        let mut txn = self.pool.begin().await?;
         let edge_schema = self
             .repository
             .create_edge_schema(&mut txn, graph_id, create_edge_schema.clone().into_domain())
@@ -163,7 +163,7 @@ impl GraphService {
             .repository
             .create_properties(&mut txn, create_edge_schema.into_domain().properties)
             .await?;
-        txn.commit().await.map_err(DatabaseError::from)?;
+        txn.commit().await?;
 
         Ok(EdgeSchemaDto {
             properties: properties.into_iter().map(|p| p.into()).collect(),

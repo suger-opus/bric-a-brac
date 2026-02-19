@@ -89,12 +89,7 @@ impl AiClient {
 
         let file_type = match file_type.to_lowercase().as_str() {
             "csv" => Ok(FileType::Csv),
-            "txt" => Ok(FileType::Txt),
-            _ => Err(GrpcClientError::InvalidInput {
-                issue: "Unspported file type".to_string(),
-                field: "file_type".to_string(),
-                value: file_type,
-            }),
+            _ => Ok(FileType::Txt),
         }?;
 
         let request = GenerateSchemaRequest {

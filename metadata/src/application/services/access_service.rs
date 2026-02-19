@@ -1,8 +1,7 @@
 use super::super::dtos::{AccessDto, CreateAccessDto};
 use crate::{
-    domain::models::GraphId,
-    infrastructure::repositories::AccessRepository,
-    presentation::errors::{AppError, DatabaseError},
+    domain::models::GraphId, infrastructure::repositories::AccessRepository,
+    presentation::errors::AppError,
 };
 use sqlx::PgPool;
 
@@ -23,13 +22,12 @@ impl AccessService {
         graph_id: GraphId,
         create_access_dto: CreateAccessDto,
     ) -> Result<AccessDto, AppError> {
-        let mut txn = self.pool.begin().await.map_err(DatabaseError::from)?;
+        let mut txn = self.pool.begin().await?;
         let access = self
             .repository
             .create(&mut txn, create_access_dto.into_domain(graph_id))
-            .await
-            .map_err(DatabaseError::from)?;
-        txn.commit().await.map_err(DatabaseError::from)?;
+            .await?;
+        txn.commit().await?;
 
         Ok(access.into())
     }

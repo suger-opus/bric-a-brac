@@ -15,12 +15,12 @@ impl AiService {
 
 #[tonic::async_trait]
 impl Ai for AiService {
+    #[tracing::instrument(level = "trace", skip(self, request))]
     async fn generate_schema(
         &self,
         request: Request<GenerateSchemaRequest>,
     ) -> Result<Response<GenerateSchemaResponse>, Status> {
         let req = request.into_inner();
-
         tracing::info!(
             file_size = req.file_content.len(),
             file_type = ?req.file_type,

@@ -54,14 +54,6 @@ pub enum GrpcClientError {
 
     #[error("Mutex lock poisoned")]
     MutexPoisoned { message: String },
-
-    // TODO: should be handle by caller
-    #[error("Invalid input: {field} - {issue}")]
-    InvalidInput {
-        issue: String,
-        field: String,
-        value: String,
-    },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -112,6 +104,24 @@ pub enum DatabaseError {
 }
 
 #[derive(Debug, thiserror::Error)]
+pub enum RequestError {
+    #[error("Request: unauthorized - {reason}")]
+    Unauthorized { reason: String },
+
+    #[error("Request: invalid header {header} - {issue}")]
+    InvalidHeader {
+        issue: String,
+        header: String,
+    },
+
+    #[error("Request: invalid file - {issue}")]
+    InvalidFile { issue: String },
+
+    #[error("Request: invalid input {field} - {issue}")]
+    InvalidInput { issue: String, field: String },
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error(transparent)]
     Database(#[from] DatabaseError),
@@ -119,22 +129,8 @@ pub enum AppError {
     #[error(transparent)]
     GrpcService(#[from] GrpcClientError),
 
-    // TODO: group following errors (with invalid input)
-    #[error("Unauthorized: {reason}")]
-    Unauthorized { reason: String },
-
-    #[error("Invalid header: {header} - {issue}")]
-    InvalidHeader {
-        issue: String,
-        header: String,
-        value: String,
-    },
-
-    #[error("Invalid file: {issue}")]
-    InvalidFile { issue: String },
-
-    #[error("Invalid property: {property} - {issue}")]
-    PropertyValidation { property: String, issue: String },
+    #[error(transparent)]
+    Request(#[from] RequestError),
 }
 
 impl GrpcClientError {
@@ -159,6 +155,12 @@ impl GrpcClientError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         HttpError::from(self).into_response()
+    }
+}
+
+impl IntoResponse for RequestError {
+    fn into_response(self) -> Response {
+        HttpError::from(AppError::from(self)).into_response()
     }
 }
 
@@ -216,5 +218,11 @@ impl From<sqlx::Error> for DatabaseError {
             }
             _ => DatabaseError::Unknown { source: err },
         }
+    }
+}
+
+impl From<sqlx::Error> for AppError {
+    fn from(err: sqlx::Error) -> Self {
+        DatabaseError::from(err).into()
     }
 }

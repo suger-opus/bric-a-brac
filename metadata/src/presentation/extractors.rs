@@ -1,4 +1,4 @@
-use super::errors::AppError;
+use super::errors::RequestError;
 use crate::domain::models::UserId;
 use axum::{
     body::Body,
@@ -17,7 +17,7 @@ impl<S> FromRequestParts<S> for AuthenticatedUser
 where
     S: Send + Sync,
 {
-    type Rejection = AppError;
+    type Rejection = RequestError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         tracing::debug!("Extracting authenticated user from request");
@@ -26,13 +26,13 @@ where
             .headers
             .get("user_id")
             .and_then(|v| v.to_str().ok())
-            .ok_or_else(|| AppError::Unauthorized {
+            .ok_or_else(|| RequestError::Unauthorized {
                 reason: "Missing user_id header".to_string(),
             })?;
 
         let user_id = user_id_str
             .parse::<UserId>()
-            .map_err(|_| AppError::Unauthorized {
+            .map_err(|_| RequestError::Unauthorized {
                 reason: "Invalid user_id format - must be a valid UUID".to_string(),
             })?;
 
@@ -47,7 +47,7 @@ impl<S> FromRequest<S> for MultipartFileUpload
 where
     S: Send + Sync,
 {
-    type Rejection = AppError;
+    type Rejection = RequestError;
 
     async fn from_request(req: Request<Body>, _state: &S) -> Result<Self, Self::Rejection> {
         tracing::debug!("Extracting multipart file upload from request");
@@ -56,17 +56,15 @@ where
         let content_type = headers
             .get("content-type")
             .and_then(|v| v.to_str().ok())
-            .ok_or_else(|| AppError::InvalidHeader {
+            .ok_or_else(|| RequestError::InvalidHeader {
                 issue: "Missing content-type header".to_string(),
                 header: "content-type".to_string(),
-                value: "".to_string(),
             })?;
 
         let boundary =
-            multer::parse_boundary(content_type).map_err(|_| AppError::InvalidHeader {
+            multer::parse_boundary(content_type).map_err(|_| RequestError::InvalidHeader {
                 issue: "Invalid content-type".to_string(),
                 header: "content-type".to_string(),
-                value: content_type.to_string(),
             })?;
 
         let stream = req
@@ -82,7 +80,7 @@ where
             multipart
                 .next_field()
                 .await
-                .map_err(|err| AppError::InvalidFile {
+                .map_err(|err| RequestError::InvalidFile {
                     issue: format!("Failed to read field: {}", err),
                 })?
         {
@@ -90,12 +88,15 @@ where
 
             match name.as_str() {
                 "file" => {
-                    let data = field.bytes().await.map_err(|err| AppError::InvalidFile {
-                        issue: format!("Failed to read file: {}", err),
-                    })?;
+                    let data = field
+                        .bytes()
+                        .await
+                        .map_err(|err| RequestError::InvalidFile {
+                            issue: format!("Failed to read file: {}", err),
+                        })?;
 
                     if data.len() > MAX_FILE_SIZE {
-                        return Err(AppError::InvalidFile {
+                        return Err(RequestError::InvalidFile {
                             issue: format!(
                                 "File size exceeds maximum of {}KB",
                                 MAX_FILE_SIZE / 1024
@@ -106,20 +107,30 @@ where
                     file_content = Some(data.to_vec());
                 }
                 "file_type" => {
-                    let value = field.text().await.map_err(|err| AppError::InvalidFile {
-                        issue: format!("Failed to read file_type: {}", err),
-                    })?;
+                    let value = field
+                        .text()
+                        .await
+                        .map_err(|err| RequestError::InvalidFile {
+                            issue: format!("Failed to read file_type: {}", err),
+                        })?
+                        .to_lowercase();
 
-                    file_type = Some(value.to_lowercase());
+                    if value != "txt" && value != "csv" {
+                        return Err(RequestError::InvalidFile {
+                            issue: format!("Invalid file_type {value}"),
+                        });
+                    }
+
+                    file_type = Some(value);
                 }
                 _ => {}
             }
         }
 
-        let file_content = file_content.ok_or_else(|| AppError::InvalidFile {
+        let file_content = file_content.ok_or_else(|| RequestError::InvalidFile {
             issue: "Missing 'file' field".to_string(),
         })?;
-        let file_type = file_type.ok_or_else(|| AppError::InvalidFile {
+        let file_type = file_type.ok_or_else(|| RequestError::InvalidFile {
             issue: "Missing 'file_type' field".to_string(),
         })?;
 

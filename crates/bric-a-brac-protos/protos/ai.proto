@@ -10,9 +10,8 @@ service Ai {
 
 // File type enumeration
 enum FileType {
-  FILE_TYPE_UNSPECIFIED = 0;
+  FILE_TYPE_TXT = 0;
   FILE_TYPE_CSV = 1;
-  FILE_TYPE_TXT = 2;
 }
 
 // Request to generate a schema

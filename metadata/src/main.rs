@@ -2,8 +2,6 @@ use metadata::{infrastructure::config::Config, run, setup_tracing};
 
 // TODO for Knowledge microservice:
 // - Remove (or clean) super use
-// - Clean errors
-// - Improve logs (methods names, params)
 // - (tests)
 
 #[tokio::main]
