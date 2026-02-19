@@ -1,4 +1,6 @@
-use metadata::{infrastructure::config::Config, run, setup_tracing};
+use metadata::{
+    infrastructure::config::Config, presentation::tracing::setup as setup_tracing, run,
+};
 
 // TODO for Knowledge microservice:
 // - Remove (or clean) super use

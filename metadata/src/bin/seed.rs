@@ -7,8 +7,7 @@ use metadata::{
     },
     domain::models::{EdgeDataId, EdgeSchemaId, GraphId, NodeDataId, NodeSchemaId},
     infrastructure::{config::Config, database},
-    presentation::state::ApiState,
-    setup_tracing,
+    presentation::{state::ApiState, tracing as metadata_tracing},
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -48,7 +47,11 @@ impl TryFrom<&PropertyJson> for CreatePropertySchemaDto {
         let model_property_type =
             metadata::domain::models::PropertyType::try_from(property.property_type.as_str())
                 .map_err(|err| {
-                    anyhow::anyhow!("Invalid property type '{}': {}", property.property_type, err)
+                    anyhow::anyhow!(
+                        "Invalid property type '{}': {}",
+                        property.property_type,
+                        err
+                    )
                 })?;
 
         Ok(CreatePropertySchemaDto {
@@ -76,7 +79,7 @@ struct PropertyMetadataJson {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    setup_tracing();
+    metadata_tracing::setup();
 
     tracing::info!("🌱 Starting database seed");
     let config = Config::load()?;

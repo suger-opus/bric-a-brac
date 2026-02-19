@@ -133,7 +133,8 @@ impl From<AppError> for HttpError {
                 constraint,
             }) => {
                 tracing::error!(error = ?err, "Request failed: (Database) Primary Constraint Violation");
-                HttpError::internal_server_error(
+                HttpError::bad_request(
+                    format!("{}.{}", table, column).as_str(),
                     format!(
                         "Database primary constraint violation ({}): {}.{}: {}",
                         constraint, table, column, detail

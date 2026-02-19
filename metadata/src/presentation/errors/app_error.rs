@@ -109,10 +109,7 @@ pub enum RequestError {
     Unauthorized { reason: String },
 
     #[error("Request: invalid header {header} - {issue}")]
-    InvalidHeader {
-        issue: String,
-        header: String,
-    },
+    InvalidHeader { issue: String, header: String },
 
     #[error("Request: invalid file - {issue}")]
     InvalidFile { issue: String },

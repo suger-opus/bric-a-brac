@@ -20,9 +20,8 @@ impl From<PropertiesDataDto> for PropertiesData {
                         match v {
                             serde_json::Value::String(s) => PropertyData::String(s),
                             serde_json::Value::Number(n) => {
-                                // todo: should return an error ?
                                 PropertyData::Number(n.as_f64().unwrap_or(0.0))
-                            }
+                            } // todo: should return an error ?
                             serde_json::Value::Bool(b) => PropertyData::Boolean(b),
                             _ => PropertyData::String(v.to_string()), // todo: should return an error ?
                         },

@@ -16,6 +16,7 @@ impl MetadataService {
 
 #[tonic::async_trait]
 impl Metadata for MetadataService {
+    #[tracing::instrument(level = "debug", skip(self, _request))]
     async fn get_open_api_spec(
         &self,
         _request: Request<Empty>,
@@ -24,6 +25,7 @@ impl Metadata for MetadataService {
         Ok(Response::new(OpenApiSpecResponse { openapi_json }))
     }
 
+    #[tracing::instrument(level = "debug", skip(self, request))]
     async fn validate_schema(
         &self,
         request: Request<ValidateSchemaRequest>,
@@ -46,6 +48,7 @@ impl Metadata for MetadataService {
         }
     }
 
+    #[tracing::instrument(level = "debug", skip(self, request))]
     async fn format_label(
         &self,
         request: Request<FormatLabelRequest>,
