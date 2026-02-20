@@ -1,8 +1,9 @@
-use crate::domain::models::{Access, GraphId, CreateAccess, Role, UserId};
+use crate::domain::models::{Access, CreateAccess, GraphId, Role, UserId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub enum RoleDto {
     Owner,
     Admin,
@@ -35,7 +36,7 @@ impl From<Role> for RoleDto {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateAccessDto {
     pub user_id: UserId,
     pub role: RoleDto,
@@ -51,7 +52,7 @@ impl CreateAccessDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct AccessDto {
     pub graph_id: GraphId,
     pub user_id: UserId,

@@ -1,11 +1,24 @@
 use crate::domain::models::{PropertiesData, PropertyData};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::{PartialSchema, ToSchema};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct PropertiesDataDto {
     values: HashMap<String, serde_json::Value>,
+}
+
+impl PartialSchema for PropertiesDataDto {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        utoipa::openapi::schema::Schema::default().into()
+    }
+}
+
+impl ToSchema for PropertiesDataDto {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("PropertiesDataDto")
+    }
 }
 
 impl From<PropertiesDataDto> for PropertiesData {

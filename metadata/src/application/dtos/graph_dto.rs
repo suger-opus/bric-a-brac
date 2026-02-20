@@ -8,11 +8,18 @@ use crate::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use validator::Validate;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateGraphDto {
+    #[validate(length(min = 1, max = 100))]
+    #[schema(min_length = 1, max_length = 100)]
     pub name: String,
+
+    #[validate(length(min = 1, max = 10000))]
+    #[schema(min_length = 1, max_length = 10000)]
     pub description: String,
+
     pub is_public: bool,
 }
 
@@ -26,7 +33,7 @@ impl CreateGraphDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct RedditDto {}
 
 impl From<Reddit> for RedditDto {
@@ -35,7 +42,7 @@ impl From<Reddit> for RedditDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct GraphMetadataDto {
     pub graph_id: GraphId,
     pub name: String,
@@ -76,7 +83,7 @@ impl From<GraphMetadata> for GraphMetadataDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct GraphSchemaDto {
     pub nodes: Vec<NodeSchemaDto>,
     pub edges: Vec<EdgeSchemaDto>,
@@ -91,9 +98,11 @@ impl From<GraphSchema> for GraphSchemaDto {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateGraphSchemaDto {
+    #[validate(nested)]
     pub nodes: Vec<CreateNodeSchemaDto>,
+    #[validate(nested)]
     pub edges: Vec<CreateEdgeSchemaDto>,
 }
 
@@ -131,7 +140,7 @@ impl From<CreateGraphSchema> for CreateGraphSchemaDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct GraphDataDto {
     pub nodes: Vec<NodeDataDto>,
     pub edges: Vec<EdgeDataDto>,

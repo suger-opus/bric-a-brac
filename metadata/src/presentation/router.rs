@@ -1,25 +1,20 @@
 use super::{
     http::{access_handler, graph_handler, user_handler},
-    openapi,
+    openapi::ApiDoc,
     state::ApiState,
     tracing::http_tracing_layer,
 };
 use axum::{
-    http::header,
-    response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
 use tower_http::cors::CorsLayer;
-
-async fn openapi_spec() -> Response {
-    let json = openapi::get_openapi_json();
-    ([(header::CONTENT_TYPE, "application/json")], json).into_response()
-}
+use utoipa::OpenApi;
+use utoipa_scalar::{Scalar, Servable};
 
 pub fn build(state: ApiState) -> Router {
     let router = Router::new()
-        .route("/openapi.json", get(openapi_spec))
+        .merge(Scalar::with_url("/docs", ApiDoc::openapi()))
         .route("/users", post(user_handler::create))
         .route("/users/me", get(user_handler::get_current))
         .route("/graphs", get(graph_handler::get_all_metadata))

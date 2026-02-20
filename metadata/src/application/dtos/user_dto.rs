@@ -1,10 +1,16 @@
 use crate::domain::models::{CreateUser, User, UserId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+use validator::Validate;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct CreateUserDto {
+    #[validate(email)]
+    #[schema(format = "email")]
     pub email: String,
+    #[validate(length(min = 3, max = 50))]
+    #[schema(min_length = 3, max_length = 50)]
     pub username: String,
 }
 
@@ -17,7 +23,7 @@ impl CreateUserDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct UserDto {
     pub user_id: UserId,
     pub username: String,

@@ -6,6 +6,7 @@ use axum::{
     http::request::Parts,
 };
 use futures_util::TryStreamExt;
+use utoipa::ToSchema;
 
 const MAX_FILE_SIZE: usize = 100 * 1024; // 100KB
 
@@ -41,7 +42,11 @@ where
     }
 }
 
-pub struct MultipartFileUpload(pub Vec<u8>, pub String);
+#[derive(Debug, ToSchema)]
+pub struct MultipartFileUpload {
+    pub file_content: Vec<u8>,
+    pub file_type: String,
+}
 
 impl<S> FromRequest<S> for MultipartFileUpload
 where
@@ -138,6 +143,9 @@ where
             file_type = %file_type,
             "Successfully extracted multipart file upload",
         );
-        Ok(MultipartFileUpload(file_content, file_type))
+        Ok(MultipartFileUpload {
+            file_content,
+            file_type,
+        })
     }
 }

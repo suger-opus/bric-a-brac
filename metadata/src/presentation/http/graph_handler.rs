@@ -1,7 +1,8 @@
 use crate::{
     application::dtos::{
         CreateEdgeDataDto, CreateEdgeSchemaDto, CreateGraphDto, CreateNodeDataDto,
-        CreateNodeSchemaDto,
+        CreateNodeSchemaDto, EdgeDataDto, EdgeSchemaDto, GraphDataDto, GraphMetadataDto,
+        GraphSchemaDto, NodeDataDto, NodeSchemaDto,
     },
     domain::models::GraphId,
     presentation::{
@@ -16,6 +17,16 @@ use axum::{
     Json,
 };
 
+#[utoipa::path(
+    get,
+    path = "/graphs",
+    tag = "Graphs",
+    responses(
+        (status = 200, description = "List of graphs retrieved successfully", body = [GraphMetadataDto]),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tracing::instrument(level = "trace", skip(state, user_id))]
 pub async fn get_all_metadata(
     State(state): State<ApiState>,
@@ -30,6 +41,18 @@ pub async fn get_all_metadata(
         .map(|graphs| (StatusCode::OK, Json(graphs)))
 }
 
+#[utoipa::path(
+    get,
+    path = "/graphs/{graph_id}",
+    params(("graph_id" = GraphId, Path, description = "ID of the graph to retrieve")),
+    tag = "Graphs",
+    responses(
+        (status = 200, description = "Graph metadata retrieved successfully", body = GraphMetadataDto),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Graph not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id))]
 pub async fn get_metadata(
     State(state): State<ApiState>,
@@ -45,6 +68,18 @@ pub async fn get_metadata(
         .map(|graph| (StatusCode::OK, Json(graph)))
 }
 
+#[utoipa::path(
+    get,
+    path = "/graphs/{graph_id}/schema",
+    params(("graph_id" = GraphId, Path, description = "ID of the graph to retrieve schema for")),
+    tag = "Graphs",
+    responses(
+        (status = 200, description = "Graph schema retrieved successfully", body = GraphSchemaDto),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Graph not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id))]
 pub async fn get_schema(
     State(state): State<ApiState>,
@@ -60,6 +95,18 @@ pub async fn get_schema(
         .map(|graph| (StatusCode::OK, Json(graph)))
 }
 
+#[utoipa::path(
+    get,
+    path = "/graphs/{graph_id}/data",
+    params(("graph_id" = GraphId, Path, description = "ID of the graph to retrieve data for")),
+    tag = "Graphs",
+    responses(
+        (status = 200, description = "Graph data retrieved successfully", body = GraphDataDto),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Graph not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id))]
 pub async fn get_data(
     State(state): State<ApiState>,
@@ -75,6 +122,18 @@ pub async fn get_data(
         .map(|graph| (StatusCode::OK, Json(graph)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/graphs",
+    tag = "Graphs",
+    request_body = CreateGraphDto,
+    responses(
+        (status = 201, description = "Graph created successfully", body = GraphMetadataDto),
+        (status = 400, description = "Invalid input data"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tracing::instrument(level = "trace", skip(state, user_id, payload))]
 pub async fn create_graph(
     State(state): State<ApiState>,
@@ -90,6 +149,24 @@ pub async fn create_graph(
         .map(|graph| (StatusCode::CREATED, Json(graph)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/graphs/{graph_id}/schema/generate",
+    params(("graph_id" = GraphId, Path, description = "ID of the graph to generate schema for")),
+    tag = "Graphs",
+    request_body(
+        content_type = "multipart/form-data",
+        description = "File containing graph data to analyze for schema generation",
+        content = MultipartFileUpload
+    ),
+    responses(
+        (status = 200, description = "Graph schema generated successfully", body = GraphSchemaDto),
+        (status = 400, description = "Invalid input data"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Graph not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tracing::instrument(
     level = "trace",
     skip(state, graph_id, user_id, file_content, file_type)
@@ -98,9 +175,12 @@ pub async fn generate_schema(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphId>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
-    MultipartFileUpload(file_content, file_type): MultipartFileUpload,
+    MultipartFileUpload {
+        file_content,
+        file_type,
+    }: MultipartFileUpload,
 ) -> Result<impl IntoResponse, impl IntoResponse> {
-    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, file_type = ?file_type);
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, file_content_len = %file_content.len(), file_type = ?file_type);
 
     state
         .graph_service
@@ -109,6 +189,20 @@ pub async fn generate_schema(
         .map(|schema| (StatusCode::OK, Json(schema)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/graphs/{graph_id}/schema/nodes",
+    params(("graph_id" = GraphId, Path, description = "ID of the graph to add node schema to")),
+    tag = "Graphs",
+    request_body = CreateNodeSchemaDto,
+    responses(
+        (status = 201, description = "Node schema created successfully", body = NodeSchemaDto),
+        (status = 400, description = "Invalid input data"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Graph not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn create_node_schema(
     State(state): State<ApiState>,
@@ -125,6 +219,20 @@ pub async fn create_node_schema(
         .map(|node| (StatusCode::CREATED, Json(node)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/graphs/{graph_id}/schema/edges",
+    params(("graph_id" = GraphId, Path, description = "ID of the graph to add edge schema to")),
+    tag = "Graphs",
+    request_body = CreateEdgeSchemaDto,
+    responses(
+        (status = 201, description = "Edge schema created successfully", body = EdgeSchemaDto),
+        (status = 400, description = "Invalid input data"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Graph not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn create_edge_schema(
     State(state): State<ApiState>,
@@ -141,6 +249,20 @@ pub async fn create_edge_schema(
         .map(|edge| (StatusCode::CREATED, Json(edge)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/graphs/{graph_id}/data/nodes",
+    params(("graph_id" = GraphId, Path, description = "ID of the graph to add node data to")),
+    tag = "Graphs",
+    request_body = CreateNodeDataDto,
+    responses(
+        (status = 200, description = "Node data inserted successfully", body = NodeDataDto),
+        (status = 400, description = "Invalid input data"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Graph not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn insert_node_data(
     State(state): State<ApiState>,
@@ -157,6 +279,20 @@ pub async fn insert_node_data(
         .map(|node| (StatusCode::OK, Json(node)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/graphs/{graph_id}/data/edges",
+    params(("graph_id" = GraphId, Path, description = "ID of the graph to add edge data to")),
+    tag = "Graphs",
+    request_body = CreateEdgeDataDto,
+    responses(
+        (status = 200, description = "Edge data inserted successfully", body = EdgeDataDto),
+        (status = 400, description = "Invalid input data"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Graph not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn insert_edge_data(
     State(state): State<ApiState>,

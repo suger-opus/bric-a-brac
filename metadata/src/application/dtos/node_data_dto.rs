@@ -1,8 +1,9 @@
 use super::PropertiesDataDto;
 use crate::domain::models::{CreateNodeData, NodeData, NodeDataId, NodeSchemaId};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct CreateNodeDataDto {
     pub node_schema_id: NodeSchemaId,
     pub properties: PropertiesDataDto,
@@ -17,7 +18,7 @@ impl CreateNodeDataDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct NodeDataDto {
     pub node_data_id: NodeDataId,
     pub formatted_label: String,

@@ -1,8 +1,9 @@
 use super::PropertiesDataDto;
 use crate::domain::models::{CreateEdgeData, EdgeData, EdgeDataId, EdgeSchemaId, NodeDataId};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct CreateEdgeDataDto {
     pub edge_schema_id: EdgeSchemaId,
     pub from_node_data_id: NodeDataId,
@@ -21,7 +22,7 @@ impl CreateEdgeDataDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct EdgeDataDto {
     pub edge_data_id: EdgeDataId,
     pub formatted_label: String,

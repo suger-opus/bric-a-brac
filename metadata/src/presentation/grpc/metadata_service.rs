@@ -1,9 +1,10 @@
-use crate::{domain::models::CreateGraphSchema, presentation::openapi};
+use crate::{application::dtos::CreateGraphSchemaDto, presentation::openapi};
 use bric_a_brac_protos::metadata::{
     metadata_server::Metadata, Empty, FormatLabelRequest, FormatLabelResponse, OpenApiSpecResponse,
     ValidateSchemaRequest, ValidateSchemaResponse, ValidationError,
 };
 use tonic::{Request, Response, Status};
+use validator::Validate;
 
 #[derive(Debug)]
 pub struct MetadataService;
@@ -21,7 +22,7 @@ impl Metadata for MetadataService {
         &self,
         _request: Request<Empty>,
     ) -> Result<Response<OpenApiSpecResponse>, Status> {
-        let openapi_json = openapi::get_openapi_json();
+        let openapi_json = openapi::get_openapi_generate_schema_doc();
         Ok(Response::new(OpenApiSpecResponse { openapi_json }))
     }
 
@@ -32,12 +33,35 @@ impl Metadata for MetadataService {
     ) -> Result<Response<ValidateSchemaResponse>, Status> {
         let schema_json = &request.into_inner().schema_json;
 
-        // TODO: validation using validator::Validate trait
-        match serde_json::from_str::<CreateGraphSchema>(schema_json) {
-            Ok(_) => Ok(Response::new(ValidateSchemaResponse {
-                is_valid: true,
-                errors: vec![],
-            })),
+        match serde_json::from_str::<CreateGraphSchemaDto>(schema_json) {
+            Ok(dto) => match dto.validate() {
+                Ok(_) => Ok(Response::new(ValidateSchemaResponse {
+                    is_valid: true,
+                    errors: vec![],
+                })),
+                Err(validation_errors) => {
+                    let errors = validation_errors
+                        .field_errors()
+                        .iter()
+                        .map(|(field, errs)| {
+                            errs.iter().map(|err| ValidationError {
+                                field: field.to_string(),
+                                message: format!(
+                                    "{}",
+                                    err.message
+                                        .clone()
+                                        .unwrap_or_else(|| "Validation error".into())
+                                ),
+                            })
+                        })
+                        .flatten()
+                        .collect();
+                    Ok(Response::new(ValidateSchemaResponse {
+                        is_valid: false,
+                        errors,
+                    }))
+                }
+            },
             Err(e) => Ok(Response::new(ValidateSchemaResponse {
                 is_valid: false,
                 errors: vec![ValidationError {

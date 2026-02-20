@@ -2,8 +2,8 @@ use anyhow::Context;
 use metadata::{
     application::dtos::{
         CreateEdgeDataDto, CreateEdgeSchemaDto, CreateGraphDto, CreateNodeDataDto,
-        CreateNodeSchemaDto, CreatePropertySchemaDto, CreateUserDto, EdgeSchemaDto,
-        GraphMetadataDto, NodeSchemaDto, PropertyMetadataDto, PropertyTypeDto, UserDto,
+        CreateNodeSchemaDto, CreatePropertyMetadataDto, CreatePropertySchemaDto, CreateUserDto,
+        EdgeSchemaDto, GraphMetadataDto, NodeSchemaDto, OptionString, PropertyTypeDto, UserDto,
     },
     domain::models::{EdgeDataId, EdgeSchemaId, GraphId, NodeDataId, NodeSchemaId},
     infrastructure::{config::Config, database},
@@ -61,10 +61,18 @@ impl TryFrom<&PropertyJson> for CreatePropertySchemaDto {
             formatted_label: property.formatted_label.clone(),
             property_type: PropertyTypeDto::from(model_property_type),
             metadata: if property.metadata.options.is_empty() {
-                PropertyMetadataDto { options: None }
+                CreatePropertyMetadataDto { options: None }
             } else {
-                PropertyMetadataDto {
-                    options: Some(property.metadata.options.clone()),
+                CreatePropertyMetadataDto {
+                    options: Some(
+                        property
+                            .metadata
+                            .options
+                            .iter()
+                            .cloned()
+                            .map(OptionString::from)
+                            .collect(),
+                    ),
                 }
             },
         })

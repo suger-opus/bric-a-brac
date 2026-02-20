@@ -3,27 +3,89 @@ use crate::domain::models::{
     PropertySchemaId, PropertyType,
 };
 use chrono::{DateTime, Utc};
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{PartialSchema, ToSchema};
 use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
-pub struct PropertyMetadataDto {
-    pub options: Option<Vec<String>>,
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[serde(transparent)]
+pub struct OptionString {
+    #[validate(length(min = 1, max = 50))]
+    value: String,
 }
 
-impl From<PropertyMetadataDto> for PropertyMetadata {
-    fn from(metadata: PropertyMetadataDto) -> Self {
-        Self {
-            options: metadata.options,
-        }
+impl PartialSchema for OptionString {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        utoipa::openapi::schema::ObjectBuilder::new()
+            .schema_type(utoipa::openapi::schema::SchemaType::new(
+                utoipa::openapi::schema::Type::String,
+            ))
+            .min_length(Some(1))
+            .max_length(Some(50))
+            .build()
+            .into()
     }
+}
+
+impl ToSchema for OptionString {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("OptionString")
+    }
+}
+
+impl From<String> for OptionString {
+    fn from(s: String) -> Self {
+        Self { value: s }
+    }
+}
+
+impl From<OptionString> for String {
+    fn from(s: OptionString) -> Self {
+        s.value
+    }
+}
+
+lazy_static! {
+    static ref LABEL_REGEX: Regex = Regex::new(r"^([A-Z][a-z]*_)*[A-Z][a-z]*$").unwrap();
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct PropertyMetadataDto {
+    pub options: Option<Vec<String>>,
 }
 
 impl From<PropertyMetadata> for PropertyMetadataDto {
     fn from(metadata: PropertyMetadata) -> Self {
         Self {
             options: metadata.options,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+pub struct CreatePropertyMetadataDto {
+    #[validate(nested)]
+    pub options: Option<Vec<OptionString>>,
+}
+
+impl From<CreatePropertyMetadataDto> for PropertyMetadata {
+    fn from(metadata: CreatePropertyMetadataDto) -> Self {
+        Self {
+            options: metadata
+                .options
+                .map(|v| v.into_iter().map(String::from).collect()),
+        }
+    }
+}
+
+impl From<PropertyMetadata> for CreatePropertyMetadataDto {
+    fn from(metadata: PropertyMetadata) -> Self {
+        Self {
+            options: metadata
+                .options
+                .map(|v| v.into_iter().map(OptionString::from).collect()),
         }
     }
 }
@@ -60,24 +122,25 @@ impl From<PropertyType> for PropertyTypeDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreatePropertySchemaDto {
-    #[schema(value_type = Option<String>)]
     pub node_schema_id: Option<NodeSchemaId>,
-
-    #[schema(value_type = Option<String>)]
     pub edge_schema_id: Option<EdgeSchemaId>,
 
-    #[validate(length(min = 1, max = 100))]
-    #[schema(min_length = 1, max_length = 100)]
+    #[validate(length(min = 1, max = 25))]
+    #[schema(min_length = 1, max_length = 25)]
     pub label: String,
 
-    #[validate(length(min = 1, max = 100))]
-    #[schema(min_length = 1, max_length = 100)]
+    #[validate(length(min = 1, max = 25), regex(path = "*LABEL_REGEX"))]
+    #[schema(
+        min_length = 1,
+        max_length = 25,
+        pattern = "^([A-Z][a-z]*_)*[A-Z][a-z]*$"
+    )]
     pub formatted_label: String,
 
     pub property_type: PropertyTypeDto,
 
     #[validate(nested)]
-    pub metadata: PropertyMetadataDto,
+    pub metadata: CreatePropertyMetadataDto,
 }
 
 impl CreatePropertySchemaDto {
@@ -106,7 +169,7 @@ impl From<CreatePropertySchema> for CreatePropertySchemaDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct PropertySchemaDto {
     pub property_schema_id: PropertySchemaId,
     pub node_schema_id: Option<NodeSchemaId>,

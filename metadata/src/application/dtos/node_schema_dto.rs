@@ -9,16 +9,21 @@ use validator::Validate;
 
 lazy_static! {
     static ref COLOR_REGEX: Regex = Regex::new(r"^#[0-9A-Fa-f]{6}$").unwrap();
+    static ref LABEL_REGEX: Regex = Regex::new(r"^([A-Z][a-z]*_)*[A-Z][a-z]*$").unwrap();
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateNodeSchemaDto {
-    #[validate(length(min = 1, max = 100))]
-    #[schema(min_length = 1, max_length = 100)]
+    #[validate(length(min = 1, max = 25))]
+    #[schema(min_length = 1, max_length = 25)]
     pub label: String,
 
-    #[validate(length(min = 1, max = 100))]
-    #[schema(min_length = 1, max_length = 100)]
+    #[validate(length(min = 1, max = 25), regex(path = "*LABEL_REGEX"))]
+    #[schema(
+        min_length = 1,
+        max_length = 25,
+        pattern = "^([A-Z][a-z]*_)*[A-Z][a-z]*$"
+    )]
     pub formatted_label: String,
 
     #[validate(regex(path = "*COLOR_REGEX"))]
@@ -59,7 +64,7 @@ impl From<CreateNodeSchema> for CreateNodeSchemaDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct NodeSchemaDto {
     pub node_schema_id: NodeSchemaId,
     pub graph_id: GraphId,

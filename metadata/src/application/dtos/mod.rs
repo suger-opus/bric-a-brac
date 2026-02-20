@@ -18,6 +18,7 @@ pub use node_data_dto::{CreateNodeDataDto, NodeDataDto};
 pub use node_schema_dto::{CreateNodeSchemaDto, NodeSchemaDto};
 pub use property_data_dto::PropertiesDataDto;
 pub use property_schema_dto::{
-    CreatePropertySchemaDto, PropertyMetadataDto, PropertySchemaDto, PropertyTypeDto,
+    CreatePropertyMetadataDto, CreatePropertySchemaDto, OptionString, PropertyMetadataDto,
+    PropertySchemaDto, PropertyTypeDto,
 };
 pub use user_dto::{CreateUserDto, UserDto};

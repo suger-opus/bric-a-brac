@@ -63,7 +63,7 @@ thiserror = "2.0"
 validator = "0.18"
 secrecy = "0.10.3"
 utoipa = "5.3"
-utoipa-swagger-ui = "8.0"
+utoipa-scalar = "0.3.0"
 lazy_static = "1.5"
 
 # Graph database

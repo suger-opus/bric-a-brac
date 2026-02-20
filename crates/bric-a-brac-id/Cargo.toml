@@ -8,6 +8,7 @@ derive_more = { workspace = true, features = ["from"] }
 serde = { workspace = true, features = ["derive"] }
 sqlx = { workspace = true, features = ["postgres", "uuid"] }
 uuid = { workspace = true, features = ["v7", "serde"] }
+utoipa = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

@@ -50,6 +50,7 @@ macro_rules! id {
             ::serde::Deserialize,
             ::sqlx::Type,
             ::derive_more::From,
+            ::utoipa::ToSchema,
         )]
         #[sqlx(transparent)]
         pub struct $name(::uuid::Uuid);
