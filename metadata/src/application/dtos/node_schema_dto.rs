@@ -14,15 +14,15 @@ lazy_static! {
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateNodeSchemaDto {
     #[validate(length(min = 1, max = 100))]
-    #[schema(example = "Person", min_length = 1, max_length = 100)]
+    #[schema(min_length = 1, max_length = 100)]
     pub label: String,
 
     #[validate(length(min = 1, max = 100))]
-    #[schema(example = "person", min_length = 1, max_length = 100)]
+    #[schema(min_length = 1, max_length = 100)]
     pub formatted_label: String,
 
     #[validate(regex(path = "*COLOR_REGEX"))]
-    #[schema(example = "#3B82F6", pattern = "^#[0-9A-Fa-f]{6}$")]
+    #[schema(pattern = "^#[0-9A-Fa-f]{6}$")]
     pub color: String,
 
     #[validate(nested)]

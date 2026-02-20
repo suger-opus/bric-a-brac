@@ -14,15 +14,15 @@ lazy_static! {
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateEdgeSchemaDto {
     #[validate(length(min = 1, max = 100))]
-    #[schema(example = "RELATES_TO", min_length = 1, max_length = 100)]
+    #[schema(min_length = 1, max_length = 100)]
     pub label: String,
 
     #[validate(length(min = 1, max = 100))]
-    #[schema(example = "relates_to", min_length = 1, max_length = 100)]
+    #[schema(min_length = 1, max_length = 100)]
     pub formatted_label: String,
 
     #[validate(regex(path = "*COLOR_REGEX"))]
-    #[schema(example = "#10B981", pattern = "^#[0-9A-Fa-f]{6}$")]
+    #[schema(pattern = "^#[0-9A-Fa-f]{6}$")]
     pub color: String,
 
     #[validate(nested)]

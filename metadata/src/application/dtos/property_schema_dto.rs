@@ -67,11 +67,11 @@ pub struct CreatePropertySchemaDto {
     pub edge_schema_id: Option<EdgeSchemaId>,
 
     #[validate(length(min = 1, max = 100))]
-    #[schema(example = "Name", min_length = 1, max_length = 100)]
+    #[schema(min_length = 1, max_length = 100)]
     pub label: String,
 
     #[validate(length(min = 1, max = 100))]
-    #[schema(example = "name", min_length = 1, max_length = 100)]
+    #[schema(min_length = 1, max_length = 100)]
     pub formatted_label: String,
 
     pub property_type: PropertyTypeDto,

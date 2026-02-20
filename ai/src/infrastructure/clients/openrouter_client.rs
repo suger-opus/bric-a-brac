@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{
     infrastructure::config::OpenRouterConfig, presentation::errors::OpenRouterClientError,
 };
@@ -117,11 +119,6 @@ impl OpenRouterClient {
             }],
         };
 
-        tracing::debug!(
-            "Calling OpenRouter API with request: {}",
-            serde_json::to_string_pretty(&request).unwrap()
-        );
-
         let response = self
             .client
             .post("https://openrouter.ai/api/v1/chat/completions")
@@ -147,14 +144,6 @@ impl OpenRouterClient {
                     message: "Failed to read OpenRouter API response".to_string(),
                     source: err,
                 })?;
-
-        tracing::debug!(
-            "Response: {}",
-            serde_json::to_string_pretty(
-                &serde_json::from_str::<serde_json::Value>(&response_text).unwrap()
-            )
-            .unwrap()
-        );
 
         if !status.is_success() {
             return Err(OpenRouterClientError::NoSuccessResponse {
@@ -184,32 +173,158 @@ impl OpenRouterClient {
     pub fn openai_to_structured_output_schema(
         openapi_spec: &serde_json::Value,
     ) -> serde_json::Value {
-        let mut schema = openapi_spec
+        let schemas = openapi_spec
             .get("components")
             .and_then(|c| c.get("schemas"))
+            .and_then(|s| s.as_object())
             .cloned()
-            .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new()));
+            .unwrap_or_default();
 
-        // Remove $schema field if present
-        if let Some(obj) = schema.as_object_mut() {
-            for (_name, schema_def) in obj.iter_mut() {
-                if let Some(schema_obj) = schema_def.as_object_mut() {
-                    schema_obj.remove("$schema");
-                    // Rename definitions to $defs if present
-                    if let Some(definitions) = schema_obj.remove("definitions") {
-                        schema_obj.insert("$defs".to_string(), definitions);
-                    }
-                    // Add additionalProperties: false for strict mode
-                    if schema_obj.get("type").and_then(|t| t.as_str()) == Some("object") {
-                        schema_obj
-                            .entry("additionalProperties".to_string())
-                            .or_insert(serde_json::Value::Bool(false));
+        if schemas.is_empty() {
+            return serde_json::Value::Object(serde_json::Map::new());
+        }
+
+        // Find all referenced schema names
+        let mut referenced = HashSet::new();
+        for (_name, schema) in &schemas {
+            collect_schema_refs(schema, &mut referenced);
+        }
+
+        // Root schema is the one not referenced by any other schema
+        let root_name = schemas
+            .keys()
+            .find(|name| !referenced.contains(name.as_str()))
+            .cloned();
+
+        let root_name = match root_name {
+            Some(name) => name,
+            None => return serde_json::Value::Object(serde_json::Map::new()),
+        };
+
+        let root_schema = schemas.get(&root_name).cloned().unwrap();
+        resolve_schema(&root_schema, &schemas)
+    }
+}
+
+fn collect_schema_refs(value: &serde_json::Value, refs: &mut HashSet<String>) {
+    match value {
+        serde_json::Value::Object(obj) => {
+            if let Some(ref_val) = obj.get("$ref") {
+                if let Some(ref_str) = ref_val.as_str() {
+                    if let Some(name) = ref_str.strip_prefix("#/components/schemas/") {
+                        refs.insert(name.to_string());
                     }
                 }
             }
+            for (_, v) in obj {
+                collect_schema_refs(v, refs);
+            }
         }
+        serde_json::Value::Array(arr) => {
+            for v in arr {
+                collect_schema_refs(v, refs);
+            }
+        }
+        _ => {}
+    }
+}
 
-        schema
+fn resolve_schema(
+    schema: &serde_json::Value,
+    all_schemas: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Value {
+    match schema {
+        serde_json::Value::Object(obj) => {
+            // Resolve $ref first
+            if let Some(ref_val) = obj.get("$ref") {
+                if let Some(ref_str) = ref_val.as_str() {
+                    if let Some(name) = ref_str.strip_prefix("#/components/schemas/") {
+                        if let Some(referenced) = all_schemas.get(name) {
+                            return resolve_schema(referenced, all_schemas);
+                        }
+                    }
+                }
+            }
+
+            let schema_type = obj.get("type").and_then(|t| t.as_str());
+
+            if schema_type == Some("object") {
+                let mut result = serde_json::Map::new();
+                result.insert(
+                    "type".to_string(),
+                    serde_json::Value::String("object".to_string()),
+                );
+                result.insert(
+                    "additionalProperties".to_string(),
+                    serde_json::Value::Bool(false),
+                );
+
+                let properties = obj.get("properties").and_then(|p| p.as_object());
+                let required = obj.get("required").and_then(|r| r.as_array());
+
+                if let Some(props) = properties {
+                    // If required is specified, only keep required properties.
+                    // Otherwise, keep all properties and make them all required.
+                    let required_keys: Vec<String> = if let Some(req) = required {
+                        req.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect()
+                    } else {
+                        props.keys().cloned().collect()
+                    };
+
+                    // Rename the domain field "properties" → "attributes" to avoid
+                    // clashing with the JSON Schema keyword "properties".
+                    let rename = |k: &str| {
+                        if k == "properties" {
+                            "attributes".to_string()
+                        } else {
+                            k.to_string()
+                        }
+                    };
+
+                    result.insert(
+                        "required".to_string(),
+                        serde_json::Value::Array(
+                            required_keys
+                                .iter()
+                                .map(|k| serde_json::Value::String(rename(k)))
+                                .collect(),
+                        ),
+                    );
+
+                    let mut resolved_props = serde_json::Map::new();
+                    for key in &required_keys {
+                        if let Some(prop_schema) = props.get(key) {
+                            resolved_props.insert(
+                                rename(key),
+                                resolve_schema(prop_schema, all_schemas),
+                            );
+                        }
+                    }
+                    result.insert(
+                        "properties".to_string(),
+                        serde_json::Value::Object(resolved_props),
+                    );
+                }
+
+                serde_json::Value::Object(result)
+            } else {
+                // Non-object: copy all fields except 'example', resolving nested values
+                let mut result = serde_json::Map::new();
+                for (key, value) in obj {
+                    if key == "example" {
+                        continue;
+                    }
+                    result.insert(key.clone(), resolve_schema(value, all_schemas));
+                }
+                serde_json::Value::Object(result)
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            serde_json::Value::Array(arr.iter().map(|v| resolve_schema(v, all_schemas)).collect())
+        }
+        other => other.clone(),
     }
 }
 
@@ -223,24 +338,130 @@ mod tests {
         let openapi_spec = json!({
             "components": {
                 "schemas": {
+                    "CreateEdgeSchemaDto": {
+                        "type": "object",
+                        "required": ["label", "formatted_label", "color", "properties"],
+                        "properties": {
+                            "color": { "pattern": "^#[0-9A-Fa-f]{6}$", "type": "string" },
+                            "formatted_label": { "maxLength": 100, "minLength": 1, "type": "string" },
+                            "label": { "maxLength": 100, "minLength": 1, "type": "string" },
+                            "properties": {
+                                "items": { "$ref": "#/components/schemas/CreatePropertySchemaDto" },
+                                "type": "array"
+                            }
+                        }
+                    },
+                    "CreateGraphSchemaDto": {
+                        "type": "object",
+                        "required": ["nodes", "edges"],
+                        "properties": {
+                            "edges": {
+                                "items": { "$ref": "#/components/schemas/CreateEdgeSchemaDto" },
+                                "type": "array"
+                            },
+                            "nodes": {
+                                "items": { "$ref": "#/components/schemas/CreateNodeSchemaDto" },
+                                "type": "array"
+                            }
+                        }
+                    },
                     "CreateNodeSchemaDto": {
                         "type": "object",
+                        "required": ["label", "formatted_label", "color", "properties"],
                         "properties": {
-                            "label": {"type": "string"}
-                        },
-                        "definitions": {
-                            "SomeType": {}
+                            "color": { "pattern": "^#[0-9A-Fa-f]{6}$", "type": "string" },
+                            "formatted_label": { "maxLength": 100, "minLength": 1, "type": "string" },
+                            "label": { "maxLength": 100, "minLength": 1, "type": "string" },
+                            "properties": {
+                                "items": { "$ref": "#/components/schemas/CreatePropertySchemaDto" },
+                                "type": "array"
+                            }
                         }
+                    },
+                    "CreatePropertySchemaDto": {
+                        "type": "object",
+                        "required": ["label", "formatted_label", "property_type", "metadata"],
+                        "properties": {
+                            "edge_schema_id": { "type": ["string", "null"] },
+                            "formatted_label": { "example": "name", "maxLength": 100, "minLength": 1, "type": "string" },
+                            "label": { "example": "Name", "maxLength": 100, "minLength": 1, "type": "string" },
+                            "metadata": { "$ref": "#/components/schemas/PropertyMetadataDto" },
+                            "node_schema_id": { "type": ["string", "null"] },
+                            "property_type": { "$ref": "#/components/schemas/PropertyTypeDto" }
+                        }
+                    },
+                    "PropertyMetadataDto": {
+                        "type": "object",
+                        "properties": {
+                            "options": {
+                                "items": { "type": "string" },
+                                "type": ["array", "null"]
+                            }
+                        }
+                    },
+                    "PropertyTypeDto": {
+                        "enum": ["Number", "String", "Boolean", "Select"],
+                        "type": "string"
                     }
                 }
             }
         });
 
         let result = OpenRouterClient::openai_to_structured_output_schema(&openapi_spec);
-        let schema = result.get("CreateNodeSchemaDto").unwrap();
 
-        assert!(schema.get("$defs").is_some());
-        assert!(schema.get("definitions").is_none());
-        assert_eq!(schema.get("additionalProperties"), Some(&json!(false)));
+        let property_schema = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "formatted_label", "property_type", "metadata"],
+            "properties": {
+                "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "formatted_label": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "property_type": { "type": "string", "enum": ["Number", "String", "Boolean", "Select"] },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["options"],
+                    "properties": {
+                        "options": { "type": ["array", "null"], "items": { "type": "string" } }
+                    }
+                }
+            }
+        });
+
+        let node_schema = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "formatted_label", "color", "attributes"],
+            "properties": {
+                "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "formatted_label": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "attributes": { "type": "array", "items": property_schema.clone() }
+            }
+        });
+
+        let edge_schema = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "formatted_label", "color", "attributes"],
+            "properties": {
+                "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "formatted_label": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "attributes": { "type": "array", "items": property_schema }
+            }
+        });
+
+        let expected = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["nodes", "edges"],
+            "properties": {
+                "nodes": { "type": "array", "items": node_schema },
+                "edges": { "type": "array", "items": edge_schema }
+            }
+        });
+
+        assert_eq!(result, expected);
     }
 }

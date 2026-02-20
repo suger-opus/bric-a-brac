@@ -22,7 +22,6 @@ impl Metadata for MetadataService {
         _request: Request<Empty>,
     ) -> Result<Response<OpenApiSpecResponse>, Status> {
         let openapi_json = openapi::get_openapi_json();
-        tracing::debug!("Generated OpenAPI spec: {}", openapi_json);
         Ok(Response::new(OpenApiSpecResponse { openapi_json }))
     }
 
