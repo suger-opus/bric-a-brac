@@ -75,6 +75,7 @@ export const CreatePropertySchemaMetadataDto = v.pipe(
   // )
 );
 
+// TODO: remove validations when retrieving data from AI
 export const CreatePropertySchemaDto = v.pipe(
   v.object({
     label: SendLabelDto,

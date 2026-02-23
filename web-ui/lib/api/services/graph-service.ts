@@ -1,4 +1,5 @@
 import {
+  CreateGraphSchemaDto,
   EdgeDataDto,
   EdgeSchemaDto,
   GraphDataDto,
@@ -12,6 +13,7 @@ import {
   CreateEdgeData,
   CreateEdgeSchema,
   CreateGraph,
+  CreateGraphSchema,
   CreateNodeData,
   CreateNodeSchema,
   EdgeData,
@@ -30,6 +32,11 @@ export interface GraphService {
   getData(graph_id: string): Promise<GraphData>;
   getSchema(graph_id: string): Promise<GraphSchema>;
   createGraph(request: CreateGraph): Promise<GraphMetadata>;
+  generateSchema(
+    graph_id: string,
+    file_content: File,
+    file_type: string
+  ): Promise<CreateGraphSchema>;
   createNodeSchema(graph_id: string, body: CreateNodeSchema): Promise<NodeSchema>;
   createEdgeSchema(graph_id: string, body: CreateEdgeSchema): Promise<EdgeSchema>;
   createNodeData(graph_id: string, body: CreateNodeData): Promise<NodeData>;
@@ -87,6 +94,28 @@ export class ApiGraphService implements GraphService {
       return v.parse(GraphMetadataDto, response);
     } catch (error) {
       console.error("Failed to create graph:", error);
+      throw error;
+    }
+  }
+
+  async generateSchema(
+    graph_id: string,
+    file_content: File,
+    file_type: string
+  ): Promise<CreateGraphSchema> {
+    try {
+      const formData = new FormData();
+      // TODO: shouldn't it be inside metadata ?
+      formData.append("file", file_content);
+      if (file_type === "text/csv") {
+        formData.append("file_type", "csv");
+      } else {
+        formData.append("file_type", "txt");
+      }
+      const response = await this.api(`/${graph_id}/schema/generate`).post(formData);
+      return v.parse(CreateGraphSchemaDto, response);
+    } catch (error) {
+      console.error("Failed to generate graph schema:", error);
       throw error;
     }
   }

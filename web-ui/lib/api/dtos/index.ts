@@ -3,6 +3,7 @@ import { CreateEdgeDataDto, EdgeDataDto } from "./edge-data-dto";
 import { CreateEdgeSchemaDto, EdgeSchemaDto } from "./edge-schema-dto";
 import {
   CreateGraphDto,
+  CreateGraphSchemaDto,
   GraphDataDto,
   GraphMetadataDto,
   GraphSchemaDto,
@@ -24,6 +25,7 @@ export {
   CreateEdgeDataDto,
   CreateEdgeSchemaDto,
   CreateGraphDto,
+  CreateGraphSchemaDto,
   CreateNodeDataDto,
   CreateNodeSchemaDto,
   CreatePropertySchemaDto,

@@ -69,6 +69,10 @@ const GraphMenu = () => {
               <MenubarTrigger>{categoryLabels[Category.EDIT]}</MenubarTrigger>
               <MenubarContent>
                 <MenubarRadioGroup value={menuItem} onValueChange={handleItemChange}>
+                  <MenubarRadioItem value={Action.GENERATE_TYPES}>
+                    {actionLabels[Action.GENERATE_TYPES]}
+                  </MenubarRadioItem>
+                  <MenubarSeparator />
                   <MenubarRadioItem value={Action.NEW_NODE_TYPE}>
                     {actionLabels[Action.NEW_NODE_TYPE]}
                   </MenubarRadioItem>
@@ -141,6 +145,7 @@ const GraphMenu = () => {
               {[Action.FIND_NODE, Action.FIND_PATH, Action.ASK_AI].includes(action!)
                 && "Search"}
               {[
+                Action.GENERATE_TYPES,
                 Action.NEW_NODE_TYPE,
                 Action.NEW_EDGE_TYPE,
                 Action.MANAGE_NODE_TYPES,

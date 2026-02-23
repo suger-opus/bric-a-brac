@@ -41,6 +41,7 @@ pub struct ApiDoc;
 pub struct GenerateSchemaApiDoc;
 
 // TODO: remove expect and handle error properly
+// + edit tests
 pub fn get_openapi_generate_schema_doc() -> String {
     GenerateSchemaApiDoc::openapi()
         .to_json()

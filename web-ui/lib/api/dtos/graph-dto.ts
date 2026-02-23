@@ -1,9 +1,9 @@
 import * as v from "valibot";
 import { RoleDto } from "./access-dto";
 import { EdgeDataDto } from "./edge-data-dto";
-import { EdgeSchemaDto } from "./edge-schema-dto";
+import { CreateEdgeSchemaDto, EdgeSchemaDto } from "./edge-schema-dto";
 import { NodeDataDto } from "./node-data-dto";
-import { NodeSchemaDto } from "./node-schema-dto";
+import { CreateNodeSchemaDto, NodeSchemaDto } from "./node-schema-dto";
 
 export const GraphSchemaDto = v.object({
   nodes: v.array(NodeSchemaDto),
@@ -51,6 +51,11 @@ export const CreateGraphDto = v.object({
   name: CreateGraphNameDto,
   description: CreateGraphDescriptionDto,
   is_public: v.boolean()
+});
+
+export const CreateGraphSchemaDto = v.object({
+  nodes: v.array(CreateNodeSchemaDto),
+  edges: v.array(CreateEdgeSchemaDto)
 });
 
 const SearchGraphKeywordDto = v.pipe(

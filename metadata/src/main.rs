@@ -3,6 +3,7 @@ use metadata::{
 };
 
 // TODO: create a struct for labels, formatted labels and colors
+// TODO: big thinking: formatted_labels should generated ?
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

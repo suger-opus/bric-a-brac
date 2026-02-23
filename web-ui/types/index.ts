@@ -4,6 +4,7 @@ import {
   CreateEdgeDataDto,
   CreateEdgeSchemaDto,
   CreateGraphDto,
+  CreateGraphSchemaDto,
   CreateNodeDataDto,
   CreateNodeSchemaDto,
   CreatePropertySchemaDto,
@@ -45,6 +46,7 @@ export type CreateNodeData = v.InferOutput<typeof CreateNodeDataDto>;
 export type CreateEdgeData = v.InferOutput<typeof CreateEdgeDataDto>;
 export type CreateGraph = v.InferOutput<typeof CreateGraphDto>;
 export type CreateSearch = v.InferOutput<typeof SearchGraphDto>;
+export type CreateGraphSchema = v.InferOutput<typeof CreateGraphSchemaDto>;
 
 // --- Processed Graph Data for Visualization ---
 export type ProcessedGraphData = {
@@ -89,6 +91,7 @@ export enum Action {
   FIND_NODE = "FIND_NODES",
   FIND_PATH = "FIND_PATH",
   ASK_AI = "ASK_AI",
+  GENERATE_TYPES = "GENERATE_TYPES",
   NEW_NODE_TYPE = "NEW_NODE_TYPE",
   NEW_EDGE_TYPE = "NEW_EDGE_TYPE",
   MANAGE_NODE_TYPES = "MANAGE_NODE_TYPES",

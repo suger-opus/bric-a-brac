@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { PropertySchemaDto } from "./property-schema-dto";
+import { CreatePropertySchemaDto, PropertySchemaDto } from "./property-schema-dto";
 import { SendColorDto, SendFormattedLabelDto, SendLabelDto } from "./utils-dto";
 
 export const EdgeSchemaDto = v.object({
@@ -17,5 +17,5 @@ export const CreateEdgeSchemaDto = v.object({
   label: SendLabelDto,
   formatted_label: SendFormattedLabelDto,
   color: SendColorDto,
-  properties: v.array(PropertySchemaDto)
+  properties: v.array(CreatePropertySchemaDto)
 });

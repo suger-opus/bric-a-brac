@@ -14,6 +14,7 @@ import { useGraph } from "@/contexts/graph-context";
 import { actionLabels, Category, categoryLabels } from "@/lib/actions";
 import { Action, Role } from "@/types";
 import {
+  BrainCircuitIcon,
   BrainIcon,
   CaptionsIcon,
   ChartAreaIcon,
@@ -92,6 +93,14 @@ const GraphCommand = ({ isOpen, onOpenChange }: GraphCommandProps) => {
             ) && (
               <>
                 <CommandGroup heading={categoryLabels[Category.EDIT]}>
+                  <CommandItem
+                    key={actionLabels[Action.GENERATE_TYPES]}
+                    value={Action.GENERATE_TYPES}
+                    onSelect={handleSelect}
+                  >
+                    <BrainCircuitIcon />
+                    <span>{actionLabels[Action.GENERATE_TYPES]}</span>
+                  </CommandItem>
                   <CommandItem
                     key={actionLabels[Action.NEW_NODE_TYPE]}
                     value={Action.NEW_NODE_TYPE}
