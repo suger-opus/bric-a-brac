@@ -12,12 +12,12 @@ use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateGraphDto {
-    #[validate(length(min = 1, max = 100))]
-    #[schema(min_length = 1, max_length = 100)]
+    #[validate(length(min = 3, max = 100))]
+    #[schema(min_length = 3, max_length = 100)]
     pub name: String,
 
-    #[validate(length(min = 1, max = 10000))]
-    #[schema(min_length = 1, max_length = 10000)]
+    #[validate(length(min = 0, max = 10000))]
+    #[schema(min_length = 0, max_length = 10000)]
     pub description: String,
 
     pub is_public: bool,

@@ -184,7 +184,7 @@ export const columns: ColumnDef<GraphMetadata>[] = [
     cell: ({ row }) => {
       return (
         <Link
-          href={`/graph?graph_id=${row.original.graph_id}`}
+          href={`/graph/${row.original.graph_id}`}
           className="flex items-center justify-center"
         >
           <Tooltip>

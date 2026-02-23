@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize};
 use utoipa::{PartialSchema, ToSchema};
 use validator::Validate;
 
+lazy_static! {
+    static ref LABEL_REGEX: Regex = Regex::new(r"^([A-Z][a-z]*_)*[A-Z][a-z]*$").unwrap();
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 #[serde(transparent)]
 pub struct OptionString {
@@ -45,10 +49,6 @@ impl From<OptionString> for String {
     fn from(s: OptionString) -> Self {
         s.value
     }
-}
-
-lazy_static! {
-    static ref LABEL_REGEX: Regex = Regex::new(r"^([A-Z][a-z]*_)*[A-Z][a-z]*$").unwrap();
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -125,13 +125,13 @@ pub struct CreatePropertySchemaDto {
     pub node_schema_id: Option<NodeSchemaId>,
     pub edge_schema_id: Option<EdgeSchemaId>,
 
-    #[validate(length(min = 1, max = 25))]
-    #[schema(min_length = 1, max_length = 25)]
+    #[validate(length(min = 3, max = 25))]
+    #[schema(min_length = 3, max_length = 25)]
     pub label: String,
 
-    #[validate(length(min = 1, max = 25), regex(path = "*LABEL_REGEX"))]
+    #[validate(length(min = 3, max = 25), regex(path = "*LABEL_REGEX"))]
     #[schema(
-        min_length = 1,
+        min_length = 3,
         max_length = 25,
         pattern = "^([A-Z][a-z]*_)*[A-Z][a-z]*$"
     )]

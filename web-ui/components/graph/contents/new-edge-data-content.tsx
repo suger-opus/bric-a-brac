@@ -13,7 +13,7 @@ const NewEdgeDataContent = () => {
   const handleEdgeSchemaChange = useEffectEvent(() => {
     properties.reset();
     if (edgeSchemaId.value !== null) {
-      const selectedSchema = schema!.edges.find((edge: EdgeSchema) =>
+      const selectedSchema = schema!.edges.find((edge) =>
         edge.edge_schema_id === edgeSchemaId.value
       );
       if (selectedSchema) {

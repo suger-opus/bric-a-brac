@@ -21,6 +21,7 @@ impl ToSchema for PropertiesDataDto {
     }
 }
 
+// TODO: validation (length of string, ...)
 impl From<PropertiesDataDto> for PropertiesData {
     fn from(properties: PropertiesDataDto) -> Self {
         PropertiesData(

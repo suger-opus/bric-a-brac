@@ -1,51 +1,50 @@
-import {
-  requestEdgeData,
-  requestEdgeSchema,
-  requestGraph,
-  requestNodeData,
-  requestNodeSchema,
-  requestProperty,
-  requestPropertyData,
-  requestSearch
-} from "@/lib/api/schemas/request-schemas";
-import {
-  edgeData,
-  edgeSchema,
-  graphData,
-  graphMetadata,
-  graphSchema,
-  nodeData,
-  nodeSchema,
-  property,
-  PropertyType,
-  propertyValue,
-  Role,
-  user
-} from "@/lib/api/schemas/response-schemas";
 import * as v from "valibot";
+
+import {
+  CreateEdgeDataDto,
+  CreateEdgeSchemaDto,
+  CreateGraphDto,
+  CreateNodeDataDto,
+  CreateNodeSchemaDto,
+  CreatePropertySchemaDto,
+  EdgeDataDto,
+  EdgeSchemaDto,
+  GraphDataDto,
+  GraphMetadataDto,
+  GraphSchemaDto,
+  NodeDataDto,
+  NodeSchemaDto,
+  PropertiesDataDto,
+  PropertySchemaDto,
+  PropertyType,
+  PropertyValueDto,
+  Role,
+  SearchGraphDto,
+  UserDto
+} from "@/lib/api/dtos";
 
 // --- API Requests & Response Types ---
 export { Role };
 export { PropertyType };
-export type PropertyValue = v.InferOutput<typeof propertyValue>;
-export type Property = v.InferOutput<typeof property>;
-export type NodeSchema = v.InferOutput<typeof nodeSchema>;
-export type EdgeSchema = v.InferOutput<typeof edgeSchema>;
-export type NodeData = v.InferOutput<typeof nodeData>;
-export type EdgeData = v.InferOutput<typeof edgeData>;
-export type GraphSchema = v.InferOutput<typeof graphSchema>;
-export type GraphData = v.InferOutput<typeof graphData>;
-export type GraphMetadata = v.InferOutput<typeof graphMetadata>;
-export type User = v.InferOutput<typeof user>;
+export type PropertyValue = v.InferOutput<typeof PropertyValueDto>;
+export type PropertySchema = v.InferOutput<typeof PropertySchemaDto>;
+export type NodeSchema = v.InferOutput<typeof NodeSchemaDto>;
+export type EdgeSchema = v.InferOutput<typeof EdgeSchemaDto>;
+export type NodeData = v.InferOutput<typeof NodeDataDto>;
+export type EdgeData = v.InferOutput<typeof EdgeDataDto>;
+export type GraphSchema = v.InferOutput<typeof GraphSchemaDto>;
+export type GraphData = v.InferOutput<typeof GraphDataDto>;
+export type GraphMetadata = v.InferOutput<typeof GraphMetadataDto>;
+export type User = v.InferOutput<typeof UserDto>;
 
-export type RequestProperty = v.InferOutput<typeof requestProperty>;
-export type RequestPropertyData = v.InferOutput<typeof requestPropertyData>;
-export type RequestNodeSchema = v.InferOutput<typeof requestNodeSchema>;
-export type RequestEdgeSchema = v.InferOutput<typeof requestEdgeSchema>;
-export type RequestNodeData = v.InferOutput<typeof requestNodeData>;
-export type RequestEdgeData = v.InferOutput<typeof requestEdgeData>;
-export type RequestGraph = v.InferOutput<typeof requestGraph>;
-export type RequestSearch = v.InferOutput<typeof requestSearch>;
+export type CreatePropertySchema = v.InferOutput<typeof CreatePropertySchemaDto>;
+export type PropertiesData = v.InferOutput<typeof PropertiesDataDto>;
+export type CreateNodeSchema = v.InferOutput<typeof CreateNodeSchemaDto>;
+export type CreateEdgeSchema = v.InferOutput<typeof CreateEdgeSchemaDto>;
+export type CreateNodeData = v.InferOutput<typeof CreateNodeDataDto>;
+export type CreateEdgeData = v.InferOutput<typeof CreateEdgeDataDto>;
+export type CreateGraph = v.InferOutput<typeof CreateGraphDto>;
+export type CreateSearch = v.InferOutput<typeof SearchGraphDto>;
 
 // --- Processed Graph Data for Visualization ---
 export type ProcessedGraphData = {

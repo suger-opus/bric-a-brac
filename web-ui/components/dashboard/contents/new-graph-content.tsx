@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { CreateGraphDto } from "@/lib/api/dtos";
 import { ApiProvider } from "@/lib/api/provider";
-import { requestGraph } from "@/lib/api/schemas/request-schemas";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useState } from "react";
@@ -58,11 +58,11 @@ const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) 
       setIsCreateLoading(true);
       setValidationNameError(null);
       setValidationDescriptionError(null);
-      const validation = v.safeParse(requestGraph, { name, description });
+      const validation = v.safeParse(CreateGraphDto, { name, description, is_public: false });
       if (validation.success) {
-        const newGraph = await graphService.post(validation.output);
+        const newGraph = await graphService.createGraph(validation.output);
         onClose();
-        router.push(`/graph?graph_id=${newGraph.graph_id}`);
+        router.push(`/graph/${newGraph.graph_id}`);
       } else {
         setValidationNameError(
           validation.issues.find((issue) => issue.path?.some((p) => p.key === "name"))?.message

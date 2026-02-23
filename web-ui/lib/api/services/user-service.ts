@@ -1,5 +1,5 @@
+import { UserDto } from "@/lib/api/dtos";
 import { proxy } from "@/lib/api/proxy";
-import { user } from "@/lib/api/schemas/response-schemas";
 import { User } from "@/types";
 import * as v from "valibot";
 
@@ -14,8 +14,8 @@ export class ApiUserService implements UserService {
 
   async get(): Promise<User> {
     try {
-      const response = await this.api.get();
-      return v.parse(user, response);
+      const response = await this.api.get("/me");
+      return v.parse(UserDto, response);
     } catch (error) {
       console.error("Failed to get user:", error);
       throw error;

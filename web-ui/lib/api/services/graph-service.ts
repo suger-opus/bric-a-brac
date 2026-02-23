@@ -1,26 +1,26 @@
+import {
+  EdgeDataDto,
+  EdgeSchemaDto,
+  GraphDataDto,
+  GraphMetadataDto,
+  GraphSchemaDto,
+  NodeDataDto,
+  NodeSchemaDto
+} from "@/lib/api/dtos";
 import { proxy } from "@/lib/api/proxy";
 import {
-  edgeData,
-  edgeSchema,
-  graphData,
-  graphMetadata,
-  graphSchema,
-  nodeData,
-  nodeSchema
-} from "@/lib/api/schemas/response-schemas";
-import {
+  CreateEdgeData,
+  CreateEdgeSchema,
+  CreateGraph,
+  CreateNodeData,
+  CreateNodeSchema,
   EdgeData,
   EdgeSchema,
   GraphData,
   GraphMetadata,
   GraphSchema,
   NodeData,
-  NodeSchema,
-  RequestEdgeData,
-  RequestEdgeSchema,
-  RequestGraph,
-  RequestNodeData,
-  RequestNodeSchema
+  NodeSchema
 } from "@/types";
 import * as v from "valibot";
 
@@ -29,11 +29,11 @@ export interface GraphService {
   getOneMetadata(graph_id: string): Promise<GraphMetadata>;
   getData(graph_id: string): Promise<GraphData>;
   getSchema(graph_id: string): Promise<GraphSchema>;
-  post(request: RequestGraph): Promise<GraphMetadata>;
-  postNodeSchema(graph_id: string, body: RequestNodeSchema): Promise<NodeSchema>;
-  postEdgeSchema(graph_id: string, body: RequestEdgeSchema): Promise<EdgeSchema>;
-  postNodeData(graph_id: string, body: RequestNodeData): Promise<NodeData>;
-  postEdgeData(graph_id: string, body: RequestEdgeData): Promise<EdgeData>;
+  createGraph(request: CreateGraph): Promise<GraphMetadata>;
+  createNodeSchema(graph_id: string, body: CreateNodeSchema): Promise<NodeSchema>;
+  createEdgeSchema(graph_id: string, body: CreateEdgeSchema): Promise<EdgeSchema>;
+  createNodeData(graph_id: string, body: CreateNodeData): Promise<NodeData>;
+  createEdgeData(graph_id: string, body: CreateEdgeData): Promise<EdgeData>;
 }
 
 export class ApiGraphService implements GraphService {
@@ -44,7 +44,7 @@ export class ApiGraphService implements GraphService {
   async getAllMetadata(): Promise<GraphMetadata[]> {
     try {
       const response = await this.api("").get();
-      return v.parse(v.array(graphMetadata), response);
+      return v.parse(v.array(GraphMetadataDto), response);
     } catch (error) {
       console.error("Failed to get all graph metadata:", error);
       throw error;
@@ -54,7 +54,7 @@ export class ApiGraphService implements GraphService {
   async getOneMetadata(graph_id: string): Promise<GraphMetadata> {
     try {
       const response = await this.api(`/${graph_id}`).get();
-      return v.parse(graphMetadata, response);
+      return v.parse(GraphMetadataDto, response);
     } catch (error) {
       console.error("Failed to get one graph metadata:", error);
       throw error;
@@ -64,7 +64,7 @@ export class ApiGraphService implements GraphService {
   async getData(graph_id: string): Promise<GraphData> {
     try {
       const response = await this.api(`/${graph_id}/data`).get();
-      return v.parse(graphData, response);
+      return v.parse(GraphDataDto, response);
     } catch (error) {
       console.error("Failed to get graph data:", error);
       throw error;
@@ -74,59 +74,59 @@ export class ApiGraphService implements GraphService {
   async getSchema(graph_id: string): Promise<GraphSchema> {
     try {
       const response = await this.api(`/${graph_id}/schema`).get();
-      return v.parse(graphSchema, response);
+      return v.parse(GraphSchemaDto, response);
     } catch (error) {
       console.error("Failed to get graph schema:", error);
       throw error;
     }
   }
 
-  async post(request: RequestGraph): Promise<GraphMetadata> {
+  async createGraph(request: CreateGraph): Promise<GraphMetadata> {
     try {
       const response = await this.api("").post(request);
-      return v.parse(graphMetadata, response);
+      return v.parse(GraphMetadataDto, response);
     } catch (error) {
-      console.error("Failed to post graph:", error);
+      console.error("Failed to create graph:", error);
       throw error;
     }
   }
 
-  async postNodeSchema(graph_id: string, body: RequestNodeSchema): Promise<NodeSchema> {
+  async createNodeSchema(graph_id: string, body: CreateNodeSchema): Promise<NodeSchema> {
     try {
       const response = await this.api(`/${graph_id}/schema/nodes`).post(body);
-      return v.parse(nodeSchema, response);
+      return v.parse(NodeSchemaDto, response);
     } catch (error) {
-      console.error("Failed to post node schema:", error);
+      console.error("Failed to create node schema:", error);
       throw error;
     }
   }
 
-  async postEdgeSchema(graph_id: string, body: RequestEdgeSchema): Promise<EdgeSchema> {
+  async createEdgeSchema(graph_id: string, body: CreateEdgeSchema): Promise<EdgeSchema> {
     try {
       const response = await this.api(`/${graph_id}/schema/edges`).post(body);
-      return v.parse(edgeSchema, response);
+      return v.parse(EdgeSchemaDto, response);
     } catch (error) {
-      console.error("Failed to post edge schema:", error);
+      console.error("Failed to create edge schema:", error);
       throw error;
     }
   }
 
-  async postNodeData(graph_id: string, body: RequestNodeData): Promise<NodeData> {
+  async createNodeData(graph_id: string, body: CreateNodeData): Promise<NodeData> {
     try {
       const response = await this.api(`/${graph_id}/data/nodes`).post(body);
-      return v.parse(nodeData, response);
+      return v.parse(NodeDataDto, response);
     } catch (error) {
-      console.error("Failed to post node data:", error);
+      console.error("Failed to create node data:", error);
       throw error;
     }
   }
 
-  async postEdgeData(graph_id: string, body: RequestEdgeData): Promise<EdgeData> {
+  async createEdgeData(graph_id: string, body: CreateEdgeData): Promise<EdgeData> {
     try {
       const response = await this.api(`/${graph_id}/data/edges`).post(body);
-      return v.parse(edgeData, response);
+      return v.parse(EdgeDataDto, response);
     } catch (error) {
-      console.error("Failed to post edge data:", error);
+      console.error("Failed to create edge data:", error);
       throw error;
     }
   }

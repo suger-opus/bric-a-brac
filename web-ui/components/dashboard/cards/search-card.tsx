@@ -29,7 +29,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { requestSearch } from "@/lib/api/schemas/request-schemas";
+import { SearchGraphDto } from "@/lib/api/dtos";
 import { pluralize, scrollToElement } from "@/lib/utils";
 import { GraphMetadata } from "@/types";
 import { ArrowUpRightIcon, ExpandIcon, PlusIcon, ShrinkIcon } from "lucide-react";
@@ -75,7 +75,7 @@ const SearchCard = ({ is_expanded, expand, un_expand }: SearchProps) => {
     try {
       setIsSearchLoading(true);
       setValidationError(null);
-      const validation = v.safeParse(requestSearch, { keyword: searchKeyword });
+      const validation = v.safeParse(SearchGraphDto, { keyword: searchKeyword });
       if (validation.success) {
         setShowResults(false);
         const results = [] as GraphMetadata[];

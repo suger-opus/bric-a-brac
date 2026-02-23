@@ -1,12 +1,12 @@
-import { propertyValue } from "@/lib/api/schemas/response-schemas";
-import { FormInput, FormInputs, Property, PropertyType, PropertyValue } from "@/types";
+import { PropertyValueDto } from "@/lib/api/dtos";
+import { FormInput, FormInputs, PropertySchema, PropertyType, PropertyValue } from "@/types";
 import { useState } from "react";
 import * as v from "valibot";
 
 type UseElementDataFormReturn = {
   nodeSchemaId: FormInput<string | null>;
   edgeSchemaId: FormInput<string | null>;
-  properties: FormInputs<{ property: Property; value: PropertyValue; }>;
+  properties: FormInputs<{ property: PropertySchema; value: PropertyValue; }>;
   fromNodeId: FormInput<string | null>;
   toNodeId: FormInput<string | null>;
   submitNode: () => Promise<void>;
@@ -17,7 +17,7 @@ export const useElementDataForm = (): UseElementDataFormReturn => {
   const [elementSchemaId, setElementSchemaId] = useState<string | null>(null);
   const [elementIdError, setElementSchemaIdError] = useState<string | null>(null);
   const [properties, setProperties] = useState<
-    { id: string; isSaved: boolean; value: { property: Property; value: PropertyValue; }; }[]
+    { id: string; isSaved: boolean; value: { property: PropertySchema; value: PropertyValue; }; }[]
   >([]);
   const [propertyErrors, setPropertyErrors] = useState<Record<string, string | null>>({});
   const [fromNodeId, setFromNodeId] = useState<string | null>(null);
@@ -43,7 +43,7 @@ export const useElementDataForm = (): UseElementDataFormReturn => {
       }));
       return true;
     }
-    const validProperty = v.safeParse(propertyValue, property.value.value);
+    const validProperty = v.safeParse(PropertyValueDto, property.value.value);
     if (!validProperty.success) {
       setPropertyErrors((prev) => ({
         ...prev,

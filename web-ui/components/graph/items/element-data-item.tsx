@@ -2,14 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { Property, PropertyValue, Role } from "@/types";
+import { PropertySchema, PropertyValue, Role } from "@/types";
 
 type GraphElementItemProps = {
   kind: "node" | "edge";
   id: string;
   label: string;
   color: string;
-  schemaProperties: Property[];
+  schemaProperties: PropertySchema[];
   dataProperties: Record<string, PropertyValue>;
   role: Role;
 };

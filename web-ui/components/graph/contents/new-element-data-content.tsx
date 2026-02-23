@@ -35,7 +35,7 @@ import {
   FormInputs,
   NodeSchema,
   ProcessedNodeData,
-  Property,
+  PropertySchema,
   PropertyType,
   PropertyValue
 } from "@/types";
@@ -45,9 +45,9 @@ import { Fragment, useEffect, useEffectEvent, useState } from "react";
 type NewElementDataContentProps = {
   kind: "node" | "edge";
   onSubmit: () => Promise<void>;
-  schemaOptions: { id: string; label: string; color: string; properties: Property[]; }[];
+  schemaOptions: { id: string; label: string; color: string; properties: PropertySchema[]; }[];
   schemaId: FormInput<string | null>;
-  properties: FormInputs<{ property: Property; value: PropertyValue; }>;
+  properties: FormInputs<{ property: PropertySchema; value: PropertyValue; }>;
   fromNodeId?: FormInput<string | null>;
   toNodeId?: FormInput<string | null>;
   nodeSchemas?: NodeSchema[];

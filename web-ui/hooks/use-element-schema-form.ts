@@ -1,11 +1,11 @@
 import {
-  requestColor,
-  requestFormattedLabel,
-  requestLabel,
-  requestProperty
-} from "@/lib/api/schemas/request-schemas";
+  CreatePropertySchemaDto,
+  SendColorDto,
+  SendFormattedLabelDto,
+  SendLabelDto
+} from "@/lib/api/dtos";
 import { formatLabel } from "@/lib/utils";
-import { FormInput, FormInputs, RequestProperty } from "@/types";
+import { CreatePropertySchema, FormInput, FormInputs } from "@/types";
 import { useState } from "react";
 import * as v from "valibot";
 
@@ -13,7 +13,7 @@ type UseElementSchemaFormReturn = {
   label: FormInput<string>;
   formattedLabel: FormInput<string>;
   color: FormInput<string>;
-  properties: FormInputs<RequestProperty>;
+  properties: FormInputs<CreatePropertySchema>;
   submitNode: () => Promise<void>;
   submitEdge: () => Promise<void>;
 };
@@ -28,12 +28,12 @@ export const useElementSchemaForm = (): UseElementSchemaFormReturn => {
   const [color, setColor] = useState("#3b82f6");
   const [colorValidationError, setColorValidationError] = useState<string | null>(null);
   const [properties, setProperties] = useState<
-    { id: string; isSaved: boolean; value: RequestProperty; }[]
+    { id: string; isSaved: boolean; value: CreatePropertySchema; }[]
   >([]);
   const [propertyErrors, setPropertyErrors] = useState<Record<string, string | null>>({});
 
   const validateLabel = () => {
-    const validation = v.safeParse(requestLabel, label);
+    const validation = v.safeParse(SendLabelDto, label);
     if (!validation.success) {
       setLabelValidationError(validation.issues[0].message);
       return false;
@@ -43,7 +43,7 @@ export const useElementSchemaForm = (): UseElementSchemaFormReturn => {
   };
 
   const validateFormattedLabel = () => {
-    const validation = v.safeParse(requestFormattedLabel, formattedLabel);
+    const validation = v.safeParse(SendFormattedLabelDto, formattedLabel);
     if (!validation.success) {
       setFormattedLabelValidationError(validation.issues[0].message);
       return false;
@@ -53,7 +53,7 @@ export const useElementSchemaForm = (): UseElementSchemaFormReturn => {
   };
 
   const validateColor = () => {
-    const validation = v.safeParse(requestColor, color);
+    const validation = v.safeParse(SendColorDto, color);
     if (!validation.success) {
       setColorValidationError(validation.issues[0].message);
       return false;
@@ -78,7 +78,7 @@ export const useElementSchemaForm = (): UseElementSchemaFormReturn => {
       }));
       return false;
     }
-    const validProperty = v.safeParse(requestProperty, property.value);
+    const validProperty = v.safeParse(CreatePropertySchemaDto, property.value);
     if (!validProperty.success) {
       setPropertyErrors((prev) => ({
         ...prev,

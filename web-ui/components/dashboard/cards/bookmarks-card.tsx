@@ -28,28 +28,29 @@ import {
 } from "@/components/ui/pagination";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
+import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { pluralize, scrollToElement } from "@/lib/utils";
 import { GraphMetadata } from "@/types";
-import { ArrowUpRightIcon, ExpandIcon, HandHeartIcon, ShrinkIcon } from "lucide-react";
+import { ArrowUpRightIcon, BookmarkIcon, ExpandIcon, ShrinkIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type CheersProps = {
+type BookmarksProps = {
   is_expanded: boolean;
   expand: () => void;
   un_expand: () => void;
 };
 
-const CheersCard = ({ is_expanded, expand, un_expand }: CheersProps) => {
-  const [cheeredGraphs, setCheeredGraphs] = useState<GraphMetadata[]>([]);
-  const [isCheersLoading, setIsCheersLoading] = useState(true);
+const BookmarksPage = ({ is_expanded, expand, un_expand }: BookmarksProps) => {
+  const [bookmarkedGraphs, setBookmarkedGraphs] = useState<GraphMetadata[]>([]);
+  const [isBookmarksLoading, setIsBookmarksLoading] = useState(true);
 
   // Results pagination
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 1;
-  const totalPages = Math.ceil(cheeredGraphs.length / itemsPerPage);
-  const paginatedData = cheeredGraphs.slice(
+  const totalPages = Math.ceil(bookmarkedGraphs.length / itemsPerPage);
+  const paginatedData = bookmarkedGraphs.slice(
     currentPage * itemsPerPage,
     currentPage * itemsPerPage + itemsPerPage
   );
@@ -61,32 +62,32 @@ const CheersCard = ({ is_expanded, expand, un_expand }: CheersProps) => {
       expand();
     }
     setTimeout(() => {
-      scrollToElement("cheers-card");
+      scrollToElement("bookmarks-card");
     }, 300);
   };
 
-  const getCheers = async () => {
+  const getBookmarks = async () => {
     try {
-      setIsCheersLoading(true);
+      setIsBookmarksLoading(true);
       const results = [] as GraphMetadata[];
-      setCheeredGraphs(results);
+      setBookmarkedGraphs(results);
       setCurrentPage(0);
     } catch (error) {
       console.error(error);
     } finally {
-      setIsCheersLoading(false);
+      setIsBookmarksLoading(false);
     }
   };
 
   useEffect(() => {
-    getCheers();
+    getBookmarks();
   }, []);
 
   return (
-    <Card id="cheers-card" className="h-full">
+    <Card id="bookmarks-card" className="h-full">
       <CardHeader>
-        <CardTitle>Cheers ({cheeredGraphs.length})</CardTitle>
-        <CardDescription>The list of the public graphs you have cheered</CardDescription>
+        <CardTitle>Bookmarks ({bookmarkedGraphs.length})</CardTitle>
+        <CardDescription>The list of the public graphs you have bookmarked</CardDescription>
         <CardAction>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -98,28 +99,29 @@ const CheersCard = ({ is_expanded, expand, un_expand }: CheersProps) => {
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {is_expanded ? "Collapse this view" : "Expand this view"}
+              {is_expanded ? "Shrink this view" : "Expand this view"}
             </TooltipContent>
           </Tooltip>
         </CardAction>
       </CardHeader>
       <CardContent className="grow">
-        {isCheersLoading
+        {isBookmarksLoading
           ? (
             <div className="h-full flex items-center justify-center">
               <Spinner />
             </div>
           )
-          : cheeredGraphs.length === 0
+          : bookmarkedGraphs.length === 0
           ? (
             <Empty className="h-full">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <HandHeartIcon />
+                  <BookmarkIcon />
                 </EmptyMedia>
-                <EmptyTitle>No Cheered Graphs Yet</EmptyTitle>
+                <EmptyTitle>No Bookmarked Graphs Yet</EmptyTitle>
                 <EmptyDescription>
-                  You haven&apos;t cheered any graphs yet. Get started by cheering your first graph.
+                  You haven&apos;t bookmarked any graphs yet. Get started by bookmarking your first
+                  graph.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -127,25 +129,55 @@ const CheersCard = ({ is_expanded, expand, un_expand }: CheersProps) => {
           : (
             <div className="w-full space-y-3 overflow-y-auto">
               {paginatedData.map((graph) => (
-                <Item key={graph.graph_id} variant="outline" asChild>
-                  <Link href={`/graph?graph_id=${graph.graph_id}`}>
-                    <ItemContent>
-                      <ItemTitle className="line-clamp-1 max-w-80">
-                        {graph.name}
-                      </ItemTitle>
-                      <ItemDescription className="space-x-1">
-                        <Badge variant="outline">
-                          {graph.nb_data_nodes} {pluralize(graph.nb_data_nodes, "node", "nodes")}
-                        </Badge>
-                        <Badge variant="outline">
-                          {graph.nb_data_edges} {pluralize(graph.nb_data_edges, "edge", "edges")}
-                        </Badge>
-                      </ItemDescription>
-                    </ItemContent>
-                    <ItemActions>
-                      <ArrowUpRightIcon size={16} />
-                    </ItemActions>
-                  </Link>
+                <Item key={graph.graph_id} variant="outline" className="relative h-full">
+                  <ItemContent className="h-full">
+                    <ItemTitle className="line-clamp-1 max-w-50">
+                      {graph.name}
+                    </ItemTitle>
+                    <ItemDescription className="space-x-1">
+                      <Badge variant="outline">
+                        {graph.nb_data_nodes} {pluralize(graph.nb_data_nodes, "node", "nodes")}
+                      </Badge>
+                      <Badge variant="outline">
+                        {graph.nb_data_edges} {pluralize(graph.nb_data_edges, "edge", "edges")}
+                      </Badge>
+                    </ItemDescription>
+                    <ItemDescription className="grow mt-1 line-clamp-3">
+                      {graph.description}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions className="absolute top-2 right-2 gap-0">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Toggle
+                            aria-label="Toggle bookmark"
+                            size="sm"
+                            variant="default"
+                            pressed
+                            className="cursor-pointer data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-black data-[state=on]:*:[svg]:stroke-black"
+                          >
+                            <BookmarkIcon />
+                          </Toggle>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Un-bookmarked this graph
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon-sm" asChild>
+                          <Link href={`/graph/${graph.graph_id}`}>
+                            <ArrowUpRightIcon />
+                          </Link>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Open this graph
+                      </TooltipContent>
+                    </Tooltip>
+                  </ItemActions>
                 </Item>
               ))}
             </div>
@@ -191,4 +223,4 @@ const CheersCard = ({ is_expanded, expand, un_expand }: CheersProps) => {
   );
 };
 
-export default CheersCard;
+export default BookmarksPage;

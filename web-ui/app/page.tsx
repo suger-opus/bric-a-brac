@@ -1,10 +1,10 @@
 "use client";
 
-import AccessesCard from "@/components/cards/accesses-card";
-import BookmarksCard from "@/components/cards/bookmarks-card";
-import CheersCard from "@/components/cards/cheers-card";
-import SearchCard from "@/components/cards/search-card";
-import SettingsCard from "@/components/cards/settings-card";
+import AccessesCard from "@/components/dashboard/cards/accesses-card";
+import BookmarksCard from "@/components/dashboard/cards/bookmarks-card";
+import CheersCard from "@/components/dashboard/cards/cheers-card";
+import SearchCard from "@/components/dashboard/cards/search-card";
+import SettingsCard from "@/components/dashboard/cards/settings-card";
 import { useState } from "react";
 
 type Expandable = {

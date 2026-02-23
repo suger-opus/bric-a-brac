@@ -24,19 +24,19 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  requestFormattedLabel,
-  requestLabel,
-  requestPropertyMetadata
-} from "@/lib/api/schemas/request-schemas";
+  CreatePropertySchemaMetadataDto,
+  SendFormattedLabelDto,
+  SendLabelDto
+} from "@/lib/api/dtos";
 import { filterLabel, formatLabel, pluralize } from "@/lib/utils";
-import { PropertyType, RequestProperty } from "@/types";
+import { CreatePropertySchema, PropertyType } from "@/types";
 import { PenIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useState } from "react";
 import * as v from "valibot";
 
 type PropertyFieldGroupProps = {
-  baseProperty: RequestProperty;
-  saveProperty: (property: RequestProperty) => void;
+  baseProperty: CreatePropertySchema;
+  saveProperty: (property: CreatePropertySchema) => void;
   deleteProperty: () => void;
 };
 
@@ -91,9 +91,9 @@ const PropertyFieldGroup = (
   };
 
   const handleSaveProperty = () => {
-    const validLabel = v.safeParse(requestLabel, label);
-    const validFormattedLabel = v.safeParse(requestFormattedLabel, formattedLabel);
-    const validMetadata = v.safeParse(requestPropertyMetadata, {
+    const validLabel = v.safeParse(SendLabelDto, label);
+    const validFormattedLabel = v.safeParse(SendFormattedLabelDto, formattedLabel);
+    const validMetadata = v.safeParse(CreatePropertySchemaMetadataDto, {
       property_type: propertyType,
       details: {
         options: options
@@ -233,7 +233,7 @@ const PropertyFieldGroup = (
 };
 
 type PropertyItemProps = {
-  property: RequestProperty;
+  property: CreatePropertySchema;
   updateProperty: () => void;
   deleteProperty: () => void;
 };
@@ -300,9 +300,9 @@ const PropertyItem = ({ property, updateProperty, deleteProperty }: PropertyItem
 };
 
 type PropertyFormProps = {
-  property: RequestProperty;
+  property: CreatePropertySchema;
   isSaved: boolean;
-  saveProperty: (property: RequestProperty) => void;
+  saveProperty: (property: CreatePropertySchema) => void;
   unSaveProperty: () => void;
   deleteProperty: () => void;
 };

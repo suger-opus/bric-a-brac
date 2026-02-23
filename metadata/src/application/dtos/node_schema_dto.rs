@@ -14,13 +14,13 @@ lazy_static! {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateNodeSchemaDto {
-    #[validate(length(min = 1, max = 25))]
-    #[schema(min_length = 1, max_length = 25)]
+    #[validate(length(min = 3, max = 25))]
+    #[schema(min_length = 3, max_length = 25)]
     pub label: String,
 
-    #[validate(length(min = 1, max = 25), regex(path = "*LABEL_REGEX"))]
+    #[validate(length(min = 3, max = 25), regex(path = "*LABEL_REGEX"))]
     #[schema(
-        min_length = 1,
+        min_length = 3,
         max_length = 25,
         pattern = "^([A-Z][a-z]*_)*[A-Z][a-z]*$"
     )]

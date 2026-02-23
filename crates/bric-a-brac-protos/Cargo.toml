@@ -12,7 +12,7 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 tonic = { workspace = true }
 tower = { workspace = true }
-tower-http = { workspace = true }
+tower-http = { workspace = true, features = ["trace"] }
 tracing = { workspace = true }
 uuid = { workspace = true }
 

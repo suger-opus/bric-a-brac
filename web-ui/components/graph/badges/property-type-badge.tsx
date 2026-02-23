@@ -3,11 +3,11 @@
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Separator } from "@/components/ui/separator";
-import { Property, PropertyType, RequestProperty } from "@/types";
+import { CreatePropertySchema, PropertySchema, PropertyType } from "@/types";
 import { Fragment } from "react/jsx-runtime";
 
 type PropertyTypeBadgeProps = {
-  property: Property | RequestProperty;
+  property: CreatePropertySchema | PropertySchema;
 };
 
 const PropertyTypeBadge = ({ property }: PropertyTypeBadgeProps) => {
@@ -16,8 +16,7 @@ const PropertyTypeBadge = ({ property }: PropertyTypeBadgeProps) => {
       <HoverCard>
         <HoverCardTrigger className="cursor-pointer">
           <Badge variant="outline" className="font-bold text-[9px]">
-            {property.property_type.toUpperCase()}{" "}
-            ({property.metadata.options!.length})
+            {property.property_type.toUpperCase()} ({property.metadata.options!.length})
           </Badge>
         </HoverCardTrigger>
         <HoverCardContent className="w-fit">
@@ -28,9 +27,7 @@ const PropertyTypeBadge = ({ property }: PropertyTypeBadgeProps) => {
             {property.metadata.options!.map((p, index) => (
               <Fragment key={index}>
                 <div className="text-sm">{p}</div>
-                {index < property.metadata.options!.length - 1 && (
-                  <Separator className="my-2" />
-                )}
+                {index < property.metadata.options!.length - 1 && <Separator className="my-2" />}
               </Fragment>
             ))}
           </div>

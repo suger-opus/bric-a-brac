@@ -7,7 +7,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { filterLabel } from "@/lib/utils";
-import { FormInput, FormInputs, RequestProperty } from "@/types";
+import { CreatePropertySchema, FormInput, FormInputs } from "@/types";
 import { defaultNewProperty } from "@/types/defaults";
 import { CheckIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
@@ -18,7 +18,7 @@ type NewElementSchemaContentProps = {
   label: FormInput<string>;
   formattedLabel: FormInput<string>;
   color: FormInput<string>;
-  properties: FormInputs<RequestProperty>;
+  properties: FormInputs<CreatePropertySchema>;
 };
 
 const steps = ["1. General", "2. Display", "3. Custom Properties"];
@@ -59,7 +59,7 @@ const NewElementSchemaContent = ({
     setLastSavedPropertyId(id);
   };
 
-  const handleSaveProperty = (id: string, newProperty: RequestProperty) => {
+  const handleSaveProperty = (id: string, newProperty: CreatePropertySchema) => {
     properties.setValue(properties.value.map((property) => {
       if (property.id === id) {
         return { id, isSaved: true, value: newProperty };

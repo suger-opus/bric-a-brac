@@ -1,8 +1,8 @@
 "use client";
 
-import DataTable from "@/components/data-tables/data-table";
-import { columns } from "@/components/data-tables/graph-cols";
-import NewGraphDialogContent from "@/components/dialog-contents/new-graph-dialog-content";
+import NewGraphDialogContent from "@/components/dashboard/contents/new-graph-content";
+import DataTable from "@/components/dashboard/tables/data-table";
+import { columns } from "@/components/dashboard/tables/graph-cols";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import {
   Empty,
   EmptyContent,
@@ -111,7 +111,7 @@ const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button>Create a new graph</Button>
+                <Button onClick={() => setIsDialogOpen(true)}>Create a new graph</Button>
               </EmptyContent>
             </Empty>
           )
@@ -120,16 +120,14 @@ const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
       {accessedGraphs.length > 0 && (
         <CardFooter className="flex flex-col items-start space-y-4">
           <Separator />
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <PlusIcon /> Create a new graph
-              </Button>
-            </DialogTrigger>
-            <NewGraphDialogContent isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
-          </Dialog>
+          <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(true)}>
+            <PlusIcon /> Create a new graph
+          </Button>
         </CardFooter>
       )}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <NewGraphDialogContent isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
+      </Dialog>
     </Card>
   );
 };

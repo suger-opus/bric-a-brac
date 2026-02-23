@@ -7,14 +7,14 @@ import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { pluralize } from "@/lib/utils";
-import { Property } from "@/types";
+import { PropertySchema } from "@/types";
 import { ChevronDown, EyeClosedIcon, EyeIcon } from "lucide-react";
 
 type ElementSchemaItemProps = {
   kind: "node" | "edge";
   label: string;
   color: string;
-  properties: Property[];
+  properties: PropertySchema[];
   displayedProperty: string | undefined;
   updateDisplayedProperty: (property_formatted_label: string | undefined) => void;
 };
