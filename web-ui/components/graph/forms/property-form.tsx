@@ -23,12 +23,8 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  CreatePropertySchemaMetadataDto,
-  SendFormattedLabelDto,
-  SendLabelDto
-} from "@/lib/api/dtos";
-import { filterLabel, formatLabel, pluralize } from "@/lib/utils";
+import { CreatePropertySchemaMetadataDto, SendLabelDto } from "@/lib/api/dtos";
+import { filterLabel, pluralize } from "@/lib/utils";
 import { CreatePropertySchema, PropertyType } from "@/types";
 import { PenIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useState } from "react";
@@ -45,10 +41,6 @@ const PropertyFieldGroup = (
 ) => {
   const [label, setLabel] = useState(baseProperty.label);
   const [labelValidationError, setLabelValidationError] = useState<string | null>(null);
-  const formattedLabel = formatLabel(label);
-  const [formattedLabelValidationError, setFormattedLabelValidationError] = useState<string | null>(
-    null
-  );
   const [propertyType, setPropertyType] = useState(baseProperty.property_type);
   const [currentOption, setCurrentOption] = useState("");
   const [options, setOptions] = useState(baseProperty.metadata.options);
@@ -92,7 +84,6 @@ const PropertyFieldGroup = (
 
   const handleSaveProperty = () => {
     const validLabel = v.safeParse(SendLabelDto, label);
-    const validFormattedLabel = v.safeParse(SendFormattedLabelDto, formattedLabel);
     const validMetadata = v.safeParse(CreatePropertySchemaMetadataDto, {
       property_type: propertyType,
       details: {
@@ -104,20 +95,14 @@ const PropertyFieldGroup = (
     } else {
       setLabelValidationError(null);
     }
-    if (!validFormattedLabel.success) {
-      setFormattedLabelValidationError(validFormattedLabel.issues[0].message);
-    } else {
-      setFormattedLabelValidationError(null);
-    }
     if (!validMetadata.success) {
       setMetadataValidationError(validMetadata.issues[0].message);
     } else {
       setMetadataValidationError(null);
     }
-    if (validLabel.success && validFormattedLabel.success && validMetadata.success) {
+    if (validLabel.success && validMetadata.success) {
       saveProperty({
         label,
-        formatted_label: formattedLabel,
         property_type: propertyType,
         metadata: {
           options: options
@@ -148,17 +133,6 @@ const PropertyFieldGroup = (
             placeholder="Character"
           />
           <FieldError>{labelValidationError}</FieldError>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="new-property-formatted-label">Formatted Label</FieldLabel>
-          <FieldDescription className="text-xs">
-            The formatted label is generated automatically.{" "}
-            <b>
-              It should be unique among properties of this node/edge type.
-            </b>
-          </FieldDescription>
-          <Input id="new-property-formatted-label" value={formattedLabel} readOnly />
-          <FieldError>{formattedLabelValidationError}</FieldError>
         </Field>
         <Field>
           <FieldLabel htmlFor="new-property-type">Type</FieldLabel>

@@ -15,7 +15,7 @@ impl Repository {
         connection: &mut neo4rs::Txn,
         graph_id: String,
         node_data_id: String,
-        formatted_label: String,
+        key: String,
         properties: HashMap<String, PropertyValue>,
     ) -> Result<NodeData, ApiError> {
         let mut properties: HashMap<BoltString, BoltType> =
@@ -36,7 +36,7 @@ impl Repository {
 CREATE (n:{} {{ {} }})
 RETURN n
         "#,
-            formatted_label,
+            key,
             prop_keys.join(", ")
         );
         let q = properties
@@ -61,7 +61,7 @@ RETURN n
         edge_data_id: String,
         from_node_data_id: String,
         to_node_data_id: String,
-        formatted_label: String,
+        key: String,
         properties: HashMap<String, PropertyValue>,
     ) -> Result<EdgeData, ApiError> {
         let mut properties: HashMap<BoltString, BoltType> =
@@ -87,7 +87,7 @@ RETURN
     a.node_data_id AS from_node_data_id,
     b.node_data_id AS to_node_data_id
         "#,
-            formatted_label, edge_props
+            key, edge_props
         );
 
         let q = properties.iter().enumerate().fold(
@@ -233,7 +233,7 @@ impl TryFrom<neo4rs::Node> for NodeDataWrapper {
     fn try_from(node: neo4rs::Node) -> Result<Self, Self::Error> {
         let node_data_id = node.extract_id_in_properties("node_data_id")?;
         let graph_id = node.extract_id_in_properties("graph_id")?;
-        let formatted_label = node
+        let key = node
             .labels()
             .first()
             .ok_or_else(|| ApiError::UnlabeledNode(node_data_id.clone()))?
@@ -243,7 +243,7 @@ impl TryFrom<neo4rs::Node> for NodeDataWrapper {
         Ok(NodeDataWrapper(NodeData {
             graph_id,
             node_data_id,
-            formatted_label,
+            key,
             properties,
         }))
     }
@@ -256,12 +256,12 @@ impl TryFrom<neo4rs::Relation> for EdgeDataWrapper {
 
     fn try_from(edge: neo4rs::Relation) -> Result<Self, Self::Error> {
         let edge_data_id = edge.extract_id_in_properties("edge_data_id")?;
-        let formatted_label = edge.typ().to_string();
+        let key = edge.typ().to_string();
         let properties = edge.collect_properties()?;
 
         Ok(EdgeDataWrapper(EdgeData {
             edge_data_id,
-            formatted_label,
+            key,
             from_node_data_id: "".to_string(),
             to_node_data_id: "".to_string(),
             properties,

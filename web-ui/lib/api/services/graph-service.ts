@@ -113,7 +113,12 @@ export class ApiGraphService implements GraphService {
         formData.append("file_type", "txt");
       }
       const response = await this.api(`/${graph_id}/schema/generate`).post(formData);
-      return v.parse(CreateGraphSchemaDto, response);
+      const schema = v.safeParse(CreateGraphSchemaDto, response);
+      if (!schema.success) {
+        console.error("Validation errors:", schema.issues);
+        throw new Error("Invalid response format");
+      }
+      return schema.output;
     } catch (error) {
       console.error("Failed to generate graph schema:", error);
       throw error;

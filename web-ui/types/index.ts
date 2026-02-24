@@ -55,7 +55,7 @@ export type ProcessedGraphData = {
 };
 export type ProcessedNodeData = {
   id: string;
-  formatted_label: string;
+  key: string;
   color: string;
   properties: NodeData["properties"];
 };
@@ -63,7 +63,7 @@ export type ProcessedEdgeData = {
   id: string;
   source: string;
   target: string;
-  formatted_label: string;
+  key: string;
   color: string;
   properties: EdgeData["properties"];
 };

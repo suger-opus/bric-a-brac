@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { SendFormattedLabelDto, SendLabelDto } from "./utils-dto";
+import { SendLabelDto } from "./utils-dto";
 
 export enum PropertyType {
   NUMBER = "Number",
@@ -25,7 +25,7 @@ const PropertyMetadataDto = v.object({
 export const PropertySchemaDto = v.object({
   property_id: v.string(),
   label: v.string(),
-  formatted_label: v.string(),
+  key: v.string(),
   property_type: PropertyTypeDto,
   metadata: PropertyMetadataDto
 });
@@ -79,7 +79,6 @@ export const CreatePropertySchemaMetadataDto = v.pipe(
 export const CreatePropertySchemaDto = v.pipe(
   v.object({
     label: SendLabelDto,
-    formatted_label: SendFormattedLabelDto,
     metadata: CreatePropertySchemaMetadataDto,
     property_type: PropertyTypeDto
   }),

@@ -12,7 +12,7 @@ const GraphEdgeItem = () => {
 
   const findEdge = useEffectEvent(() => {
     const foundData = processedData?.links.find((l) => l.id === focusEdge);
-    const foundSchema = schema?.edges.find((n) => n.formatted_label === foundData?.formatted_label);
+    const foundSchema = schema?.edges.find((n) => n.key === foundData?.key);
     setEdgeData(foundData || null);
     setEdgeSchema(foundSchema || null);
   });

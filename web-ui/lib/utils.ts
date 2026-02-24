@@ -25,12 +25,3 @@ export const pluralize = (count: number, singular: string, plural: string) => {
 };
 
 export const filterLabel = (label: string) => label.replace(/[^a-zA-ZÀ-ÿ\s]/g, "");
-
-export const formatLabel = (label: string) =>
-  label
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join("_");

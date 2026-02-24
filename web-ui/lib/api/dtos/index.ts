@@ -19,7 +19,7 @@ import {
   PropertyType
 } from "./property-schema-dto";
 import { UserDto } from "./user-dto";
-import { SendColorDto, SendFormattedLabelDto, SendLabelDto } from "./utils-dto";
+import { SendColorDto, SendLabelDto } from "./utils-dto";
 
 export {
   CreateEdgeDataDto,
@@ -44,7 +44,6 @@ export {
   Role,
   SearchGraphDto,
   SendColorDto,
-  SendFormattedLabelDto,
   SendLabelDto,
   UserDto
 };

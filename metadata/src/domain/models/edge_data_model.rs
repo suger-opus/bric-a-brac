@@ -1,4 +1,4 @@
-use super::{EdgeSchemaId, NodeDataId, PropertiesData};
+use super::{NodeDataId, PropertiesData};
 use bric_a_brac_id::id;
 
 id!(EdgeDataId);
@@ -6,7 +6,7 @@ id!(EdgeDataId);
 #[derive(Debug)]
 pub struct EdgeData {
     pub edge_data_id: EdgeDataId,
-    pub formatted_label: String,
+    pub key: String,
     pub from_node_data_id: NodeDataId,
     pub to_node_data_id: NodeDataId,
     pub properties: PropertiesData,
@@ -14,7 +14,7 @@ pub struct EdgeData {
 
 #[derive(Debug, Clone)]
 pub struct CreateEdgeData {
-    pub edge_schema_id: EdgeSchemaId,
+    pub key: String,
     pub from_node_data_id: NodeDataId,
     pub to_node_data_id: NodeDataId,
     pub properties: PropertiesData,

@@ -296,10 +296,8 @@ fn resolve_schema(
                     let mut resolved_props = serde_json::Map::new();
                     for key in &required_keys {
                         if let Some(prop_schema) = props.get(key) {
-                            resolved_props.insert(
-                                rename(key),
-                                resolve_schema(prop_schema, all_schemas),
-                            );
+                            resolved_props
+                                .insert(rename(key), resolve_schema(prop_schema, all_schemas));
                         }
                     }
                     result.insert(
@@ -336,75 +334,184 @@ mod tests {
     #[test]
     fn test_transform_schema() {
         let openapi_spec = json!({
-            "components": {
-                "schemas": {
-                    "CreateEdgeSchemaDto": {
-                        "type": "object",
-                        "required": ["label", "formatted_label", "color", "properties"],
-                        "properties": {
-                            "color": { "pattern": "^#[0-9A-Fa-f]{6}$", "type": "string" },
-                            "formatted_label": { "maxLength": 100, "minLength": 1, "type": "string" },
-                            "label": { "maxLength": 100, "minLength": 1, "type": "string" },
-                            "properties": {
-                                "items": { "$ref": "#/components/schemas/CreatePropertySchemaDto" },
-                                "type": "array"
-                            }
-                        }
+          "components": {
+            "schemas": {
+              "CreateEdgeSchemaDto": {
+                "properties": {
+                  "color": {
+                    "pattern": "^#[0-9A-Fa-f]{6}$",
+                    "type": "string"
+                  },
+                  "label": {
+                    "maxLength": 25,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "properties": {
+                    "items": {
+                      "$ref": "#/components/schemas/CreatePropertySchemaDto"
                     },
-                    "CreateGraphSchemaDto": {
-                        "type": "object",
-                        "required": ["nodes", "edges"],
-                        "properties": {
-                            "edges": {
-                                "items": { "$ref": "#/components/schemas/CreateEdgeSchemaDto" },
-                                "type": "array"
-                            },
-                            "nodes": {
-                                "items": { "$ref": "#/components/schemas/CreateNodeSchemaDto" },
-                                "type": "array"
-                            }
-                        }
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "label",
+                  "color",
+                  "properties"
+                ],
+                "type": "object"
+              },
+              "CreateGraphSchemaDto": {
+                "properties": {
+                  "edges": {
+                    "items": {
+                      "$ref": "#/components/schemas/CreateEdgeSchemaDto"
                     },
-                    "CreateNodeSchemaDto": {
-                        "type": "object",
-                        "required": ["label", "formatted_label", "color", "properties"],
-                        "properties": {
-                            "color": { "pattern": "^#[0-9A-Fa-f]{6}$", "type": "string" },
-                            "formatted_label": { "maxLength": 100, "minLength": 1, "type": "string" },
-                            "label": { "maxLength": 100, "minLength": 1, "type": "string" },
-                            "properties": {
-                                "items": { "$ref": "#/components/schemas/CreatePropertySchemaDto" },
-                                "type": "array"
-                            }
-                        }
+                    "type": "array"
+                  },
+                  "nodes": {
+                    "items": {
+                      "$ref": "#/components/schemas/CreateNodeSchemaDto"
                     },
-                    "CreatePropertySchemaDto": {
-                        "type": "object",
-                        "required": ["label", "formatted_label", "property_type", "metadata"],
-                        "properties": {
-                            "edge_schema_id": { "type": ["string", "null"] },
-                            "formatted_label": { "example": "name", "maxLength": 100, "minLength": 1, "type": "string" },
-                            "label": { "example": "Name", "maxLength": 100, "minLength": 1, "type": "string" },
-                            "metadata": { "$ref": "#/components/schemas/PropertyMetadataDto" },
-                            "node_schema_id": { "type": ["string", "null"] },
-                            "property_type": { "$ref": "#/components/schemas/PropertyTypeDto" }
-                        }
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "nodes",
+                  "edges"
+                ],
+                "type": "object"
+              },
+              "CreateNodeSchemaDto": {
+                "properties": {
+                  "color": {
+                    "pattern": "^#[0-9A-Fa-f]{6}$",
+                    "type": "string"
+                  },
+                  "label": {
+                    "maxLength": 25,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "properties": {
+                    "items": {
+                      "$ref": "#/components/schemas/CreatePropertySchemaDto"
                     },
-                    "PropertyMetadataDto": {
-                        "type": "object",
-                        "properties": {
-                            "options": {
-                                "items": { "type": "string" },
-                                "type": ["array", "null"]
-                            }
-                        }
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "label",
+                  "color",
+                  "properties"
+                ],
+                "type": "object"
+              },
+              "CreatePropertyMetadataDto": {
+                "properties": {
+                  "options": {
+                    "items": {
+                      "$ref": "#/components/schemas/OptionString"
                     },
-                    "PropertyTypeDto": {
-                        "enum": ["Number", "String", "Boolean", "Select"],
-                        "type": "string"
-                    }
-                }
+                    "type": [
+                      "array",
+                      "null"
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "CreatePropertySchemaDto": {
+                "properties": {
+                  "edge_schema_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/EdgeSchemaId"
+                      }
+                    ]
+                  },
+                  "label": {
+                    "maxLength": 25,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "$ref": "#/components/schemas/CreatePropertyMetadataDto"
+                  },
+                  "node_schema_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/NodeSchemaId"
+                      }
+                    ]
+                  },
+                  "property_type": {
+                    "$ref": "#/components/schemas/PropertyTypeDto"
+                  }
+                },
+                "required": [
+                  "label",
+                  "property_type",
+                  "metadata"
+                ],
+                "type": "object"
+              },
+              "EdgeSchemaId": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "NodeSchemaId": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "OptionString": {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              "PropertyMetadataDto": {
+                "properties": {
+                  "options": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": [
+                      "array",
+                      "null"
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "PropertyTypeDto": {
+                "enum": [
+                  "Number",
+                  "String",
+                  "Boolean",
+                  "Select"
+                ],
+                "type": "string"
+              }
             }
+          },
+          "info": {
+            "description": "",
+            "license": {
+              "name": ""
+            },
+            "title": "metadata",
+            "version": "0.1.0"
+          },
+          "openapi": "3.1.0",
+          "paths": {
+
+          }
         });
 
         let result = OpenRouterClient::openai_to_structured_output_schema(&openapi_spec);
@@ -412,17 +519,16 @@ mod tests {
         let property_schema = json!({
             "type": "object",
             "additionalProperties": false,
-            "required": ["label", "formatted_label", "property_type", "metadata"],
+            "required": ["label", "property_type", "metadata"],
             "properties": {
-                "label": { "type": "string", "minLength": 1, "maxLength": 100 },
-                "formatted_label": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "label": { "type": "string", "minLength": 1, "maxLength": 25 },
                 "property_type": { "type": "string", "enum": ["Number", "String", "Boolean", "Select"] },
                 "metadata": {
                     "type": "object",
                     "additionalProperties": false,
                     "required": ["options"],
                     "properties": {
-                        "options": { "type": ["array", "null"], "items": { "type": "string" } }
+                        "options": { "type": ["array", "null"], "items": { "minLength": 1, "maxLength": 50, "type": "string" } }
                     }
                 }
             }
@@ -431,10 +537,9 @@ mod tests {
         let node_schema = json!({
             "type": "object",
             "additionalProperties": false,
-            "required": ["label", "formatted_label", "color", "attributes"],
+            "required": ["label", "color", "attributes"],
             "properties": {
-                "label": { "type": "string", "minLength": 1, "maxLength": 100 },
-                "formatted_label": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "label": { "type": "string", "minLength": 1, "maxLength": 25 },
                 "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
                 "attributes": { "type": "array", "items": property_schema.clone() }
             }
@@ -443,10 +548,9 @@ mod tests {
         let edge_schema = json!({
             "type": "object",
             "additionalProperties": false,
-            "required": ["label", "formatted_label", "color", "attributes"],
+            "required": ["label", "color", "attributes"],
             "properties": {
-                "label": { "type": "string", "minLength": 1, "maxLength": 100 },
-                "formatted_label": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "label": { "type": "string", "minLength": 1, "maxLength": 25 },
                 "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
                 "attributes": { "type": "array", "items": property_schema }
             }

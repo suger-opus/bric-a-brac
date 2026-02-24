@@ -32,7 +32,7 @@ impl Service {
                 &mut txn,
                 req.graph_id,
                 req.node_data_id,
-                req.formatted_label,
+                req.key,
                 req.properties,
             )
             .await?;
@@ -60,7 +60,7 @@ impl Service {
                 req.edge_data_id,
                 req.from_node_data_id,
                 req.to_node_data_id,
-                req.formatted_label,
+                req.key,
                 req.properties,
             )
             .await?;

@@ -1,6 +1,5 @@
 use crate::{
-    domain::models::CreateGraphSchema, infrastructure::config::AiServerConfig,
-    presentation::errors::GrpcClientError,
+    application::dtos::CreateGraphSchemaDto, infrastructure::config::AiServerConfig, presentation::errors::GrpcClientError
 };
 use axum::http::Uri;
 use bric_a_brac_protos::{
@@ -49,7 +48,7 @@ impl AiClient {
         &self,
         file_content: Vec<u8>,
         file_type: String,
-    ) -> Result<CreateGraphSchema, GrpcClientError> {
+    ) -> Result<CreateGraphSchemaDto, GrpcClientError> {
         tracing::debug!(file_content_size = file_content.len(), file_type = %file_type);
 
         let schema = match self
@@ -76,7 +75,7 @@ impl AiClient {
         &self,
         file_content: Vec<u8>,
         file_type: String,
-    ) -> Result<CreateGraphSchema, GrpcClientError> {
+    ) -> Result<CreateGraphSchemaDto, GrpcClientError> {
         self.ensure_connection().await?;
         let mut client = self.clone_client()?;
 
@@ -101,7 +100,7 @@ impl AiClient {
         let schema_serialize = response.into_inner().schema_json;
 
         let schema =
-            serde_json::from_str::<CreateGraphSchema>(&schema_serialize).map_err(|err| {
+            serde_json::from_str::<CreateGraphSchemaDto>(&schema_serialize).map_err(|err| {
                 GrpcClientError::Deserialization {
                     service: GrpcServiceKind::Ai,
                     expected_struct: "CreateGraphSchema".to_string(),

@@ -17,9 +17,9 @@ const NodeSchemaItem = ({ schema }: NodeSchemaItemProps) => {
       label={schema.label}
       color={schema.color}
       properties={schema.properties}
-      displayedProperty={displayedNodeProperties[schema.formatted_label]}
-      updateDisplayedProperty={(property_formatted_label: string | undefined) =>
-        updateDisplayedNodeProperty(schema.formatted_label, property_formatted_label)}
+      displayedProperty={displayedNodeProperties[schema.key]}
+      updateDisplayedProperty={(property_key: string | undefined) =>
+        updateDisplayedNodeProperty(schema.key, property_key)}
     />
   );
 };

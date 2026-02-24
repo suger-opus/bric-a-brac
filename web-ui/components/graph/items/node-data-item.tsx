@@ -12,7 +12,7 @@ const GraphNodeItem = () => {
 
   const findNode = useEffectEvent(() => {
     const foundData = processedData?.nodes.find((n) => n.id === focusNode);
-    const foundSchema = schema?.nodes.find((n) => n.formatted_label === foundData?.formatted_label);
+    const foundSchema = schema?.nodes.find((n) => n.key === foundData?.key);
     setNodeData(foundData || null);
     setNodeSchema(foundSchema || null);
   });

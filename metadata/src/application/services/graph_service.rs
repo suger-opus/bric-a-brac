@@ -122,7 +122,7 @@ impl GraphService {
             .generate_schema(file_content, file_type)
             .await?;
 
-        Ok(schema.into())
+        Ok(schema)
     }
 
     #[tracing::instrument(level = "trace", skip(self, graph_id, create_node_schema))]
@@ -182,18 +182,13 @@ impl GraphService {
         graph_id: GraphId,
         create_node_data: CreateNodeDataDto,
     ) -> Result<NodeDataDto, AppError> {
-        let formatted_label = self
-            .validation_service
-            .validate_node_data(
-                create_node_data.node_schema_id,
-                &create_node_data.clone().into_domain().properties,
-            )
+        let domain = create_node_data.into_domain();
+
+        self.validation_service
+            .validate_create_node_data(&domain)
             .await?;
 
-        let node_data = self
-            .knowledge_client
-            .insert_node(graph_id, formatted_label, create_node_data.into_domain())
-            .await?;
+        let node_data = self.knowledge_client.insert_node(graph_id, domain).await?;
 
         Ok(node_data.into())
     }
@@ -204,18 +199,13 @@ impl GraphService {
         _graph_id: GraphId,
         create_edge_data: CreateEdgeDataDto,
     ) -> Result<EdgeDataDto, AppError> {
-        let formatted_label = self
-            .validation_service
-            .validate_edge_data(
-                create_edge_data.edge_schema_id,
-                &create_edge_data.clone().into_domain().properties,
-            )
+        let domain = create_edge_data.into_domain();
+
+        self.validation_service
+            .validate_create_edge_data(&domain)
             .await?;
 
-        let edge_data = self
-            .knowledge_client
-            .insert_edge(formatted_label, create_edge_data.into_domain())
-            .await?;
+        let edge_data = self.knowledge_client.insert_edge(domain).await?;
 
         Ok(edge_data.into())
     }

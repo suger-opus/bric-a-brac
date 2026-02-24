@@ -46,6 +46,7 @@ sqlx = "0.8"
 
 # UUID
 uuid = "1.0"
+rand = "0.10.0"
 
 # Web framework
 axum = "0.8"

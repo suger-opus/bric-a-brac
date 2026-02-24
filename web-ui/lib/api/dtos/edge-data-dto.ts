@@ -10,7 +10,7 @@ export const CreateEdgeDataDto = v.object({
 
 export const EdgeDataDto = v.object({
   edge_data_id: v.string(),
-  formatted_label: v.string(),
+  key: v.string(),
   from_node_data_id: v.string(),
   to_node_data_id: v.string(),
   properties: PropertiesDataDto

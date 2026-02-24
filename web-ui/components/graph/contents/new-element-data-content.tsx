@@ -88,11 +88,11 @@ const NodeOptionItem = ({
                   <Tooltip>
                     <TooltipTrigger className="font-medium text-ellipsis overflow-hidden whitespace-nowrap max-w-48">
                       {nodeSchema.properties.find((p) =>
-                        p.formatted_label === key
+                        p.key === key
                       )!.label}
                     </TooltipTrigger>
                     <TooltipContent>
-                      {nodeSchema.properties.find((p) => p.formatted_label === key)!.label}
+                      {nodeSchema.properties.find((p) => p.key === key)!.label}
                     </TooltipContent>
                   </Tooltip>
                 </TableCell>
@@ -298,12 +298,12 @@ const NewElementDataContent = ({
                 <Fragment key={property.id}>
                   {property.value.property.property_type === PropertyType.STRING && (
                     <Field>
-                      <FieldLabel htmlFor={property.value.property.formatted_label}>
+                      <FieldLabel htmlFor={property.value.property.key}>
                         {property.value.property.label}
                       </FieldLabel>
                       <InputGroup>
                         <InputGroupTextarea
-                          id={property.value.property.formatted_label}
+                          id={property.value.property.key}
                           placeholder="Fill this property"
                           value={property.value.value as string}
                           onChange={(e) => handlePropertyStringChange(property.id, e.target.value)}
@@ -319,12 +319,12 @@ const NewElementDataContent = ({
                   )}
                   {property.value.property.property_type === PropertyType.NUMBER && (
                     <Field>
-                      <FieldLabel htmlFor={property.value.property.formatted_label}>
+                      <FieldLabel htmlFor={property.value.property.key}>
                         {property.value.property.label}
                       </FieldLabel>
                       <InputGroup>
                         <InputGroupInput
-                          id={property.value.property.formatted_label}
+                          id={property.value.property.key}
                           type="number"
                           placeholder="0"
                           value={property.value.value.toString()}
@@ -337,26 +337,26 @@ const NewElementDataContent = ({
                   {property.value.property.property_type === PropertyType.BOOLEAN && (
                     <Field orientation="horizontal">
                       <Checkbox
-                        id={property.value.property.formatted_label}
+                        id={property.value.property.key}
                         checked={property.value.value as boolean}
                         onCheckedChange={(e) =>
                           handlePropertyValueChange(property.id, e as boolean)}
                       />
-                      <FieldLabel htmlFor={property.value.property.formatted_label}>
+                      <FieldLabel htmlFor={property.value.property.key}>
                         {property.value.property.label}
                       </FieldLabel>
                     </Field>
                   )}
                   {property.value.property.property_type === PropertyType.SELECT && (
                     <Field>
-                      <FieldLabel htmlFor={property.value.property.formatted_label}>
+                      <FieldLabel htmlFor={property.value.property.key}>
                         {property.value.property.label}
                       </FieldLabel>
                       <Select
                         value={property.value.value as string}
                         onValueChange={(e) => handlePropertyValueChange(property.id, e)}
                       >
-                        <SelectTrigger id={property.value.property.formatted_label}>
+                        <SelectTrigger id={property.value.property.key}>
                           <SelectValue placeholder="Select a value" />
                         </SelectTrigger>
                         <SelectContent>
@@ -386,9 +386,7 @@ const NewElementDataContent = ({
                       <NodeOptionItem
                         key={option.id}
                         nodeProcessedData={option}
-                        nodeSchema={nodeSchemas!.find((s) =>
-                          s.formatted_label === option.formatted_label
-                        )!}
+                        nodeSchema={nodeSchemas!.find((s) => s.key === option.key)!}
                         isSelected={fromNodeId!.value === option.id}
                         onClick={() =>
                           fromNodeId!.setValue(fromNodeId!.value === option.id ? null : option.id)}
@@ -409,9 +407,7 @@ const NewElementDataContent = ({
                       <NodeOptionItem
                         key={option.id}
                         nodeProcessedData={option}
-                        nodeSchema={nodeSchemas!.find((s) =>
-                          s.formatted_label === option.formatted_label
-                        )!}
+                        nodeSchema={nodeSchemas!.find((s) => s.key === option.key)!}
                         isSelected={toNodeId!.value === option.id}
                         onClick={() =>
                           toNodeId!.setValue(toNodeId!.value === option.id ? null : option.id)}

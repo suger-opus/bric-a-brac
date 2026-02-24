@@ -117,16 +117,15 @@ fn parse_file(content: &[u8]) -> Result<&str, Utf8Error> {
 fn build_system_prompt() -> String {
     r##"You are a graph schema generator assistant. Your task is to analyze data and generate a graph SCHEMA — not the data itself.
     
-    A graph schema defines the TYPES of entities and relationships, not specific instances.
-    
-    Rules:
-    - Nodes represent ENTITY TYPES (e.g., 'Person', 'Location', 'Company') — not specific people or places
-    - Edges represent RELATIONSHIP TYPES between node types (e.g., 'FRIEND_OF', 'BORN_IN') — not specific relationships
-    - Attributes define the PROPERTIES that instances of a node/edge type can have (e.g., 'Name', 'Eye Color', 'Birth Year') — not the actual values
-    - label must always be Title Case for nodes/edges (e.g., 'Person', 'FriendOf')
-    - formatted_label must always be snake_case (e.g., 'person', 'birth_year', 'friend_of')
-    - colors must be a visually distinct hex color per node/edge type
-    Think of it like defining a database schema, not inserting rows into it."##.to_string()
+A graph schema defines the TYPES of entities and relationships, not specific instances.
+
+Rules:
+- Nodes represent ENTITY TYPES (e.g., 'Person', 'Location', 'Company') — not specific people or places
+- Edges represent RELATIONSHIP TYPES between node types (e.g., 'Friend Of', 'Born In') — not specific relationships
+- Attributes define the PROPERTIES that instances of a node/edge type can have (e.g., 'Name', 'Eye Color', 'Birth Year') — not the actual values
+- colors must be a visually distinct hex color per node/edge type
+
+Think of it like defining a database schema, not inserting rows into it."##.to_string()
 }
 
 fn build_user_prompt(data: &str) -> String {
@@ -180,27 +179,23 @@ mod tests {
                 {
                     "attributes": [
                         {
-                            "formatted_label": "friend_of",
                             "label": "Friend Of",
                             "metadata": { "options": null },
                             "property_type": "Boolean"
                         }
                     ],
                     "color": "#FF5733",
-                    "formatted_label": "friend_of",
                     "label": "Friend Of"
                 },
                 {
                     "attributes": [
                         {
-                            "formatted_label": "born_in",
                             "label": "Born In",
                             "metadata": { "options": null },
                             "property_type": "String"
                         }
                     ],
                     "color": "#33FF57",
-                    "formatted_label": "born_in",
                     "label": "Born In"
                 }
             ],
@@ -208,51 +203,43 @@ mod tests {
                 {
                     "attributes": [
                         {
-                            "formatted_label": "name",
                             "label": "Name",
                             "metadata": { "options": null },
                             "property_type": "String"
                         },
                         {
-                            "formatted_label": "eye_color",
                             "label": "Eye Color",
                             "metadata": { "options": null },
                             "property_type": "String"
                         },
                         {
-                            "formatted_label": "birth_year",
                             "label": "Birth Year",
                             "metadata": { "options": null },
                             "property_type": "Number"
                         }
                     ],
                     "color": "#3498DB",
-                    "formatted_label": "person",
                     "label": "Person"
                 },
                 {
                     "attributes": [
                         {
-                            "formatted_label": "name",
                             "label": "Name",
                             "metadata": { "options": null },
                             "property_type": "String"
                         },
                         {
-                            "formatted_label": "location_name",
                             "label": "Location Name",
                             "metadata": { "options": null },
                             "property_type": "String"
                         },
                         {
-                            "formatted_label": "country",
                             "label": "Country",
                             "metadata": { "options": null },
                             "property_type": "String"
                         }
                     ],
                     "color": "#9B59B6",
-                    "formatted_label": "location",
                     "label": "Location"
                 }
             ]
@@ -263,27 +250,23 @@ mod tests {
                 {
                     "properties": [
                         {
-                            "formatted_label": "friend_of",
                             "label": "Friend Of",
                             "metadata": { "options": null },
                             "property_type": "Boolean"
                         }
                     ],
                     "color": "#FF5733",
-                    "formatted_label": "friend_of",
                     "label": "Friend Of"
                 },
                 {
                     "properties": [
                         {
-                            "formatted_label": "born_in",
                             "label": "Born In",
                             "metadata": { "options": null },
                             "property_type": "String"
                         }
                     ],
                     "color": "#33FF57",
-                    "formatted_label": "born_in",
                     "label": "Born In"
                 }
             ],
@@ -291,51 +274,43 @@ mod tests {
                 {
                     "properties": [
                         {
-                            "formatted_label": "name",
                             "label": "Name",
                             "metadata": { "options": null },
                             "property_type": "String"
                         },
                         {
-                            "formatted_label": "eye_color",
                             "label": "Eye Color",
                             "metadata": { "options": null },
                             "property_type": "String"
                         },
                         {
-                            "formatted_label": "birth_year",
                             "label": "Birth Year",
                             "metadata": { "options": null },
                             "property_type": "Number"
                         }
                     ],
                     "color": "#3498DB",
-                    "formatted_label": "person",
                     "label": "Person"
                 },
                 {
                     "properties": [
                         {
-                            "formatted_label": "name",
                             "label": "Name",
                             "metadata": { "options": null },
                             "property_type": "String"
                         },
                         {
-                            "formatted_label": "location_name",
                             "label": "Location Name",
                             "metadata": { "options": null },
                             "property_type": "String"
                         },
                         {
-                            "formatted_label": "country",
                             "label": "Country",
                             "metadata": { "options": null },
                             "property_type": "String"
                         }
                     ],
                     "color": "#9B59B6",
-                    "formatted_label": "location",
                     "label": "Location"
                 }
             ]

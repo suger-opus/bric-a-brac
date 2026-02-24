@@ -90,8 +90,8 @@ const Graph = ({ dimensions, setOpenCommand }: GraphProps) => {
       nodeThreeObjectExtend={isLoaded}
       nodeThreeObject={isLoaded
         ? (node: ProcessedNodeData) => {
-          const property = node.formatted_label in displayedNodeProperties
-            ? displayedNodeProperties[node.formatted_label]
+          const property = node.key in displayedNodeProperties
+            ? displayedNodeProperties[node.key]
             : undefined;
           const sprite = property && property in node.properties
             ? new SpriteText(node.properties[property] as string)
@@ -107,8 +107,8 @@ const Graph = ({ dimensions, setOpenCommand }: GraphProps) => {
       linkThreeObjectExtend={isLoaded}
       linkThreeObject={isLoaded
         ? (link: ProcessedEdgeData) => {
-          const property = link.formatted_label in displayedEdgeProperties
-            ? displayedEdgeProperties[link.formatted_label]
+          const property = link.key in displayedEdgeProperties
+            ? displayedEdgeProperties[link.key]
             : undefined;
           const sprite = property && property in link.properties
             ? new SpriteText(link.properties[property] as string)

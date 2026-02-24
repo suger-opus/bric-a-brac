@@ -1,4 +1,4 @@
-use super::{NodeSchemaId, PropertiesData};
+use super::PropertiesData;
 use bric_a_brac_id::id;
 
 id!(NodeDataId);
@@ -6,12 +6,12 @@ id!(NodeDataId);
 #[derive(Debug)]
 pub struct NodeData {
     pub node_data_id: NodeDataId,
-    pub formatted_label: String,
+    pub key: String,
     pub properties: PropertiesData,
 }
 
 #[derive(Debug, Clone)]
 pub struct CreateNodeData {
-    pub node_schema_id: NodeSchemaId,
+    pub key: String,
     pub properties: PropertiesData,
 }

@@ -17,9 +17,9 @@ const EdgeSchemaItem = ({ schema }: EdgeSchemaItemProps) => {
       label={schema.label}
       color={schema.color}
       properties={schema.properties}
-      displayedProperty={displayedEdgeProperties[schema.formatted_label]}
-      updateDisplayedProperty={(property_formatted_label: string | undefined) =>
-        updateDisplayedEdgeProperty(schema.formatted_label, property_formatted_label)}
+      displayedProperty={displayedEdgeProperties[schema.key]}
+      updateDisplayedProperty={(property_key: string | undefined) =>
+        updateDisplayedEdgeProperty(schema.key, property_key)}
     />
   );
 };

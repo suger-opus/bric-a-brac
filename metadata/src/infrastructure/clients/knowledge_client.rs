@@ -56,20 +56,16 @@ impl KnowledgeClient {
         }
     }
 
-    #[tracing::instrument(
-        level = "debug",
-        skip(self, graph_id, formatted_label, create_node_data)
-    )]
+    #[tracing::instrument(level = "debug", skip(self, graph_id, create_node_data))]
     pub async fn insert_node(
         &self,
         graph_id: GraphId,
-        formatted_label: String,
         create_node_data: CreateNodeData,
     ) -> Result<models::NodeData, GrpcClientError> {
-        tracing::debug!(graph_id = ?graph_id, formatted_label = ?formatted_label, node_schema_id = ?create_node_data.node_schema_id);
+        tracing::debug!(graph_id = ?graph_id, key = ?create_node_data.key);
 
         match self
-            .try_insert_node(graph_id, formatted_label.clone(), create_node_data.clone())
+            .try_insert_node(graph_id, create_node_data.clone())
             .await
         {
             Ok(node) => Ok(node),
@@ -77,8 +73,7 @@ impl KnowledgeClient {
                 if e.is_connection_error() {
                     tracing::warn!("Connection error detected, reconnecting: {}", e);
                     self.reset_connection();
-                    self.try_insert_node(graph_id, formatted_label, create_node_data)
-                        .await
+                    self.try_insert_node(graph_id, create_node_data).await
                 } else {
                     Err(e)
                 }
@@ -86,25 +81,20 @@ impl KnowledgeClient {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip(self, formatted_label, create_edge_data))]
+    #[tracing::instrument(level = "debug", skip(self, create_edge_data))]
     pub async fn insert_edge(
         &self,
-        formatted_label: String,
         create_edge_data: CreateEdgeData,
     ) -> Result<models::EdgeData, GrpcClientError> {
-        tracing::debug!(formatted_label = ?formatted_label, from_node_data_id = ?create_edge_data.from_node_data_id, to_node_data_id = ?create_edge_data.to_node_data_id);
+        tracing::debug!(key = ?create_edge_data.key, from_node_data_id = ?create_edge_data.from_node_data_id, to_node_data_id = ?create_edge_data.to_node_data_id);
 
-        match self
-            .try_insert_edge(formatted_label.clone(), create_edge_data.clone())
-            .await
-        {
+        match self.try_insert_edge(create_edge_data.clone()).await {
             Ok(edge) => Ok(edge),
             Err(e) => {
                 if e.is_connection_error() {
                     tracing::warn!("Connection error detected, reconnecting: {}", e);
                     self.reset_connection();
-                    self.try_insert_edge(formatted_label, create_edge_data)
-                        .await
+                    self.try_insert_edge(create_edge_data).await
                 } else {
                     Err(e)
                 }
@@ -133,14 +123,10 @@ impl KnowledgeClient {
         }
     }
 
-    #[tracing::instrument(
-        level = "trace",
-        skip(self, graph_id, formatted_label, create_node_data)
-    )]
+    #[tracing::instrument(level = "trace", skip(self, graph_id, create_node_data))]
     async fn try_insert_node(
         &self,
         graph_id: GraphId,
-        formatted_label: String,
         create_node_data: CreateNodeData,
     ) -> Result<models::NodeData, GrpcClientError> {
         self.ensure_connection().await?;
@@ -149,7 +135,7 @@ impl KnowledgeClient {
         let request = Request::new(InsertNodeRequest {
             node_data_id: NodeDataId::new().to_string(),
             graph_id: graph_id.to_string(),
-            formatted_label,
+            key: create_node_data.key,
             properties: create_node_data.properties.into(),
         });
 
@@ -166,10 +152,9 @@ impl KnowledgeClient {
         models::NodeData::try_from(response.into_inner())
     }
 
-    #[tracing::instrument(level = "trace", skip(self, formatted_label, create_edge_data))]
+    #[tracing::instrument(level = "trace", skip(self, create_edge_data))]
     async fn try_insert_edge(
         &self,
-        formatted_label: String,
         create_edge_data: CreateEdgeData,
     ) -> Result<models::EdgeData, GrpcClientError> {
         self.ensure_connection().await?;
@@ -179,7 +164,7 @@ impl KnowledgeClient {
             edge_data_id: EdgeDataId::new().to_string(),
             from_node_data_id: create_edge_data.from_node_data_id.to_string(),
             to_node_data_id: create_edge_data.to_node_data_id.to_string(),
-            formatted_label,
+            key: create_edge_data.key,
             properties: create_edge_data.properties.into(),
         });
 
@@ -251,7 +236,7 @@ impl TryFrom<NodeData> for models::NodeData {
                     source: err,
                 }
             })?,
-            formatted_label: node_data.formatted_label,
+            key: node_data.key,
             properties: node_data.properties.try_into()?,
         })
     }
@@ -268,7 +253,7 @@ impl TryFrom<EdgeData> for models::EdgeData {
                     source: err,
                 }
             })?,
-            formatted_label: edge_data.formatted_label,
+            key: edge_data.key,
             from_node_data_id: NodeDataId::from_str(&edge_data.from_node_data_id).map_err(
                 |err| GrpcClientError::DomainUuidConversion {
                     service: GrpcServiceKind::Knowledge,
@@ -303,7 +288,7 @@ impl From<PropertiesData> for HashMap<String, PropertyValue> {
     fn from(data: PropertiesData) -> Self {
         data.0
             .into_iter()
-            .map(|(formatted_label, value)| (formatted_label, value.into()))
+            .map(|(key, value)| (key, value.into()))
             .collect()
     }
 }

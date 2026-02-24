@@ -11,7 +11,7 @@ service Knowledge {
 message InsertNodeRequest {
   string graph_id = 1;
   string node_data_id = 2;
-  string formatted_label = 3;
+  string key = 3;
   map<string, PropertyValue> properties = 4;
 }
 
@@ -19,7 +19,7 @@ message InsertEdgeRequest {
   string edge_data_id = 1;
   string from_node_data_id = 2;
   string to_node_data_id = 3;
-  string formatted_label = 4;
+  string key = 4;
   map<string, PropertyValue> properties = 5;
 }
 
@@ -43,13 +43,13 @@ message PropertyValue {
 message NodeData {
   string graph_id = 1;
   string node_data_id = 2;
-  string formatted_label = 3;
+  string key = 3;
   map<string, PropertyValue> properties = 4;
 }
 
 message EdgeData {
   string edge_data_id = 1;
-  string formatted_label = 2;
+  string key = 2;
   string from_node_data_id = 3;
   string to_node_data_id = 4;
   map<string, PropertyValue> properties = 5;

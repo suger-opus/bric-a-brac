@@ -8,6 +8,6 @@ export const CreateNodeDataDto = v.object({
 
 export const NodeDataDto = v.object({
   node_data_id: v.string(),
-  formatted_label: v.string(),
+  key: v.string(),
   properties: PropertiesDataDto
 });

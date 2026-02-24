@@ -9,9 +9,6 @@ service Metadata {
   
   // Validate a schema against business rules
   rpc ValidateSchema(ValidateSchemaRequest) returns (ValidateSchemaResponse);
-  
-  // Format a label according to business rules
-  rpc FormatLabel(FormatLabelRequest) returns (FormatLabelResponse);
 }
 
 // Empty message for requests with no parameters
@@ -38,14 +35,4 @@ message ValidateSchemaResponse {
 message ValidationError {
   string field = 1;
   string message = 2;
-}
-
-// Request to format a label
-message FormatLabelRequest {
-  string label = 1;
-}
-
-// Response with formatted label
-message FormatLabelResponse {
-  string formatted_label = 1;
 }

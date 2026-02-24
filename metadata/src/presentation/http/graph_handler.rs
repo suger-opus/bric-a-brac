@@ -1,8 +1,8 @@
 use crate::{
     application::dtos::{
-        CreateEdgeDataDto, CreateEdgeSchemaDto, CreateGraphDto, CreateNodeDataDto,
-        CreateNodeSchemaDto, EdgeDataDto, EdgeSchemaDto, GraphDataDto, GraphMetadataDto,
-        GraphSchemaDto, NodeDataDto, NodeSchemaDto,
+        CreateEdgeDataDto, CreateEdgeSchemaDto, CreateGraphDto, CreateGraphSchemaDto,
+        CreateNodeDataDto, CreateNodeSchemaDto, EdgeDataDto, EdgeSchemaDto, GraphDataDto,
+        GraphMetadataDto, GraphSchemaDto, NodeDataDto, NodeSchemaDto,
     },
     domain::models::GraphId,
     presentation::{
@@ -160,7 +160,7 @@ pub async fn create_graph(
         content = MultipartFileUpload
     ),
     responses(
-        (status = 200, description = "Graph schema generated successfully", body = GraphSchemaDto),
+        (status = 200, description = "Graph schema generated successfully", body = CreateGraphSchemaDto),
         (status = 400, description = "Invalid input data"),
         (status = 401, description = "Unauthorized"),
         (status = 404, description = "Graph not found"),

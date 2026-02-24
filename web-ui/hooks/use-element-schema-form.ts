@@ -1,17 +1,10 @@
-import {
-  CreatePropertySchemaDto,
-  SendColorDto,
-  SendFormattedLabelDto,
-  SendLabelDto
-} from "@/lib/api/dtos";
-import { formatLabel } from "@/lib/utils";
+import { CreatePropertySchemaDto, SendColorDto, SendLabelDto } from "@/lib/api/dtos";
 import { CreatePropertySchema, FormInput, FormInputs } from "@/types";
 import { useState } from "react";
 import * as v from "valibot";
 
 type UseElementSchemaFormReturn = {
   label: FormInput<string>;
-  formattedLabel: FormInput<string>;
   color: FormInput<string>;
   properties: FormInputs<CreatePropertySchema>;
   submitNode: () => Promise<void>;
@@ -21,10 +14,6 @@ type UseElementSchemaFormReturn = {
 export const useElementSchemaForm = (): UseElementSchemaFormReturn => {
   const [label, setLabel] = useState("");
   const [labelValidationError, setLabelValidationError] = useState<string | null>(null);
-  const formattedLabel = formatLabel(label);
-  const [formattedLabelValidationError, setFormattedLabelValidationError] = useState<string | null>(
-    null
-  );
   const [color, setColor] = useState("#3b82f6");
   const [colorValidationError, setColorValidationError] = useState<string | null>(null);
   const [properties, setProperties] = useState<
@@ -39,16 +28,6 @@ export const useElementSchemaForm = (): UseElementSchemaFormReturn => {
       return false;
     }
     setLabelValidationError(null);
-    return true;
-  };
-
-  const validateFormattedLabel = () => {
-    const validation = v.safeParse(SendFormattedLabelDto, formattedLabel);
-    if (!validation.success) {
-      setFormattedLabelValidationError(validation.issues[0].message);
-      return false;
-    }
-    setFormattedLabelValidationError(null);
     return true;
   };
 
@@ -99,10 +78,6 @@ export const useElementSchemaForm = (): UseElementSchemaFormReturn => {
     setLabelValidationError(null);
   };
 
-  const resetFormattedLabel = () => {
-    setFormattedLabelValidationError(null);
-  };
-
   const resetColor = () => {
     setColor("#3b82f6");
     setColorValidationError(null);
@@ -128,13 +103,6 @@ export const useElementSchemaForm = (): UseElementSchemaFormReturn => {
       validate: validateLabel,
       error: labelValidationError,
       reset: resetLabel
-    },
-    formattedLabel: {
-      value: formattedLabel,
-      setValue: (_: string) => {},
-      validate: validateFormattedLabel,
-      error: formattedLabelValidationError,
-      reset: resetFormattedLabel
     },
     color: {
       value: color,

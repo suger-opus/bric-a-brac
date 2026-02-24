@@ -112,7 +112,7 @@ SELECT
     NULL::uuid AS "edge_schema_id?:_",
     ns.graph_id AS "graph_id!:_",
     ns.label AS "label!:_",
-    ns.formatted_label AS "formatted_label!:_",
+    ns.key AS "key!:_",
     ns.color AS "color!:_",
     ns.created_at AS "schema_created_at!:_",
     ns.updated_at AS "schema_updated_at!:_",
@@ -120,7 +120,7 @@ SELECT
     p.node_schema_id AS "property_node_schema_id?:_",
     p.edge_schema_id AS "property_edge_schema_id?:_",
     p.label AS "property_label?:_",
-    p.formatted_label AS "property_formatted_label?:_",
+    p.key AS "property_key?:_",
     p.property_type AS "property_type?:_",
     p.metadata AS "property_metadata?:_",
     p.created_at AS "property_created_at?:_",
@@ -137,7 +137,7 @@ SELECT
     es.edge_schema_id AS "edge_schema_id?:_",
     es.graph_id AS "graph_id!:_",
     es.label AS "label!:_",
-    es.formatted_label AS "formatted_label!:_",
+    es.key AS "key!:_",
     es.color AS "color!:_",
     es.created_at AS "schema_created_at!:_",
     es.updated_at AS "schema_updated_at!:_",
@@ -145,7 +145,7 @@ SELECT
     ps.node_schema_id AS "property_node_schema_id?:_",
     ps.edge_schema_id AS "property_edge_schema_id?:_",
     ps.label AS "property_label?:_",
-    ps.formatted_label AS "property_formatted_label?:_",
+    ps.key AS "property_key?:_",
     ps.property_type AS "property_type?:_",
     ps.metadata AS "property_metadata?:_",
     ps.created_at AS "property_created_at?:_",
@@ -164,7 +164,7 @@ ORDER BY "schema_type!:_"
     }
 
     #[tracing::instrument(level = "debug", skip(self, connection))]
-    pub async fn get_node_schema(
+    pub async fn get_node_schema_by_id(
         &self,
         connection: &mut PgConnection,
         node_schema_id: NodeSchemaId,
@@ -178,7 +178,7 @@ SELECT
     NULL::uuid AS "edge_schema_id?:_",
     ns.graph_id,
     ns.label,
-    ns.formatted_label,
+    ns.key,
     ns.color,
     ns.created_at AS schema_created_at,
     ns.updated_at AS schema_updated_at,
@@ -186,7 +186,7 @@ SELECT
     ps.node_schema_id AS "property_node_schema_id?:_",
     ps.edge_schema_id AS "property_edge_schema_id?:_",
     ps.label AS "property_label?:_",
-    ps.formatted_label AS "property_formatted_label?:_",
+    ps.key AS "property_key?:_",
     ps.property_type AS "property_type?:_",
     ps.metadata AS "property_metadata?:_",
     ps.created_at AS "property_created_at?:_",
@@ -204,7 +204,47 @@ WHERE ns.node_schema_id = $1
     }
 
     #[tracing::instrument(level = "debug", skip(self, connection))]
-    pub async fn get_edge_schema(
+    pub async fn get_node_schema_by_key(
+        &self,
+        connection: &mut PgConnection,
+        node_schema_key: String,
+    ) -> Result<NodeSchema, DatabaseError> {
+        let nodes_schemas = sqlx::query_as!(
+            SchemaRow,
+            r#"
+SELECT
+    'node' AS "schema_type!:_",
+    ns.node_schema_id AS "node_schema_id!:_",
+    NULL::uuid AS "edge_schema_id?:_",
+    ns.graph_id,
+    ns.label,
+    ns.key,
+    ns.color,
+    ns.created_at AS schema_created_at,
+    ns.updated_at AS schema_updated_at,
+    ps.property_schema_id AS "property_schema_id?:_",
+    ps.node_schema_id AS "property_node_schema_id?:_",
+    ps.edge_schema_id AS "property_edge_schema_id?:_",
+    ps.label AS "property_label?:_",
+    ps.key AS "property_key?:_",
+    ps.property_type AS "property_type?:_",
+    ps.metadata AS "property_metadata?:_",
+    ps.created_at AS "property_created_at?:_",
+    ps.updated_at AS "property_updated_at?:_"
+FROM nodes_schemas ns
+LEFT JOIN properties_schemas ps ON ns.node_schema_id = ps.node_schema_id
+WHERE ns.key = $1
+            "#,
+            node_schema_key as _,
+        )
+        .fetch_all(connection)
+        .await?;
+
+        nodes_schemas.try_into()
+    }
+
+    #[tracing::instrument(level = "debug", skip(self, connection))]
+    pub async fn get_edge_schema_by_id(
         &self,
         connection: &mut PgConnection,
         edge_schema_id: EdgeSchemaId,
@@ -218,7 +258,7 @@ SELECT
     NULL::uuid AS "node_schema_id?:_",
     es.graph_id,
     es.label,
-    es.formatted_label,
+    es.key,
     es.color,
     es.created_at AS schema_created_at,
     es.updated_at AS schema_updated_at,
@@ -226,7 +266,7 @@ SELECT
     ps.node_schema_id AS "property_node_schema_id?:_",
     ps.edge_schema_id AS "property_edge_schema_id?:_",
     ps.label AS "property_label?:_",
-    ps.formatted_label AS "property_formatted_label?:_",
+    ps.key AS "property_key?:_",
     ps.property_type AS "property_type?:_",
     ps.metadata AS "property_metadata?:_",
     ps.created_at AS "property_created_at?:_",
@@ -236,6 +276,46 @@ LEFT JOIN properties_schemas ps ON es.edge_schema_id = ps.edge_schema_id
 WHERE es.edge_schema_id = $1
             "#,
             edge_schema_id as _,
+        )
+        .fetch_all(connection)
+        .await?;
+
+        edges_schemas.try_into()
+    }
+
+    #[tracing::instrument(level = "debug", skip(self, connection))]
+    pub async fn get_edge_schema_by_key(
+        &self,
+        connection: &mut PgConnection,
+        edge_schema_key: String,
+    ) -> Result<EdgeSchema, DatabaseError> {
+        let edges_schemas = sqlx::query_as!(
+            SchemaRow,
+            r#"
+SELECT
+    'edge' AS "schema_type!:_",
+    es.edge_schema_id AS "edge_schema_id!:_",
+    NULL::uuid AS "node_schema_id?:_",
+    es.graph_id,
+    es.label,
+    es.key,
+    es.color,
+    es.created_at AS schema_created_at,
+    es.updated_at AS schema_updated_at,
+    ps.property_schema_id AS "property_schema_id?:_",
+    ps.node_schema_id AS "property_node_schema_id?:_",
+    ps.edge_schema_id AS "property_edge_schema_id?:_",
+    ps.label AS "property_label?:_",
+    ps.key AS "property_key?:_",
+    ps.property_type AS "property_type?:_",
+    ps.metadata AS "property_metadata?:_",
+    ps.created_at AS "property_created_at?:_",
+    ps.updated_at AS "property_updated_at?:_"
+FROM edges_schemas es
+LEFT JOIN properties_schemas ps ON es.edge_schema_id = ps.edge_schema_id
+WHERE es.key = $1
+            "#,
+            edge_schema_key as _,
         )
         .fetch_all(connection)
         .await?;
@@ -285,18 +365,18 @@ RETURNING
         graph_id: GraphId,
         create_node_schema: CreateNodeSchema,
     ) -> Result<NodeSchema, DatabaseError> {
-        tracing::debug!(create_node_schema_formatted_label = ?create_node_schema.formatted_label);
+        tracing::debug!(create_node_schema_key = ?create_node_schema.key);
 
         let node_schema = sqlx::query_as!(
             NodeSchemaRow,
             r#"
-INSERT INTO nodes_schemas (node_schema_id, graph_id, label, formatted_label, color)
+INSERT INTO nodes_schemas (node_schema_id, graph_id, label, key, color)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING
     node_schema_id,
     graph_id,
     label,
-    formatted_label,
+    key,
     color,
     created_at,
     updated_at
@@ -304,7 +384,7 @@ RETURNING
             NodeSchemaId::new() as _,
             graph_id as _,
             create_node_schema.label,
-            create_node_schema.formatted_label,
+            create_node_schema.key,
             create_node_schema.color,
         )
         .fetch_one(connection)
@@ -320,18 +400,18 @@ RETURNING
         graph_id: GraphId,
         create_edge_schema: CreateEdgeSchema,
     ) -> Result<EdgeSchema, DatabaseError> {
-        tracing::debug!(create_edge_schema_formatted_label = ?create_edge_schema.formatted_label);
+        tracing::debug!(create_edge_schema_key = ?create_edge_schema.key);
 
         let edge_schema = sqlx::query_as!(
             EdgeSchemaRow,
             r#"
-INSERT INTO edges_schemas (edge_schema_id, graph_id, label, formatted_label, color)
+INSERT INTO edges_schemas (edge_schema_id, graph_id, label, key, color)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING
     edge_schema_id,
     graph_id,
     label,
-    formatted_label,
+    key,
     color,
     created_at,
     updated_at
@@ -339,7 +419,7 @@ RETURNING
             EdgeSchemaId::new() as _,
             graph_id as _,
             create_edge_schema.label,
-            create_edge_schema.formatted_label,
+            create_edge_schema.key,
             create_edge_schema.color,
         )
         .fetch_one(connection)
@@ -360,7 +440,7 @@ RETURNING
         let mut node_schema_ids = vec![];
         let mut edge_schema_ids = vec![];
         let mut labels = vec![];
-        let mut formatted_labels = vec![];
+        let mut keys = vec![];
         let mut property_types = vec![];
         let mut metadatas = vec![];
 
@@ -369,7 +449,7 @@ RETURNING
             node_schema_ids.push(property.node_schema_id);
             edge_schema_ids.push(property.edge_schema_id);
             labels.push(property.label.clone());
-            formatted_labels.push(property.formatted_label.clone());
+            keys.push(property.key.clone());
             property_types.push(property.property_type);
             metadatas.push(Json(property.metadata));
         }
@@ -377,7 +457,7 @@ RETURNING
         let properties = sqlx::query_as!(
             PropertySchemaRow,
             r#"
-INSERT INTO properties_schemas (property_schema_id, node_schema_id, edge_schema_id, label, formatted_label, property_type, metadata)
+INSERT INTO properties_schemas (property_schema_id, node_schema_id, edge_schema_id, label, key, property_type, metadata)
 SELECT * FROM UNNEST(
     $1::uuid[],
     $2::uuid[],
@@ -391,7 +471,7 @@ SELECT * FROM UNNEST(
     node_schema_id AS "node_schema_id?:_",
     edge_schema_id AS "edge_schema_id?:_",
     label,
-    formatted_label,
+    key,
     property_type AS "property_type!:_",
     metadata AS "metadata!:_",
     created_at,
@@ -401,7 +481,7 @@ SELECT * FROM UNNEST(
             &node_schema_ids as _,
             &edge_schema_ids as _,
             &labels,
-            &formatted_labels,
+            &keys,
             &property_types as _,
             &metadatas as _,
         )
@@ -490,7 +570,7 @@ struct NodeSchemaRow {
     node_schema_id: NodeSchemaId,
     graph_id: GraphId,
     label: String,
-    formatted_label: String,
+    key: String,
     color: String,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
@@ -502,7 +582,7 @@ impl From<NodeSchemaRow> for NodeSchema {
             node_schema_id: row.node_schema_id,
             graph_id: row.graph_id,
             label: row.label,
-            formatted_label: row.formatted_label,
+            key: row.key,
             color: row.color,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -516,7 +596,7 @@ struct EdgeSchemaRow {
     edge_schema_id: EdgeSchemaId,
     graph_id: GraphId,
     label: String,
-    formatted_label: String,
+    key: String,
     color: String,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
@@ -528,7 +608,7 @@ impl From<EdgeSchemaRow> for EdgeSchema {
             edge_schema_id: row.edge_schema_id,
             graph_id: row.graph_id,
             label: row.label,
-            formatted_label: row.formatted_label,
+            key: row.key,
             color: row.color,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -543,7 +623,7 @@ struct PropertySchemaRow {
     node_schema_id: Option<NodeSchemaId>,
     edge_schema_id: Option<EdgeSchemaId>,
     label: String,
-    formatted_label: String,
+    key: String,
     property_type: PropertyType,
     metadata: Json<PropertyMetadata>,
     created_at: DateTime<Utc>,
@@ -557,7 +637,7 @@ impl From<PropertySchemaRow> for PropertySchema {
             node_schema_id: row.node_schema_id,
             edge_schema_id: row.edge_schema_id,
             label: row.label,
-            formatted_label: row.formatted_label,
+            key: row.key,
             property_type: row.property_type,
             metadata: row.metadata.0,
             created_at: row.created_at,
@@ -573,7 +653,7 @@ struct SchemaRow {
     edge_schema_id: Option<EdgeSchemaId>,
     graph_id: GraphId,
     label: String,
-    formatted_label: String,
+    key: String,
     color: String,
     schema_created_at: DateTime<Utc>,
     schema_updated_at: DateTime<Utc>,
@@ -581,7 +661,7 @@ struct SchemaRow {
     property_node_schema_id: Option<NodeSchemaId>,
     property_edge_schema_id: Option<EdgeSchemaId>,
     property_label: Option<String>,
-    property_formatted_label: Option<String>,
+    property_key: Option<String>,
     property_type: Option<PropertyType>,
     property_metadata: Option<Json<PropertyMetadata>>,
     property_created_at: Option<DateTime<Utc>>,
@@ -593,7 +673,7 @@ impl SchemaRow {
         match (
             self.property_schema_id,
             &self.property_label,
-            &self.property_formatted_label,
+            &self.property_key,
             &self.property_type,
             &self.property_metadata,
             self.property_created_at,
@@ -602,7 +682,7 @@ impl SchemaRow {
             (
                 Some(property_schema_id),
                 Some(label),
-                Some(formatted_label),
+                Some(key),
                 Some(property_type),
                 Some(metadata),
                 Some(created_at),
@@ -612,7 +692,7 @@ impl SchemaRow {
                 node_schema_id: self.property_node_schema_id,
                 edge_schema_id: self.property_edge_schema_id,
                 label: label.clone(),
-                formatted_label: formatted_label.clone(),
+                key: key.clone(),
                 property_type: property_type.clone(),
                 metadata: metadata.0.clone(),
                 created_at,
@@ -689,7 +769,7 @@ impl TryFrom<Vec<SchemaRow>> for NodeSchema {
             node_schema_id: node_schema_id,
             graph_id: first_row.graph_id,
             label: first_row.label.clone(),
-            formatted_label: first_row.formatted_label.clone(),
+            key: first_row.key.clone(),
             color: first_row.color.clone(),
             created_at: first_row.schema_created_at,
             updated_at: first_row.schema_updated_at,
@@ -726,7 +806,7 @@ impl TryFrom<Vec<SchemaRow>> for EdgeSchema {
             edge_schema_id: edge_schema_id,
             graph_id: first_row.graph_id,
             label: first_row.label.clone(),
-            formatted_label: first_row.formatted_label.clone(),
+            key: first_row.key.clone(),
             color: first_row.color.clone(),
             created_at: first_row.schema_created_at,
             updated_at: first_row.schema_updated_at,

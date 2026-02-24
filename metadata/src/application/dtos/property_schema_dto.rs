@@ -1,17 +1,11 @@
-use crate::domain::models::{
+use crate::domain::{models::{
     CreatePropertySchema, EdgeSchemaId, NodeSchemaId, PropertyMetadata, PropertySchema,
     PropertySchemaId, PropertyType,
-};
+}, utils::generate_key};
 use chrono::{DateTime, Utc};
-use lazy_static::lazy_static;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use utoipa::{PartialSchema, ToSchema};
 use validator::Validate;
-
-lazy_static! {
-    static ref LABEL_REGEX: Regex = Regex::new(r"^([A-Z][a-z]*_)*[A-Z][a-z]*$").unwrap();
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 #[serde(transparent)]
@@ -125,17 +119,9 @@ pub struct CreatePropertySchemaDto {
     pub node_schema_id: Option<NodeSchemaId>,
     pub edge_schema_id: Option<EdgeSchemaId>,
 
-    #[validate(length(min = 3, max = 25))]
-    #[schema(min_length = 3, max_length = 25)]
+    #[validate(length(min = 1, max = 25))]
+    #[schema(min_length = 1, max_length = 25)]
     pub label: String,
-
-    #[validate(length(min = 3, max = 25), regex(path = "*LABEL_REGEX"))]
-    #[schema(
-        min_length = 3,
-        max_length = 25,
-        pattern = "^([A-Z][a-z]*_)*[A-Z][a-z]*$"
-    )]
-    pub formatted_label: String,
 
     pub property_type: PropertyTypeDto,
 
@@ -149,7 +135,7 @@ impl CreatePropertySchemaDto {
             node_schema_id: self.node_schema_id,
             edge_schema_id: self.edge_schema_id,
             label: self.label,
-            formatted_label: self.formatted_label,
+            key: generate_key(),
             property_type: self.property_type.into(),
             metadata: self.metadata.into(),
         }
@@ -162,7 +148,6 @@ impl From<CreatePropertySchema> for CreatePropertySchemaDto {
             node_schema_id: property_schema.node_schema_id,
             edge_schema_id: property_schema.edge_schema_id,
             label: property_schema.label,
-            formatted_label: property_schema.formatted_label,
             property_type: property_schema.property_type.into(),
             metadata: property_schema.metadata.into(),
         }
@@ -175,7 +160,7 @@ pub struct PropertySchemaDto {
     pub node_schema_id: Option<NodeSchemaId>,
     pub edge_schema_id: Option<EdgeSchemaId>,
     pub label: String,
-    pub formatted_label: String,
+    pub key: String,
     pub property_type: PropertyTypeDto,
     pub metadata: PropertyMetadataDto,
     pub created_at: DateTime<Utc>,
@@ -189,7 +174,7 @@ impl From<PropertySchema> for PropertySchemaDto {
             node_schema_id: property_schema.node_schema_id,
             edge_schema_id: property_schema.edge_schema_id,
             label: property_schema.label,
-            formatted_label: property_schema.formatted_label,
+            key: property_schema.key,
             property_type: property_schema.property_type.into(),
             metadata: property_schema.metadata.into(),
             created_at: property_schema.created_at,

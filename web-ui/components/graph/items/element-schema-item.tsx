@@ -16,7 +16,7 @@ type ElementSchemaItemProps = {
   color: string;
   properties: PropertySchema[];
   displayedProperty: string | undefined;
-  updateDisplayedProperty: (property_formatted_label: string | undefined) => void;
+  updateDisplayedProperty: (property_key: string | undefined) => void;
 };
 
 const ElementSchemaItem = ({
@@ -66,7 +66,7 @@ const ElementSchemaItem = ({
                       <PropertyTypeBadge property={property} />
                     </TableCell>
                     <TableCell className="text-right w-12">
-                      {displayedProperty === property.formatted_label
+                      {displayedProperty === property.key
                         ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -89,7 +89,7 @@ const ElementSchemaItem = ({
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                onClick={() => updateDisplayedProperty(property.formatted_label)}
+                                onClick={() => updateDisplayedProperty(property.key)}
                               >
                                 <EyeClosedIcon />
                               </Button>

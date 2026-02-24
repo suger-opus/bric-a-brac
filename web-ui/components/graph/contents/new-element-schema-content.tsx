@@ -16,7 +16,6 @@ type NewElementSchemaContentProps = {
   kind: "node" | "edge";
   onSubmit: () => Promise<void>;
   label: FormInput<string>;
-  formattedLabel: FormInput<string>;
   color: FormInput<string>;
   properties: FormInputs<CreatePropertySchema>;
 };
@@ -27,14 +26,12 @@ const NewElementSchemaContent = ({
   kind,
   onSubmit,
   label,
-  formattedLabel,
   color,
   properties
 }: NewElementSchemaContentProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [lastSavedPropertyId, setLastSavedPropertyId] = useState<string | null>(null);
   const unresolvedError = label.error !== null
-    || formattedLabel.error !== null
     || color.error !== null
     || Object.values(properties.errors).some((error) => error !== null);
 
@@ -84,7 +81,7 @@ const NewElementSchemaContent = ({
 
   const handleNextPage = async () => {
     if (currentStep === 0) {
-      if (label.validate() && formattedLabel.validate()) {
+      if (label.validate()) {
         setCurrentStep(1);
       }
     } else if (currentStep === 1) {
@@ -105,7 +102,6 @@ const NewElementSchemaContent = ({
   const resetState = useEffectEvent(() => {
     setCurrentStep(0);
     label.reset();
-    formattedLabel.reset();
     color.reset();
     properties.reset();
   });
@@ -161,17 +157,6 @@ const NewElementSchemaContent = ({
                   placeholder="Character"
                 />
                 <FieldError>{label.error}</FieldError>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="new-element-formatted-label">Formatted Label</FieldLabel>
-                <FieldDescription className="text-xs">
-                  The formatted label is generated automatically.{" "}
-                  <b>
-                    It should be unique among nodes and edges types of this graph.
-                  </b>
-                </FieldDescription>
-                <Input id="new-element-formatted-label" value={formattedLabel.value} readOnly />
-                <FieldError>{formattedLabel.error}</FieldError>
               </Field>
             </FieldGroup>
           </TabsContent>

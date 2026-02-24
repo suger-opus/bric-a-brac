@@ -39,7 +39,7 @@ pub struct PropertySchema {
     pub node_schema_id: Option<NodeSchemaId>,
     pub edge_schema_id: Option<EdgeSchemaId>,
     pub label: String,
-    pub formatted_label: String,
+    pub key: String,
     pub property_type: PropertyType,
     pub metadata: PropertyMetadata,
     pub created_at: DateTime<Utc>,
@@ -51,7 +51,7 @@ pub struct CreatePropertySchema {
     pub node_schema_id: Option<NodeSchemaId>,
     pub edge_schema_id: Option<EdgeSchemaId>,
     pub label: String,
-    pub formatted_label: String,
+    pub key: String,
     pub property_type: PropertyType,
     pub metadata: PropertyMetadata,
 }

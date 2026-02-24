@@ -1,9 +1,10 @@
-use crate::{application::dtos::CreateGraphSchemaDto, presentation::openapi};
+use crate::{application::dtos::CreateGraphSchemaDto, presentation::openapi::GenerateSchemaApiDoc};
 use bric_a_brac_protos::metadata::{
-    metadata_server::Metadata, Empty, FormatLabelRequest, FormatLabelResponse, OpenApiSpecResponse,
-    ValidateSchemaRequest, ValidateSchemaResponse, ValidationError,
+    metadata_server::Metadata, Empty, OpenApiSpecResponse, ValidateSchemaRequest,
+    ValidateSchemaResponse, ValidationError,
 };
 use tonic::{Request, Response, Status};
+use utoipa::OpenApi;
 use validator::Validate;
 
 #[derive(Debug)]
@@ -22,7 +23,9 @@ impl Metadata for MetadataService {
         &self,
         _request: Request<Empty>,
     ) -> Result<Response<OpenApiSpecResponse>, Status> {
-        let openapi_json = openapi::get_openapi_generate_schema_doc();
+        let openapi_json = GenerateSchemaApiDoc::openapi()
+            .to_json()
+            .unwrap_or_else(|_| "{}".to_string()); // TODO: return error here
         Ok(Response::new(OpenApiSpecResponse { openapi_json }))
     }
 
@@ -70,26 +73,5 @@ impl Metadata for MetadataService {
                 }],
             })),
         }
-    }
-
-    #[tracing::instrument(level = "debug", skip(self, request))]
-    async fn format_label(
-        &self,
-        request: Request<FormatLabelRequest>,
-    ) -> Result<Response<FormatLabelResponse>, Status> {
-        let label = request.into_inner().label;
-
-        // Apply business rules for label formatting
-        // Convert to lowercase, replace spaces with underscores, remove special chars
-        let formatted = label
-            .to_lowercase()
-            .replace(' ', "_")
-            .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '_')
-            .collect();
-
-        Ok(Response::new(FormatLabelResponse {
-            formatted_label: formatted,
-        }))
     }
 }

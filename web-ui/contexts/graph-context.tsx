@@ -17,12 +17,12 @@ type GraphContextType = {
   displayedNodeProperties: DisplayedProperties;
   displayedEdgeProperties: DisplayedProperties;
   updateDisplayedNodeProperty: (
-    node_formatted_label: string,
-    property_formatted_label: string | undefined
+    node_key: string,
+    property_key: string | undefined
   ) => void;
   updateDisplayedEdgeProperty: (
-    edge_formatted_label: string,
-    property_formatted_label: string | undefined
+    edge_key: string,
+    property_key: string | undefined
   ) => void;
   focusNode: string | null;
   setFocusNode: (nodeId: string | null) => void;
@@ -44,24 +44,24 @@ const processGraphData = (
   { graphData, graphSchema }: { graphData: GraphData; graphSchema: GraphSchema; }
 ): ProcessedGraphData => {
   const nodes = graphData.nodes.map((node) => {
-    const nodeSchema = graphSchema.nodes.find((n) => n.formatted_label === node.formatted_label);
+    const nodeSchema = graphSchema.nodes.find((n) => n.key === node.key);
     const color = nodeSchema ? nodeSchema.color : "#888888";
     return {
       id: node.node_data_id,
-      formatted_label: node.formatted_label,
+      key: node.key,
       color,
       properties: node.properties
     };
   });
 
   const links = graphData.edges.map((edge) => {
-    const edgeSchema = graphSchema.edges.find((e) => e.formatted_label === edge.formatted_label);
+    const edgeSchema = graphSchema.edges.find((e) => e.key === edge.key);
     const color = edgeSchema ? edgeSchema.color : "#888888";
     return {
       id: edge.edge_data_id,
       source: edge.from_node_data_id,
       target: edge.to_node_data_id,
-      formatted_label: edge.formatted_label,
+      key: edge.key,
       color,
       properties: edge.properties
     };
@@ -134,7 +134,7 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
         setDisplayedNodeProperties((prev) =>
           Object.fromEntries(
             Object.keys(prev).filter((k) =>
-              dataRes.nodes.some((node) => node.formatted_label === k)
+              dataRes.nodes.some((node) => node.key === k)
             )
               .map((k) => [k, prev[k]])
           )
@@ -142,7 +142,7 @@ export const GraphProvider = ({ graphId, children }: GraphProviderProps) => {
         setDisplayedEdgeProperties((prev) =>
           Object.fromEntries(
             Object.keys(prev).filter((k) =>
-              dataRes.edges.some((edge) => edge.formatted_label === k)
+              dataRes.edges.some((edge) => edge.key === k)
             )
               .map((k) => [k, prev[k]])
           )

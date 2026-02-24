@@ -67,75 +67,30 @@ CREATE TABLE nodes_schemas (
     node_schema_id      UUID PRIMARY KEY                NOT NULL,
     graph_id            UUID                            NOT NULL REFERENCES graphs(graph_id) ON DELETE CASCADE,
     label               VARCHAR(25)                     NOT NULL,
-    formatted_label     VARCHAR(25)                     NOT NULL,
+    key                 VARCHAR(8)                      UNIQUE NOT NULL,
     color               VARCHAR(7)                      NOT NULL,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT node_formatted_label_pattern             CHECK (formatted_label ~ '^([A-Z][a-z]*_)*[A-Z][a-z]*$'),
-    CONSTRAINT unique_node_formatted_label              UNIQUE (graph_id, formatted_label)
+    CONSTRAINT node_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
 );
 
 CREATE TABLE edges_schemas (
     edge_schema_id      UUID PRIMARY KEY                NOT NULL,
     graph_id            UUID                            NOT NULL REFERENCES graphs(graph_id) ON DELETE CASCADE,
     label               VARCHAR(25)                     NOT NULL,
-    formatted_label     VARCHAR(25)                     NOT NULL,
+    key                 VARCHAR(8)                      UNIQUE NOT NULL,
     color               VARCHAR(7)                      NOT NULL,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT edge_formatted_label_pattern             CHECK (formatted_label ~ '^([A-Z][a-z]*_)*[A-Z][a-z]*$'),
-    CONSTRAINT unique_edge_formatted_label              UNIQUE (graph_id, formatted_label)
+    CONSTRAINT edge_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
 );
-
-CREATE OR REPLACE FUNCTION check_schema_formatted_label_uniqueness()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF TG_TABLE_NAME = 'nodes_schemas' THEN
-        IF EXISTS (
-            SELECT 1 FROM nodes_schemas
-            WHERE graph_id = NEW.graph_id
-            AND formatted_label = NEW.formatted_label
-            AND node_schema_id != NEW.node_schema_id
-        ) OR EXISTS (
-            SELECT 1 FROM edges_schemas
-            WHERE graph_id = NEW.graph_id
-            AND formatted_label = NEW.formatted_label
-        ) THEN
-            RAISE EXCEPTION 'Formatted label "%" already exists in this graph', NEW.formatted_label;
-        END IF;
-    ELSIF TG_TABLE_NAME = 'edges_schemas' THEN
-        IF EXISTS (
-            SELECT 1 FROM edges_schemas
-            WHERE graph_id = NEW.graph_id
-            AND formatted_label = NEW.formatted_label
-            AND edge_schema_id != NEW.edge_schema_id
-        ) OR EXISTS (
-            SELECT 1 FROM nodes_schemas
-            WHERE graph_id = NEW.graph_id
-            AND formatted_label = NEW.formatted_label
-        ) THEN
-            RAISE EXCEPTION 'Formatted label "%" already exists in this graph', NEW.formatted_label;
-        END IF;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER check_node_schema_formatted_label_uniqueness
-    BEFORE INSERT OR UPDATE ON nodes_schemas
-    FOR EACH ROW EXECUTE FUNCTION check_schema_formatted_label_uniqueness();
-
-CREATE TRIGGER check_edge_schema_formatted_label_uniqueness
-    BEFORE INSERT OR UPDATE ON edges_schemas
-    FOR EACH ROW EXECUTE FUNCTION check_schema_formatted_label_uniqueness();
 
 CREATE TABLE properties_schemas (
     property_schema_id  UUID PRIMARY KEY                NOT NULL,
     node_schema_id      UUID                            REFERENCES nodes_schemas(node_schema_id) ON DELETE CASCADE,
     edge_schema_id      UUID                            REFERENCES edges_schemas(edge_schema_id) ON DELETE CASCADE,
     label               VARCHAR(25)                     NOT NULL,
-    formatted_label     VARCHAR(25)                     NOT NULL,
+    key                 VARCHAR(8)                      UNIQUE NOT NULL,
     property_type       property_type                   NOT NULL,
     metadata            JSONB                           NOT NULL DEFAULT '{}'::JSONB,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -151,7 +106,5 @@ CREATE TABLE properties_schemas (
             AND edge_schema_id IS NOT NULL
         )
     ),
-    CONSTRAINT property_formatted_label_pattern         CHECK (formatted_label ~ '^([A-Z][a-z]*_)*[A-Z][a-z]*$'),
-    CONSTRAINT unique_node_property_formatted_label     UNIQUE (node_schema_id, formatted_label),
-    CONSTRAINT unique_edge_property_formatted_label     UNIQUE (edge_schema_id, formatted_label)
+    CONSTRAINT property_key_pattern                     CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
 );

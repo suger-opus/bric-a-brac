@@ -1,6 +1,6 @@
 use crate::{
     domain::models::{
-        EdgeSchemaId, NodeSchemaId, PropertiesData, PropertyData, PropertySchema, PropertyType,
+        CreateEdgeData, CreateNodeData, PropertiesData, PropertyData, PropertySchema, PropertyType,
     },
     infrastructure::repositories::GraphRepository,
     presentation::errors::{AppError, RequestError},
@@ -18,38 +18,36 @@ impl ValidationService {
         Self { pool, repository }
     }
 
-    #[tracing::instrument(level = "trace", skip(self, node_schema_id, properties))]
-    pub async fn validate_node_data(
+    #[tracing::instrument(level = "trace", skip(self, create_node_data))]
+    pub async fn validate_create_node_data(
         &self,
-        node_schema_id: NodeSchemaId,
-        properties: &PropertiesData,
-    ) -> Result<String, AppError> {
+        create_node_data: &CreateNodeData,
+    ) -> Result<(), AppError> {
         let mut txn = self.pool.begin().await?;
         let node_schema = self
             .repository
-            .get_node_schema(&mut txn, node_schema_id)
+            .get_node_schema_by_key(&mut txn, create_node_data.key.clone())
             .await?;
         txn.commit().await?;
 
-        self.validate_properties(properties, &node_schema.properties)?;
-        Ok(node_schema.formatted_label)
+        self.validate_properties(&create_node_data.properties, &node_schema.properties)?;
+        Ok(())
     }
 
-    #[tracing::instrument(level = "trace", skip(self, edge_schema_id, properties))]
-    pub async fn validate_edge_data(
+    #[tracing::instrument(level = "trace", skip(self, create_edge_data))]
+    pub async fn validate_create_edge_data(
         &self,
-        edge_schema_id: EdgeSchemaId,
-        properties: &PropertiesData,
-    ) -> Result<String, AppError> {
+        create_edge_data: &CreateEdgeData,
+    ) -> Result<(), AppError> {
         let mut txn = self.pool.begin().await?;
         let edge_schema = self
             .repository
-            .get_edge_schema(&mut txn, edge_schema_id)
+            .get_edge_schema_by_key(&mut txn, create_edge_data.key.clone())
             .await?;
         txn.commit().await?;
 
-        self.validate_properties(properties, &edge_schema.properties)?;
-        Ok(edge_schema.formatted_label)
+        self.validate_properties(&create_edge_data.properties, &edge_schema.properties)?;
+        Ok(())
     }
 
     #[tracing::instrument(level = "trace", skip(self, properties_data, properties_schemas))]
@@ -58,29 +56,33 @@ impl ValidationService {
         properties_data: &PropertiesData,
         properties_schemas: &[PropertySchema],
     ) -> Result<(), AppError> {
-        properties_data.0.keys().try_for_each(
-            |property_data_formatted_label| -> Result<(), AppError> {
+        properties_data
+            .0
+            .keys()
+            .try_for_each(|property_data_key| -> Result<(), AppError> {
                 if let Some(_) = properties_schemas
                     .iter()
-                    .find(|schema| schema.formatted_label == *property_data_formatted_label)
+                    .find(|schema| schema.key == *property_data_key)
                 {
                     Ok(())
                 } else {
                     Err(RequestError::InvalidInput {
-                        field: format!("Property {property_data_formatted_label}"),
+                        field: format!("Property {}", property_data_key),
                         issue: "Property is not defined in schema".to_string(),
                     }
                     .into())
                 }
-            },
-        )?;
+            })?;
 
         properties_schemas.iter().try_for_each(|property_schema| {
-            if let Some(property_data) = properties_data.0.get(&property_schema.formatted_label) {
+            if let Some(property_data) = properties_data.0.get(&property_schema.key) {
                 self.validate_property(property_data, property_schema)
             } else {
                 Err(RequestError::InvalidInput {
-                    field: format!("Property {}", property_schema.formatted_label),
+                    field: format!(
+                        "Property {} ({})",
+                        property_schema.label, property_schema.key
+                    ),
                     issue: "Required property is missing".to_string(),
                 }
                 .into())
@@ -102,7 +104,10 @@ impl ValidationService {
                 if let Some(options) = &property_schema.metadata.options {
                     if !options.contains(value) {
                         return Err(RequestError::InvalidInput {
-                            field: format!("Property {}", property_schema.formatted_label),
+                            field: format!(
+                                "Property {} ({})",
+                                property_schema.label, property_schema.key
+                            ),
                             issue: format!(
                                 "Invalid value '{}', expected one of {:?}",
                                 value, options
@@ -114,7 +119,10 @@ impl ValidationService {
                 Ok(())
             }
             _ => Err(RequestError::InvalidInput {
-                field: format!("Property {}", property_schema.formatted_label),
+                field: format!(
+                    "Property {} ({})",
+                    property_schema.label, property_schema.key
+                ),
                 issue: format!(
                     "Incorrect property type, expected {:?}, found {}",
                     property_schema.property_type, property_data_value

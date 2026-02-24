@@ -43,7 +43,7 @@ const GraphElementItem = ({
           {Object.entries(dataProperties).map(([key, value]) => (
             <TableRow key={key}>
               <TableCell className="font-medium">
-                {schemaProperties.find((p) => p.formatted_label === key)?.label || key}
+                {schemaProperties.find((p) => p.key === key)?.label || key}
               </TableCell>
               <TableCell>
                 {String(value)}

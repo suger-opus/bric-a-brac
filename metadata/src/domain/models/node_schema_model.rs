@@ -10,7 +10,7 @@ pub struct NodeSchema {
     pub node_schema_id: NodeSchemaId,
     pub graph_id: GraphId,
     pub label: String,
-    pub formatted_label: String,
+    pub key: String,
     pub color: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -20,7 +20,7 @@ pub struct NodeSchema {
 #[derive(Debug, Deserialize)]
 pub struct CreateNodeSchema {
     pub label: String,
-    pub formatted_label: String,
+    pub key: String,
     pub color: String,
     pub properties: Vec<CreatePropertySchema>,
 }

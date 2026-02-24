@@ -1,18 +1,18 @@
 use super::PropertiesDataDto;
-use crate::domain::models::{CreateNodeData, NodeData, NodeDataId, NodeSchemaId};
+use crate::domain::models::{CreateNodeData, NodeData, NodeDataId};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct CreateNodeDataDto {
-    pub node_schema_id: NodeSchemaId,
+    pub key: String,
     pub properties: PropertiesDataDto,
 }
 
 impl CreateNodeDataDto {
     pub fn into_domain(self) -> CreateNodeData {
         CreateNodeData {
-            node_schema_id: self.node_schema_id,
+            key: self.key,
             properties: self.properties.into(),
         }
     }
@@ -21,7 +21,7 @@ impl CreateNodeDataDto {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct NodeDataDto {
     pub node_data_id: NodeDataId,
-    pub formatted_label: String,
+    pub key: String,
     pub properties: PropertiesDataDto,
 }
 
@@ -29,7 +29,7 @@ impl From<NodeData> for NodeDataDto {
     fn from(node_data: NodeData) -> Self {
         Self {
             node_data_id: node_data.node_data_id,
-            formatted_label: node_data.formatted_label,
+            key: node_data.key,
             properties: node_data.properties.into(),
         }
     }
