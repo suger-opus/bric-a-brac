@@ -114,6 +114,7 @@ impl From<PropertyType> for PropertyTypeDto {
     }
 }
 
+// TODO: Add metadata validation from property_type
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreatePropertySchemaDto {
     pub node_schema_id: Option<NodeSchemaId>,

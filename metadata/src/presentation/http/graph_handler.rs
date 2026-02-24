@@ -191,6 +191,36 @@ pub async fn generate_schema(
 
 #[utoipa::path(
     post,
+    path = "/graphs/{graph_id}/schema",
+    params(("graph_id" = GraphId, Path, description = "ID of the graph to create schema for")),
+    tag = "Graphs",
+    request_body = CreateGraphSchemaDto,
+    responses(
+        (status = 201, description = "Graph schema created successfully", body = GraphSchemaDto),
+        (status = 400, description = "Invalid input data"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Graph not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
+pub async fn create_schema(
+    State(state): State<ApiState>,
+    Path(graph_id): Path<GraphId>,
+    AuthenticatedUser { user_id }: AuthenticatedUser,
+    Json(payload): Json<CreateGraphSchemaDto>,
+) -> impl IntoResponse {
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, payload = ?payload);
+
+    state
+        .graph_service
+        .create_schema(graph_id, payload)
+        .await
+        .map(|schema| (StatusCode::CREATED, Json(schema)))
+}
+
+#[utoipa::path(
+    post,
     path = "/graphs/{graph_id}/schema/nodes",
     params(("graph_id" = GraphId, Path, description = "ID of the graph to add node schema to")),
     tag = "Graphs",

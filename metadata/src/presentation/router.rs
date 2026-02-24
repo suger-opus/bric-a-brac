@@ -53,6 +53,10 @@ pub fn build(state: ApiState) -> Router {
             post(graph_handler::generate_schema),
         )
         .route(
+            "/graphs/{graph_id}/schema",
+            post(graph_handler::create_schema),
+        )
+        .route(
             "/graphs/{graph_id}/schema/nodes",
             post(graph_handler::create_node_schema),
         )

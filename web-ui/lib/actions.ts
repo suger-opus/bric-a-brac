@@ -12,7 +12,7 @@ export const actionLabels: Record<Action, string> = {
   [Action.FIND_NODE]: "Find Node",
   [Action.FIND_PATH]: "Find Path",
   [Action.ASK_AI]: "Ask AI",
-  [Action.GENERATE_TYPES]: "Generate Types",
+  [Action.BUILD_WITH_AI]: "Build with AI",
   [Action.NEW_NODE_TYPE]: "New Node Type",
   [Action.MANAGE_NODE_TYPES]: "Manage Node Types",
   [Action.INSERT_NODE]: "Insert Node",

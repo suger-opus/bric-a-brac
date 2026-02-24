@@ -17,7 +17,7 @@ pub struct EdgeSchema {
     pub properties: Vec<PropertySchema>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct CreateEdgeSchema {
     pub label: String,
     pub key: String,

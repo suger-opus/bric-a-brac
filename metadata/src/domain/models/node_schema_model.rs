@@ -17,7 +17,7 @@ pub struct NodeSchema {
     pub properties: Vec<PropertySchema>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct CreateNodeSchema {
     pub label: String,
     pub key: String,

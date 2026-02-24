@@ -41,7 +41,7 @@ const GraphDrawer = () => {
           </DialogHeader>
           <GraphMenu />
           <div className="mt-2 grow no-scrollbar overflow-y-auto">
-            {action === Action.GENERATE_TYPES && <GenerateSchemaContent />}
+            {action === Action.BUILD_WITH_AI && <GenerateSchemaContent />}
             {action === Action.NEW_NODE_TYPE && <NewNodeSchemaContent />}
             {action === Action.NEW_EDGE_TYPE && <NewEdgeSchemaContent />}
             {action === Action.INSERT_NODE && <NewNodeDataContent />}
@@ -59,7 +59,7 @@ const GraphDrawer = () => {
           </DrawerHeader>
           <GraphMenu />
           <div className="grow no-scrollbar overflow-y-auto">
-            {action === Action.GENERATE_TYPES && <GenerateSchemaContent />}
+            {action === Action.BUILD_WITH_AI && <GenerateSchemaContent />}
             {action === Action.NEW_NODE_TYPE && <NewNodeSchemaContent />}
             {action === Action.NEW_EDGE_TYPE && <NewEdgeSchemaContent />}
             {action === Action.INSERT_NODE && <NewNodeDataContent />}

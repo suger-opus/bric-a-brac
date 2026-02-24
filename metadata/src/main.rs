@@ -2,7 +2,7 @@ use metadata::{
     infrastructure::config::Config, presentation::tracing::setup as setup_tracing, run,
 };
 
-// TODO: create a struct for labels, formatted labels and colors
+// TODO: create a struct for labels and colors
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

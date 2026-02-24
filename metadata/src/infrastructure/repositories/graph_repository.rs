@@ -1,8 +1,9 @@
 use crate::{
     domain::models::{
-        CreateEdgeSchema, CreateGraph, CreateNodeSchema, CreatePropertySchema, EdgeSchema,
-        EdgeSchemaId, Graph, GraphId, GraphMetadata, GraphSchema, NodeSchema, NodeSchemaId,
-        PropertyMetadata, PropertySchema, PropertySchemaId, PropertyType, Reddit, Role, UserId,
+        CreateEdgeSchema, CreateGraph, CreateNodeSchema, CreatePropertySchema,
+        EdgeSchema, EdgeSchemaId, Graph, GraphId, GraphMetadata, GraphSchema, NodeSchema,
+        NodeSchemaId, PropertyMetadata, PropertySchema, PropertySchemaId, PropertyType, Reddit,
+        Role, UserId,
     },
     presentation::errors::DatabaseError,
 };
@@ -358,74 +359,112 @@ RETURNING
         Ok(graph.into())
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection, create_node_schema))]
-    pub async fn create_node_schema(
+    #[tracing::instrument(level = "debug", skip(self, connection, nodes_schemas))]
+    pub async fn create_nodes_schemas(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphId,
-        create_node_schema: CreateNodeSchema,
-    ) -> Result<NodeSchema, DatabaseError> {
-        tracing::debug!(create_node_schema_key = ?create_node_schema.key);
+        nodes_schemas: Vec<(NodeSchemaId, CreateNodeSchema)>,
+    ) -> Result<Vec<NodeSchema>, DatabaseError> {
+        tracing::debug!(nodes_schemas_len = ?nodes_schemas.len());
 
-        let node_schema = sqlx::query_as!(
+        let mut node_schema_ids = vec![];
+        let mut graph_ids = vec![];
+        let mut labels = vec![];
+        let mut keys = vec![];
+        let mut colors = vec![];
+
+        for (node_schema_id, schema) in nodes_schemas {
+            node_schema_ids.push(node_schema_id);
+            graph_ids.push(graph_id);
+            labels.push(schema.label.clone());
+            keys.push(schema.key.clone());
+            colors.push(schema.color.clone());
+        }
+
+        let nodes_schemas = sqlx::query_as!(
             NodeSchemaRow,
             r#"
 INSERT INTO nodes_schemas (node_schema_id, graph_id, label, key, color)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING
-    node_schema_id,
-    graph_id,
+SELECT * FROM UNNEST(
+    $1::uuid[],
+    $2::uuid[],
+    $3::text[],
+    $4::text[],
+    $5::text[]
+) RETURNING
+    node_schema_id AS "node_schema_id!:_",
+    graph_id AS "graph_id!:_",
     label,
     key,
     color,
     created_at,
     updated_at
             "#,
-            NodeSchemaId::new() as _,
-            graph_id as _,
-            create_node_schema.label,
-            create_node_schema.key,
-            create_node_schema.color,
+            &node_schema_ids as _,
+            &graph_ids as _,
+            &labels,
+            &keys,
+            &colors,
         )
-        .fetch_one(connection)
+        .fetch_all(connection)
         .await?;
 
-        Ok(node_schema.into())
+        Ok(nodes_schemas.into_iter().map(NodeSchemaRow::into).collect())
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection, create_edge_schema))]
-    pub async fn create_edge_schema(
+    #[tracing::instrument(level = "debug", skip(self, connection, edges_schemas))]
+    pub async fn create_edges_schemas(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphId,
-        create_edge_schema: CreateEdgeSchema,
-    ) -> Result<EdgeSchema, DatabaseError> {
-        tracing::debug!(create_edge_schema_key = ?create_edge_schema.key);
+        edges_schemas: Vec<(EdgeSchemaId, CreateEdgeSchema)>,
+    ) -> Result<Vec<EdgeSchema>, DatabaseError> {
+        tracing::debug!(edges_schemas_len = ?edges_schemas.len());
 
-        let edge_schema = sqlx::query_as!(
+        let mut edge_schema_ids = vec![];
+        let mut graph_ids = vec![];
+        let mut labels = vec![];
+        let mut keys = vec![];
+        let mut colors = vec![];
+
+        for (edge_schema_id, schema) in edges_schemas {
+            edge_schema_ids.push(edge_schema_id);
+            graph_ids.push(graph_id);
+            labels.push(schema.label.clone());
+            keys.push(schema.key.clone());
+            colors.push(schema.color.clone());
+        }
+
+        let edges_schemas = sqlx::query_as!(
             EdgeSchemaRow,
             r#"
 INSERT INTO edges_schemas (edge_schema_id, graph_id, label, key, color)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING
-    edge_schema_id,
-    graph_id,
+SELECT * FROM UNNEST(
+    $1::uuid[],
+    $2::uuid[],
+    $3::text[],
+    $4::text[],
+    $5::text[]
+) RETURNING
+    edge_schema_id AS "edge_schema_id!:_",
+    graph_id AS "graph_id!:_",
     label,
     key,
     color,
     created_at,
     updated_at
             "#,
-            EdgeSchemaId::new() as _,
-            graph_id as _,
-            create_edge_schema.label,
-            create_edge_schema.key,
-            create_edge_schema.color,
+            &edge_schema_ids as _,
+            &graph_ids as _,
+            &labels,
+            &keys,
+            &colors,
         )
-        .fetch_one(connection)
+        .fetch_all(connection)
         .await?;
 
-        Ok(edge_schema.into())
+        Ok(edges_schemas.into_iter().map(EdgeSchemaRow::into).collect())
     }
 
     #[tracing::instrument(level = "debug", skip(self, connection, create_properties))]
@@ -436,7 +475,7 @@ RETURNING
     ) -> Result<Vec<PropertySchema>, DatabaseError> {
         tracing::debug!(create_properties_len = ?create_properties.len());
 
-        let mut ids = vec![];
+        let mut property_schema_ids = vec![];
         let mut node_schema_ids = vec![];
         let mut edge_schema_ids = vec![];
         let mut labels = vec![];
@@ -445,7 +484,7 @@ RETURNING
         let mut metadatas = vec![];
 
         for property in create_properties {
-            ids.push(PropertySchemaId::new());
+            property_schema_ids.push(PropertySchemaId::new());
             node_schema_ids.push(property.node_schema_id);
             edge_schema_ids.push(property.edge_schema_id);
             labels.push(property.label.clone());
@@ -477,7 +516,7 @@ SELECT * FROM UNNEST(
     created_at,
     updated_at
             "#,
-            &ids as _,
+            &property_schema_ids as _,
             &node_schema_ids as _,
             &edge_schema_ids as _,
             &labels,

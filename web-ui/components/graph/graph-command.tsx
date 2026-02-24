@@ -58,6 +58,15 @@ const GraphCommand = ({ isOpen, onOpenChange }: GraphCommandProps) => {
               <>
                 <CommandGroup heading={categoryLabels[Category.SEARCH]}>
                   <CommandItem
+                    key={actionLabels[Action.ASK_AI]}
+                    disabled
+                    value={Action.ASK_AI}
+                    onSelect={handleSelect}
+                  >
+                    <BrainIcon />
+                    <span>{actionLabels[Action.ASK_AI]}</span>
+                  </CommandItem>
+                  <CommandItem
                     key={actionLabels[Action.FIND_NODE]}
                     disabled
                     value={Action.FIND_NODE}
@@ -75,15 +84,6 @@ const GraphCommand = ({ isOpen, onOpenChange }: GraphCommandProps) => {
                     <WorkflowIcon />
                     <span>{actionLabels[Action.FIND_PATH]}</span>
                   </CommandItem>
-                  <CommandItem
-                    key={actionLabels[Action.ASK_AI]}
-                    disabled
-                    value={Action.ASK_AI}
-                    onSelect={handleSelect}
-                  >
-                    <BrainIcon />
-                    <span>{actionLabels[Action.ASK_AI]}</span>
-                  </CommandItem>
                 </CommandGroup>
                 <CommandSeparator />
               </>
@@ -94,12 +94,12 @@ const GraphCommand = ({ isOpen, onOpenChange }: GraphCommandProps) => {
               <>
                 <CommandGroup heading={categoryLabels[Category.EDIT]}>
                   <CommandItem
-                    key={actionLabels[Action.GENERATE_TYPES]}
-                    value={Action.GENERATE_TYPES}
+                    key={actionLabels[Action.BUILD_WITH_AI]}
+                    value={Action.BUILD_WITH_AI}
                     onSelect={handleSelect}
                   >
                     <BrainCircuitIcon />
-                    <span>{actionLabels[Action.GENERATE_TYPES]}</span>
+                    <span>{actionLabels[Action.BUILD_WITH_AI]}</span>
                   </CommandItem>
                   <CommandItem
                     key={actionLabels[Action.NEW_NODE_TYPE]}

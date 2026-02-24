@@ -46,7 +46,7 @@ pub struct PropertySchema {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct CreatePropertySchema {
     pub node_schema_id: Option<NodeSchemaId>,
     pub edge_schema_id: Option<EdgeSchemaId>,

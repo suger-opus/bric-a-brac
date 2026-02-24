@@ -123,7 +123,8 @@ Rules:
 - Nodes represent ENTITY TYPES (e.g., 'Person', 'Location', 'Company') — not specific people or places
 - Edges represent RELATIONSHIP TYPES between node types (e.g., 'Friend Of', 'Born In') — not specific relationships
 - Attributes define the PROPERTIES that instances of a node/edge type can have (e.g., 'Name', 'Eye Color', 'Birth Year') — not the actual values
-- colors must be a visually distinct hex color per node/edge type
+- Colors must be a visually distinct hex color per node/edge type
+- If a relationship property_type is Select, then metadata.options must be a non-empty list of possible values. Otherwise, metadata.options should be null.
 
 Think of it like defining a database schema, not inserting rows into it."##.to_string()
 }

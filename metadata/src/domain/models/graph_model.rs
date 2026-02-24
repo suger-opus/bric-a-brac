@@ -55,7 +55,7 @@ pub struct GraphSchema {
     pub edges: Vec<EdgeSchema>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct CreateGraphSchema {
     pub nodes: Vec<CreateNodeSchema>,
     pub edges: Vec<CreateEdgeSchema>,

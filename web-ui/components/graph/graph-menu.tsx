@@ -49,15 +49,15 @@ const GraphMenu = () => {
               <MenubarTrigger>{categoryLabels[Category.SEARCH]}</MenubarTrigger>
               <MenubarContent>
                 <MenubarRadioGroup value={menuItem} onValueChange={handleItemChange}>
+                  <MenubarRadioItem value={Action.ASK_AI as string} disabled>
+                    {actionLabels[Action.ASK_AI]}
+                  </MenubarRadioItem>
+                  <MenubarSeparator />
                   <MenubarRadioItem value={Action.FIND_NODE as string} disabled>
                     {actionLabels[Action.FIND_NODE]}
                   </MenubarRadioItem>
                   <MenubarRadioItem value={Action.FIND_PATH as string} disabled>
                     {actionLabels[Action.FIND_PATH]}
-                  </MenubarRadioItem>
-                  <MenubarSeparator />
-                  <MenubarRadioItem value={Action.ASK_AI as string} disabled>
-                    {actionLabels[Action.ASK_AI]}
                   </MenubarRadioItem>
                 </MenubarRadioGroup>
               </MenubarContent>
@@ -69,8 +69,8 @@ const GraphMenu = () => {
               <MenubarTrigger>{categoryLabels[Category.EDIT]}</MenubarTrigger>
               <MenubarContent>
                 <MenubarRadioGroup value={menuItem} onValueChange={handleItemChange}>
-                  <MenubarRadioItem value={Action.GENERATE_TYPES}>
-                    {actionLabels[Action.GENERATE_TYPES]}
+                  <MenubarRadioItem value={Action.BUILD_WITH_AI}>
+                    {actionLabels[Action.BUILD_WITH_AI]}
                   </MenubarRadioItem>
                   <MenubarSeparator />
                   <MenubarRadioItem value={Action.NEW_NODE_TYPE}>
@@ -145,7 +145,7 @@ const GraphMenu = () => {
               {[Action.FIND_NODE, Action.FIND_PATH, Action.ASK_AI].includes(action!)
                 && "Search"}
               {[
-                Action.GENERATE_TYPES,
+                Action.BUILD_WITH_AI,
                 Action.NEW_NODE_TYPE,
                 Action.NEW_EDGE_TYPE,
                 Action.MANAGE_NODE_TYPES,

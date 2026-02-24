@@ -7,12 +7,15 @@ use crate::{
         },
         services::ValidationService,
     },
-    domain::models::{CreateAccess, GraphId, Role, UserId},
+    domain::models::{
+        CreateAccess, CreateEdgeSchema, CreateNodeSchema, CreatePropertySchema, EdgeSchemaId,
+        GraphId, NodeSchemaId, Role, UserId,
+    },
     infrastructure::{
         clients::{AiClient, KnowledgeClient},
         repositories::{AccessRepository, GraphRepository},
     },
-    presentation::errors::AppError,
+    presentation::errors::{AppError, DatabaseError},
 };
 use sqlx::PgPool;
 
@@ -125,26 +128,93 @@ impl GraphService {
         Ok(schema)
     }
 
+    #[tracing::instrument(level = "trace", skip(self, graph_id, create_graph_schema))]
+    pub async fn create_schema(
+        &self,
+        graph_id: GraphId,
+        create_graph_schema: CreateGraphSchemaDto,
+    ) -> Result<GraphSchemaDto, AppError> {
+        let domain = create_graph_schema.into_domain();
+        let nodes_schemas_with_ids: Vec<(NodeSchemaId, CreateNodeSchema)> = domain
+            .nodes
+            .iter()
+            .map(|n| (NodeSchemaId::new(), n.clone()))
+            .collect();
+        let edges_schemas_with_ids: Vec<(EdgeSchemaId, CreateEdgeSchema)> = domain
+            .edges
+            .iter()
+            .map(|e| (EdgeSchemaId::new(), e.clone()))
+            .collect();
+        let properties_schemas_with_ids = nodes_schemas_with_ids
+            .iter()
+            .flat_map(|(node_schema_id, node_schema)| {
+                node_schema.properties.iter().map(|p| CreatePropertySchema {
+                    node_schema_id: Some(node_schema_id.clone()),
+                    ..p.clone()
+                })
+            })
+            .chain(
+                edges_schemas_with_ids
+                    .iter()
+                    .flat_map(|(edge_schema_id, edge_schema)| {
+                        edge_schema.properties.iter().map(|p| CreatePropertySchema {
+                            edge_schema_id: Some(edge_schema_id.clone()),
+                            ..p.clone()
+                        })
+                    }),
+            )
+            .collect();
+
+        let mut txn = self.pool.begin().await?;
+        let _nodes_schemas = self
+            .repository
+            .create_nodes_schemas(&mut txn, graph_id, nodes_schemas_with_ids)
+            .await?;
+        let _edges_schemas = self
+            .repository
+            .create_edges_schemas(&mut txn, graph_id, edges_schemas_with_ids)
+            .await?;
+        let _properties = self
+            .repository
+            .create_properties(&mut txn, properties_schemas_with_ids)
+            .await?;
+        let schema = self.repository.get_schema(&mut txn, graph_id).await?;
+        txn.commit().await?;
+
+        Ok(schema.into())
+    }
+
     #[tracing::instrument(level = "trace", skip(self, graph_id, create_node_schema))]
     pub async fn create_node_schema(
         &self,
         graph_id: GraphId,
         create_node_schema: CreateNodeSchemaDto,
     ) -> Result<NodeSchemaDto, AppError> {
+        let domain = create_node_schema.into_domain();
         let mut txn = self.pool.begin().await?;
-        let node_schema = self
+        let nodes_schemas = self
             .repository
-            .create_node_schema(&mut txn, graph_id, create_node_schema.clone().into_domain())
+            .create_nodes_schemas(
+                &mut txn,
+                graph_id,
+                vec![(NodeSchemaId::new(), domain.clone())],
+            )
             .await?;
         let properties = self
             .repository
-            .create_properties(&mut txn, create_node_schema.into_domain().properties)
+            .create_properties(&mut txn, domain.properties)
             .await?;
         txn.commit().await?;
 
         Ok(NodeSchemaDto {
             properties: properties.into_iter().map(|p| p.into()).collect(),
-            ..node_schema.into()
+            ..nodes_schemas
+                .into_iter()
+                .next()
+                .ok_or_else(|| DatabaseError::UnexpectedState {
+                    reason: "No rows returned for node schema".to_string(),
+                })?
+                .into()
         })
     }
 
@@ -154,20 +224,31 @@ impl GraphService {
         graph_id: GraphId,
         create_edge_schema: CreateEdgeSchemaDto,
     ) -> Result<EdgeSchemaDto, AppError> {
+        let domain = create_edge_schema.into_domain();
         let mut txn = self.pool.begin().await?;
-        let edge_schema = self
+        let edges_schemas = self
             .repository
-            .create_edge_schema(&mut txn, graph_id, create_edge_schema.clone().into_domain())
+            .create_edges_schemas(
+                &mut txn,
+                graph_id,
+                vec![(EdgeSchemaId::new(), domain.clone())],
+            )
             .await?;
         let properties = self
             .repository
-            .create_properties(&mut txn, create_edge_schema.into_domain().properties)
+            .create_properties(&mut txn, domain.properties)
             .await?;
         txn.commit().await?;
 
         Ok(EdgeSchemaDto {
             properties: properties.into_iter().map(|p| p.into()).collect(),
-            ..edge_schema.into()
+            ..edges_schemas
+                .into_iter()
+                .next()
+                .ok_or_else(|| DatabaseError::UnexpectedState {
+                    reason: "No rows returned for edge schema".to_string(),
+                })?
+                .into()
         })
     }
 

@@ -1,9 +1,11 @@
 "use client";
 
+import DraftElementSchemaItem from "@/components/graph/items/draft-element-schema";
 import { Button } from "@/components/ui/button";
-import { FieldGroup } from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGraph } from "@/contexts/graph-context";
+import { useGraphSchemaForm } from "@/hooks/use-graph-schema-form";
 import { ApiProvider } from "@/lib/api/provider";
 import { CheckIcon, ChevronRightIcon } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
@@ -36,6 +38,14 @@ const GenerateSchemaContent = () => {
       },
       validator: checkFileSize
     });
+  const {
+    nodesSchemas,
+    edgesSchemas,
+    loadGraphSchema,
+    validateGraphSchema,
+    graphSchemaErrors,
+    submitGraphSchema
+  } = useGraphSchemaForm();
 
   const dropzoneStyle = useMemo(() => ({
     flex: 1,
@@ -78,7 +88,8 @@ const GenerateSchemaContent = () => {
       const fileType = file.type;
       try {
         setIsGenerating(true);
-        await graphService.generateSchema(metadata!.graph_id, file, fileType);
+        const res = await graphService.generateSchema(metadata!.graph_id, file, fileType);
+        loadGraphSchema(res);
       } catch (error) {
         console.error("Error generating schema:", error);
       } finally {
@@ -98,8 +109,9 @@ const GenerateSchemaContent = () => {
         await generateSchema();
       }
     } else if (currentStep === 1) {
-      if (true) {
+      if (validateGraphSchema()) {
         setCurrentStep(2);
+        await submitGraphSchema();
       }
     } else if (currentStep === 2) {
       if (true) {
@@ -140,7 +152,7 @@ const GenerateSchemaContent = () => {
         <div className="no-scrollbar px-1 overflow-y-auto">
           <TabsContent value={steps[0]}>
             <FieldGroup>
-              <div>
+              <Field>
                 <div {...getRootProps({ style: dropzoneStyle })}>
                   <input {...getInputProps()} />
                   <p>Drag & drop some files here, or click to select files</p>
@@ -149,13 +161,40 @@ const GenerateSchemaContent = () => {
                 {acceptedFiles.map((file) => (
                   <li key={file.path}>{file.name} - {(file.size / 1024).toFixed(2)} KB</li>
                 ))}
-              </div>
+              </Field>
             </FieldGroup>
           </TabsContent>
           <TabsContent value={steps[1]}>
             <FieldGroup>
               {isGenerating && <p>Generating schema...</p>}
-              {!isGenerating && <p>Schema generated! Go to next step.</p>}
+              {!isGenerating && (
+                <Field>
+                  <FieldLabel>Nodes</FieldLabel>
+                  {nodesSchemas.map((node, index) => (
+                    <div key={index} className="space-y-1">
+                      <DraftElementSchemaItem
+                        kind="node"
+                        label={node.value.label}
+                        color={node.value.color}
+                        properties={node.value.properties}
+                      />
+                      <FieldError>{graphSchemaErrors[node.id]}</FieldError>
+                    </div>
+                  ))}
+                  <FieldLabel>Edges</FieldLabel>
+                  {edgesSchemas.map((edge, index) => (
+                    <div key={index} className="space-y-1">
+                      <DraftElementSchemaItem
+                        kind="edge"
+                        label={edge.value.label}
+                        color={edge.value.color}
+                        properties={edge.value.properties}
+                      />
+                      <FieldError>{graphSchemaErrors[edge.id]}</FieldError>
+                    </div>
+                  ))}
+                </Field>
+              )}
             </FieldGroup>
           </TabsContent>
           <TabsContent value={steps[2]}>

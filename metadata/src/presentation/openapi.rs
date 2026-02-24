@@ -20,6 +20,7 @@ use utoipa::OpenApi;
         crate::presentation::http::graph_handler::get_data,
         crate::presentation::http::graph_handler::create_graph,
         crate::presentation::http::graph_handler::generate_schema,
+        crate::presentation::http::graph_handler::create_schema,
         crate::presentation::http::graph_handler::create_node_schema,
         crate::presentation::http::graph_handler::create_edge_schema,
         crate::presentation::http::graph_handler::insert_node_data,

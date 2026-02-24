@@ -37,6 +37,7 @@ export interface GraphService {
     file_content: File,
     file_type: string
   ): Promise<CreateGraphSchema>;
+  createSchema(graph_id: string, body: CreateGraphSchema): Promise<GraphSchema>;
   createNodeSchema(graph_id: string, body: CreateNodeSchema): Promise<NodeSchema>;
   createEdgeSchema(graph_id: string, body: CreateEdgeSchema): Promise<EdgeSchema>;
   createNodeData(graph_id: string, body: CreateNodeData): Promise<NodeData>;
@@ -81,7 +82,12 @@ export class ApiGraphService implements GraphService {
   async getSchema(graph_id: string): Promise<GraphSchema> {
     try {
       const response = await this.api(`/${graph_id}/schema`).get();
-      return v.parse(GraphSchemaDto, response);
+      const validation = v.safeParse(GraphSchemaDto, response);
+      if (!validation.success) {
+        console.error("Validation errors:", validation.issues);
+        throw new Error("Invalid response format");
+      }
+      return validation.output;
     } catch (error) {
       console.error("Failed to get graph schema:", error);
       throw error;
@@ -112,7 +118,175 @@ export class ApiGraphService implements GraphService {
       } else {
         formData.append("file_type", "txt");
       }
-      const response = await this.api(`/${graph_id}/schema/generate`).post(formData);
+      // const response = await this.api(`/${graph_id}/schema/generate`).post(formData);
+      const response = {
+        "nodes": [
+          {
+            "label": "Person",
+            "color": "#28B463",
+            "properties": [
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Name",
+                "property_type": "String",
+                "metadata": {
+                  "options": null
+                }
+              },
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Location",
+                "property_type": "String",
+                "metadata": {
+                  "options": null
+                }
+              },
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Years of Experience",
+                "property_type": "Number",
+                "metadata": {
+                  "options": null
+                }
+              },
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Role",
+                "property_type": "Select",
+                "metadata": {
+                  "options": [
+                    "Keeper",
+                    "Witness"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "label": "Element",
+            "color": "#FFC300",
+            "properties": [
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Type",
+                "property_type": "Select",
+                "metadata": {
+                  "options": [
+                    "Fog",
+                    "Sea",
+                    "Light",
+                    "Gannet"
+                  ]
+                }
+              },
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Color",
+                "property_type": "String",
+                "metadata": {
+                  "options": null
+                }
+              },
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Behavior",
+                "property_type": "Select",
+                "metadata": {
+                  "options": [
+                    "Indifferent",
+                    "Responsive"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "label": "Object",
+            "color": "#C70039",
+            "properties": [
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Name",
+                "property_type": "String",
+                "metadata": {
+                  "options": null
+                }
+              },
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Type",
+                "property_type": "Select",
+                "metadata": {
+                  "options": [
+                    "Lighthouse",
+                    "Logbook"
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "label": "Records",
+            "color": "#FF5733",
+            "properties": [
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Type",
+                "property_type": "Select",
+                "metadata": {
+                  "options": [
+                    "Routine",
+                    "Observation"
+                  ]
+                }
+              },
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Frequency",
+                "property_type": "Select",
+                "metadata": {
+                  "options": [
+                    "Daily",
+                    "Weekly",
+                    "Monthly"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "label": "Communicates With",
+            "color": "#3355FF",
+            "properties": [
+              {
+                "node_schema_id": null,
+                "edge_schema_id": null,
+                "label": "Connection Type",
+                "property_type": "Select",
+                "metadata": {
+                  "options": [
+                    "Parent-Child",
+                    "Profession"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      };
       const schema = v.safeParse(CreateGraphSchemaDto, response);
       if (!schema.success) {
         console.error("Validation errors:", schema.issues);
@@ -121,6 +295,16 @@ export class ApiGraphService implements GraphService {
       return schema.output;
     } catch (error) {
       console.error("Failed to generate graph schema:", error);
+      throw error;
+    }
+  }
+
+  async createSchema(graph_id: string, body: CreateGraphSchema): Promise<GraphSchema> {
+    try {
+      const response = await this.api(`/${graph_id}/schema`).post(body);
+      return v.parse(GraphSchemaDto, response);
+    } catch (error) {
+      console.error("Failed to create graph schema:", error);
       throw error;
     }
   }

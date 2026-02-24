@@ -23,7 +23,7 @@ const PropertyMetadataDto = v.object({
 });
 
 export const PropertySchemaDto = v.object({
-  property_id: v.string(),
+  property_schema_id: v.string(),
   label: v.string(),
   key: v.string(),
   property_type: PropertyTypeDto,
