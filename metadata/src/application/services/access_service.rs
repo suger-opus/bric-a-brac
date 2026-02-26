@@ -1,8 +1,6 @@
 use super::super::dtos::{AccessDto, CreateAccessDto};
-use crate::{
-    domain::models::GraphId, infrastructure::repositories::AccessRepository,
-    presentation::errors::AppError,
-};
+use crate::{infrastructure::repositories::AccessRepository, presentation::errors::AppError};
+use bric_a_brac_dtos::GraphIdDto;
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -19,13 +17,13 @@ impl AccessService {
     #[tracing::instrument(level = "trace", skip(self, graph_id, create_access_dto))]
     pub async fn create(
         &self,
-        graph_id: GraphId,
+        graph_id: GraphIdDto,
         create_access_dto: CreateAccessDto,
     ) -> Result<AccessDto, AppError> {
         let mut txn = self.pool.begin().await?;
         let access = self
             .repository
-            .create(&mut txn, create_access_dto.into_domain(graph_id))
+            .create(&mut txn, create_access_dto.into_domain(graph_id.into()))
             .await?;
         txn.commit().await?;
 

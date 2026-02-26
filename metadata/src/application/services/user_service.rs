@@ -1,6 +1,6 @@
-use super::super::dtos::{CreateUserDto, UserDto};
 use crate::{
-    domain::models::UserId, infrastructure::repositories::UserRepository,
+    application::dtos::{CreateUserDto, UserDto, UserIdDto},
+    infrastructure::repositories::UserRepository,
     presentation::errors::AppError,
 };
 use sqlx::PgPool;
@@ -16,12 +16,12 @@ impl UserService {
         UserService { pool, repository }
     }
 
-    #[tracing::instrument(level = "trace", skip(self, create_user_dto))]
-    pub async fn create(&self, create_user_dto: CreateUserDto) -> Result<UserDto, AppError> {
+    #[tracing::instrument(level = "trace", skip(self, create_user))]
+    pub async fn create(&self, create_user: CreateUserDto) -> Result<UserDto, AppError> {
         let mut txn = self.pool.begin().await?;
         let user = self
             .repository
-            .create(&mut txn, create_user_dto.into_domain())
+            .create(&mut txn, create_user.into())
             .await?;
         txn.commit().await?;
 
@@ -29,9 +29,9 @@ impl UserService {
     }
 
     #[tracing::instrument(level = "trace", skip(self, user_id))]
-    pub async fn get(&self, user_id: UserId) -> Result<UserDto, AppError> {
+    pub async fn get(&self, user_id: UserIdDto) -> Result<UserDto, AppError> {
         let mut txn = self.pool.begin().await?;
-        let user = self.repository.get(&mut txn, user_id).await?;
+        let user = self.repository.get(&mut txn, user_id.into()).await?;
         txn.commit().await?;
 
         Ok(user.into())

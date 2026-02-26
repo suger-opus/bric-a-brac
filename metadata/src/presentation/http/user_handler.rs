@@ -1,5 +1,7 @@
-use super::super::{extractors::AuthenticatedUser, state::ApiState};
-use crate::application::dtos::{CreateUserDto, UserDto};
+use crate::{
+    application::dtos::{CreateUserDto, UserDto},
+    presentation::{extractors::AuthenticatedUser, state::ApiState},
+};
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 
 #[utoipa::path(

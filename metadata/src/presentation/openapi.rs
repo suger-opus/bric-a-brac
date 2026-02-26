@@ -1,7 +1,3 @@
-use crate::application::dtos::{
-    CreateEdgeSchemaDto, CreateGraphSchemaDto, CreateNodeSchemaDto, CreatePropertySchemaDto,
-    PropertyMetadataDto, PropertyTypeDto,
-};
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
@@ -20,6 +16,7 @@ use utoipa::OpenApi;
         crate::presentation::http::graph_handler::get_data,
         crate::presentation::http::graph_handler::create_graph,
         crate::presentation::http::graph_handler::generate_schema,
+        crate::presentation::http::graph_handler::generate_data,
         crate::presentation::http::graph_handler::create_schema,
         crate::presentation::http::graph_handler::create_node_schema,
         crate::presentation::http::graph_handler::create_edge_schema,
@@ -29,14 +26,3 @@ use utoipa::OpenApi;
     )
 )]
 pub struct ApiDoc;
-
-#[derive(OpenApi)]
-#[openapi(components(schemas(
-    CreateGraphSchemaDto,
-    CreateNodeSchemaDto,
-    CreateEdgeSchemaDto,
-    CreatePropertySchemaDto,
-    PropertyTypeDto,
-    PropertyMetadataDto,
-)))]
-pub struct GenerateSchemaApiDoc;

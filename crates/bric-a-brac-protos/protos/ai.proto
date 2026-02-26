@@ -2,29 +2,25 @@ syntax = "proto3";
 
 package ai;
 
-// AI service for schema generation
+import "common.proto";
+
 service Ai {
-  // Generate a graph schema from file content
-  rpc GenerateSchema(GenerateSchemaRequest) returns (GenerateSchemaResponse);
+    rpc GenerateSchema(GenerateSchemaRequest) returns (common.CreateGraphSchemaProto);
+    rpc GenerateData(GenerateDataRequest) returns (common.CreateGraphDataProto);
 }
 
-// File type enumeration
-enum FileType {
-  FILE_TYPE_TXT = 0;
-  FILE_TYPE_CSV = 1;
-}
-
-// Request to generate a schema
 message GenerateSchemaRequest {
-  // Raw file content as bytes
-  bytes file_content = 1;
-  
-  // Type of the file
-  FileType file_type = 2;
+    bytes file_content = 1;
+    FileTypeProto file_type = 2;
 }
 
-// Response containing the generated schema
-message GenerateSchemaResponse {
-  // Generated schema as JSON string
-  string schema_json = 1;
+message GenerateDataRequest {
+    bytes file_content = 1;
+    FileTypeProto file_type = 2;
+    common.GraphSchemaProto schema = 3;
+}
+
+enum FileTypeProto {
+    TXT = 0;
+    CSV = 1;
 }

@@ -4,7 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+bric-a-brac-id = { workspace = true }
 bric-a-brac-protos = { workspace = true }
+bric-a-brac-dtos = { workspace = true }
 
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
@@ -13,10 +15,13 @@ neo4rs = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tonic = { workspace = true }
+utoipa = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 
 [lints]

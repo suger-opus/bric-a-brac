@@ -1,50 +1,26 @@
-use super::{EdgeDataDto, EdgeSchemaDto, NodeDataDto, NodeSchemaDto, RoleDto};
-use crate::{
-    application::dtos::{CreateEdgeSchemaDto, CreateNodeSchemaDto},
-    domain::models::{
-        CreateGraph, CreateGraphSchema, GraphData, GraphId, GraphMetadata, GraphSchema, Reddit,
-    },
-};
+use super::RoleDto;
+use crate::domain::models::{CreateGraphModel, GraphIdModel, GraphMetadataModel, RedditModel};
+use bric_a_brac_dtos::GraphIdDto;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
-pub struct CreateGraphDto {
-    #[validate(length(min = 3, max = 100))]
-    #[schema(min_length = 3, max_length = 100)]
-    pub name: String,
-
-    #[validate(length(min = 0, max = 10000))]
-    #[schema(min_length = 0, max_length = 10000)]
-    pub description: String,
-
-    pub is_public: bool,
-}
-
-impl CreateGraphDto {
-    pub fn into_domain(self) -> CreateGraph {
-        CreateGraph {
-            name: self.name,
-            description: self.description,
-            is_public: self.is_public,
-        }
+impl From<GraphIdModel> for GraphIdDto {
+    fn from(graph_id: GraphIdModel) -> Self {
+        Self::from(*graph_id.as_ref())
     }
 }
 
-#[derive(Debug, Serialize, ToSchema)]
-pub struct RedditDto {}
-
-impl From<Reddit> for RedditDto {
-    fn from(_reddit: Reddit) -> Self {
-        RedditDto {}
+impl From<GraphIdDto> for GraphIdModel {
+    fn from(graph_id: GraphIdDto) -> Self {
+        Self::from(*graph_id.as_ref())
     }
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct GraphMetadataDto {
-    pub graph_id: GraphId,
+    pub graph_id: GraphIdDto,
     pub name: String,
     pub description: String,
     pub is_public: bool,
@@ -61,10 +37,10 @@ pub struct GraphMetadataDto {
     pub nb_cheers: u32,
 }
 
-impl From<GraphMetadata> for GraphMetadataDto {
-    fn from(metadata: GraphMetadata) -> Self {
+impl From<GraphMetadataModel> for GraphMetadataDto {
+    fn from(metadata: GraphMetadataModel) -> Self {
         Self {
-            graph_id: metadata.graph_id,
+            graph_id: metadata.graph_id.into(),
             name: metadata.name,
             description: metadata.description,
             is_public: metadata.is_public,
@@ -84,73 +60,34 @@ impl From<GraphMetadata> for GraphMetadataDto {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct GraphSchemaDto {
-    pub nodes: Vec<NodeSchemaDto>,
-    pub edges: Vec<EdgeSchemaDto>,
-}
+pub struct RedditDto {}
 
-impl From<GraphSchema> for GraphSchemaDto {
-    fn from(schema: GraphSchema) -> Self {
-        Self {
-            nodes: schema.nodes.into_iter().map(NodeSchemaDto::from).collect(),
-            edges: schema.edges.into_iter().map(EdgeSchemaDto::from).collect(),
-        }
+impl From<RedditModel> for RedditDto {
+    fn from(_reddit: RedditModel) -> Self {
+        RedditDto {}
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
-pub struct CreateGraphSchemaDto {
-    #[validate(nested)]
-    pub nodes: Vec<CreateNodeSchemaDto>,
-    #[validate(nested)]
-    pub edges: Vec<CreateEdgeSchemaDto>,
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct CreateGraphDto {
+    #[validate(length(min = 3, max = 100))]
+    #[schema(min_length = 3, max_length = 100)]
+    pub name: String,
+
+    #[validate(length(min = 0, max = 10000))]
+    #[schema(min_length = 0, max_length = 10000)]
+    pub description: String,
+
+    pub is_public: bool,
 }
 
-impl CreateGraphSchemaDto {
-    pub fn into_domain(self) -> CreateGraphSchema {
-        CreateGraphSchema {
-            nodes: self
-                .nodes
-                .into_iter()
-                .map(|node| node.into_domain())
-                .collect(),
-            edges: self
-                .edges
-                .into_iter()
-                .map(|edge| edge.into_domain())
-                .collect(),
-        }
-    }
-}
-
-impl From<CreateGraphSchema> for CreateGraphSchemaDto {
-    fn from(schema: CreateGraphSchema) -> Self {
-        Self {
-            nodes: schema
-                .nodes
-                .into_iter()
-                .map(CreateNodeSchemaDto::from)
-                .collect(),
-            edges: schema
-                .edges
-                .into_iter()
-                .map(CreateEdgeSchemaDto::from)
-                .collect(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct GraphDataDto {
-    pub nodes: Vec<NodeDataDto>,
-    pub edges: Vec<EdgeDataDto>,
-}
-
-impl From<GraphData> for GraphDataDto {
-    fn from(data: GraphData) -> Self {
-        Self {
-            nodes: data.nodes.into_iter().map(NodeDataDto::from).collect(),
-            edges: data.edges.into_iter().map(EdgeDataDto::from).collect(),
+impl From<CreateGraphDto> for CreateGraphModel {
+    fn from(dto: CreateGraphDto) -> Self {
+        CreateGraphModel {
+            graph_id: GraphIdModel::new(),
+            name: dto.name,
+            description: dto.description,
+            is_public: dto.is_public,
         }
     }
 }

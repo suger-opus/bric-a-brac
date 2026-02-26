@@ -1,6 +1,7 @@
 use super::HttpError;
 use axum::response::{IntoResponse, Response};
-use bric_a_brac_protos::{BaseGrpcClientError, GrpcServiceKind};
+use bric_a_brac_dtos::DtosConversionError;
+use bric_a_brac_protos::BaseGrpcClientError;
 use sqlx::{error::ErrorKind, postgres::PgDatabaseError};
 
 #[derive(Debug, thiserror::Error)]
@@ -8,28 +9,8 @@ pub enum GrpcClientError {
     #[error(transparent)]
     Base(#[from] BaseGrpcClientError),
 
-    #[error("gRPC service {service}: failed to deserialize response into {expected_struct}")]
-    Deserialization {
-        service: GrpcServiceKind,
-        expected_struct: String,
-        #[source]
-        source: serde_json::Error,
-    },
-
-    #[error("gRPC service {service}: response could not be converted to domain model - {reason}")]
-    DomainConversion {
-        service: GrpcServiceKind,
-        reason: String,
-    },
-
-    #[error(
-        "gRPC service {service}: response uuid could not be converted to domain uuid - {source}"
-    )]
-    DomainUuidConversion {
-        service: GrpcServiceKind,
-        #[source]
-        source: uuid::Error,
-    },
+    #[error(transparent)]
+    Conversion(#[from] DtosConversionError),
 }
 
 impl GrpcClientError {

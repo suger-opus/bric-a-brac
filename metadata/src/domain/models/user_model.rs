@@ -1,11 +1,11 @@
 use bric_a_brac_id::id;
 use chrono::{DateTime, Utc};
 
-id!(UserId);
+id!(UserIdModel);
 
 #[derive(Debug, sqlx::FromRow)]
-pub struct User {
-    pub user_id: UserId,
+pub struct UserModel {
+    pub user_id: UserIdModel,
     pub username: String,
     pub email: String,
     pub created_at: DateTime<Utc>,
@@ -13,7 +13,8 @@ pub struct User {
 }
 
 #[derive(Debug)]
-pub struct CreateUser {
+pub struct CreateUserModel {
+    pub user_id: UserIdModel,
     pub username: String,
     pub email: String,
 }

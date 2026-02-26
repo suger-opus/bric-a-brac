@@ -1,117 +1,74 @@
-use std::str::Utf8Error;
-
 use crate::{
-    infrastructure::clients::{MetadataClient, OpenRouterClient},
-    presentation::errors::AppError,
+    infrastructure::clients::OpenRouterClient,
+    presentation::errors::{AppError, OpenRouterClientError},
 };
+use bric_a_brac_dtos::{generate_graph_schema_doc, CreateGraphSchemaDto};
+use std::collections::HashSet;
+use validator::Validate;
 
 pub struct SchemaService {
     openrouter_client: OpenRouterClient,
-    metadata_client: MetadataClient,
 }
 
 impl SchemaService {
-    pub fn new(openrouter_client: OpenRouterClient, metadata_client: MetadataClient) -> Self {
-        Self {
-            openrouter_client,
-            metadata_client,
-        }
+    pub fn new(openrouter_client: OpenRouterClient) -> Self {
+        Self { openrouter_client }
     }
 
-    #[tracing::instrument(skip(self, file_content))]
-    pub async fn generate_schema(&self, file_content: &[u8]) -> Result<String, AppError> {
-        let openapi_spec = self.metadata_client.clone().get_openapi_spec().await?;
-        let schema_spec = OpenRouterClient::openai_to_structured_output_schema(&openapi_spec);
+    // TODO: loop & tools
+    #[tracing::instrument(level = "trace", skip(self, file_content))]
+    pub async fn generate_schema(
+        &self,
+        file_content: Vec<u8>,
+    ) -> Result<CreateGraphSchemaDto, AppError> {
+        let openapi_spec = generate_graph_schema_doc();
+        let schema_spec = openai_to_structured_output_schema(&openapi_spec);
 
-        let parsed_data = parse_file(file_content).map_err(|err| AppError::FileParsing {
-            message: "Failed to parse file".to_string(),
-            source: err,
-        })?;
+        let parsed_content =
+            std::str::from_utf8(&file_content).map_err(|err| AppError::FileParsing {
+                message: "Failed to parse file".to_string(),
+                source: err,
+            })?;
         let system_prompt = build_system_prompt();
-        let user_prompt = build_user_prompt(&parsed_data);
+        let user_prompt = build_user_prompt(&parsed_content);
 
-        let mut previous_errors = None;
-        let mut schema_str = "".to_string();
-        for attempt in 1..=1 {
-            tracing::info!(attempt, "Generating schema");
+        let generated_schema = self
+            .openrouter_client
+            .chat(
+                &system_prompt,
+                &user_prompt,
+                Some(schema_spec.clone()),
+                None,
+            )
+            .await?;
+        let generated_schema = rename_attributes_to_properties(generated_schema);
+        let generated_schema = self.validate_schema(&generated_schema)?;
 
-            let generated_schema = self
-                .openrouter_client
-                .chat(
-                    &system_prompt,
-                    &user_prompt,
-                    schema_spec.clone(),
-                    previous_errors.as_deref(),
-                )
-                .await?;
-            let generated_schema = rename_attributes_to_properties(generated_schema);
-
-            match self.validate_schema(&generated_schema).await {
-                Ok(()) => {
-                    tracing::info!("Schema validation successful on attempt {}", attempt);
-                    schema_str = serde_json::to_string(&generated_schema).map_err(|err| {
-                        AppError::JsonToString {
-                            message: "Failed to serialize schema".to_string(),
-                            source: err,
-                        }
-                    })?;
-                    break;
-                }
-                Err(validation_errors) => {
-                    tracing::warn!(
-                        attempt,
-                        errors = %validation_errors,
-                        "Schema validation failed"
-                    );
-
-                    previous_errors = Some(validation_errors);
-
-                    if attempt == 3 {
-                        return Err(AppError::SchemaGeneration {
-                            message: format!(
-                                "Schema generation failed after 3 attempts. Last errors: {}",
-                                previous_errors.unwrap()
-                            ),
-                        });
-                    }
-                }
-            }
-        }
-
-        Ok(schema_str)
+        Ok(generated_schema)
     }
 
-    #[tracing::instrument(skip(self, schema))]
-    async fn validate_schema(&self, schema: &serde_json::Value) -> Result<(), String> {
-        let schema = serde_json::to_string(schema)
-            .map_err(|e| format!("Failed to serialize schema: {}", e))?;
+    #[tracing::instrument(level = "trace", skip(self, schema))]
+    fn validate_schema(
+        &self,
+        schema: &serde_json::Value,
+    ) -> Result<CreateGraphSchemaDto, AppError> {
+        let schema =
+            serde_json::from_str::<CreateGraphSchemaDto>(&schema.to_string()).map_err(|err| {
+                OpenRouterClientError::ResponseConversion {
+                    context: "Failed to parse generated schema".to_string(),
+                    source: err,
+                }
+            })?;
 
-        let response = self
-            .metadata_client
-            .clone()
-            .validate_schema(schema)
-            .await
-            .map_err(|e| format!("gRPC call failed: {}", e))?;
+        schema
+            .validate()
+            .map_err(|err| OpenRouterClientError::ResponseValidation {
+                context: format!("Generated schema is invalid: {}", err),
+                source: err,
+            })?;
 
-        if response.is_valid {
-            Ok(())
-        } else {
-            let errors = response
-                .errors
-                .iter()
-                .map(|e| format!("  - {}: {}", e.field, e.message))
-                .collect::<Vec<_>>()
-                .join(
-                    "
-                ",
-                );
-            Err(errors)
-        }
+        Ok(schema)
     }
-}
-
-fn parse_file(content: &[u8]) -> Result<&str, Utf8Error> {
-    std::str::from_utf8(content)
 }
 
 fn build_system_prompt() -> String {
@@ -140,9 +97,159 @@ Generate a complete graph schema with nodes, edges, and their attributes."##,
     )
 }
 
-/// Recursively renames every object key `"attributes"` back to `"properties"`,
-/// reversing the rename applied by `openai_to_structured_output_schema` before
-/// the response is forwarded to the metadata service.
+pub fn openai_to_structured_output_schema(openapi_spec: &serde_json::Value) -> serde_json::Value {
+    let schemas = openapi_spec
+        .get("components")
+        .and_then(|c| c.get("schemas"))
+        .and_then(|s| s.as_object())
+        .cloned()
+        .unwrap_or_default();
+
+    if schemas.is_empty() {
+        return serde_json::Value::Object(serde_json::Map::new());
+    }
+
+    // Find all referenced schema names
+    let mut referenced = HashSet::new();
+    for (_name, schema) in &schemas {
+        collect_schema_refs(schema, &mut referenced);
+    }
+
+    // Root schema is the one not referenced by any other schema
+    let root_name = schemas
+        .keys()
+        .find(|name| !referenced.contains(name.as_str()))
+        .cloned();
+
+    let root_name = match root_name {
+        Some(name) => name,
+        None => return serde_json::Value::Object(serde_json::Map::new()),
+    };
+
+    let root_schema = schemas.get(&root_name).cloned().unwrap();
+    resolve_schema(&root_schema, &schemas)
+}
+
+fn collect_schema_refs(value: &serde_json::Value, refs: &mut HashSet<String>) {
+    match value {
+        serde_json::Value::Object(obj) => {
+            if let Some(ref_val) = obj.get("$ref") {
+                if let Some(ref_str) = ref_val.as_str() {
+                    if let Some(name) = ref_str.strip_prefix("#/components/schemas/") {
+                        refs.insert(name.to_string());
+                    }
+                }
+            }
+            for (_, v) in obj {
+                collect_schema_refs(v, refs);
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for v in arr {
+                collect_schema_refs(v, refs);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn resolve_schema(
+    schema: &serde_json::Value,
+    all_schemas: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Value {
+    match schema {
+        serde_json::Value::Object(obj) => {
+            // Resolve $ref first
+            if let Some(ref_val) = obj.get("$ref") {
+                if let Some(ref_str) = ref_val.as_str() {
+                    if let Some(name) = ref_str.strip_prefix("#/components/schemas/") {
+                        if let Some(referenced) = all_schemas.get(name) {
+                            return resolve_schema(referenced, all_schemas);
+                        }
+                    }
+                }
+            }
+
+            let schema_type = obj.get("type").and_then(|t| t.as_str());
+
+            if schema_type == Some("object") {
+                let mut result = serde_json::Map::new();
+                result.insert(
+                    "type".to_string(),
+                    serde_json::Value::String("object".to_string()),
+                );
+                result.insert(
+                    "additionalProperties".to_string(),
+                    serde_json::Value::Bool(false),
+                );
+
+                let properties = obj.get("properties").and_then(|p| p.as_object());
+                let required = obj.get("required").and_then(|r| r.as_array());
+
+                if let Some(props) = properties {
+                    // If required is specified, only keep required properties.
+                    // Otherwise, keep all properties and make them all required.
+                    let required_keys: Vec<String> = if let Some(req) = required {
+                        req.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect()
+                    } else {
+                        props.keys().cloned().collect()
+                    };
+
+                    // Rename the domain field "properties" → "attributes" to avoid
+                    // clashing with the JSON Schema keyword "properties".
+                    let rename = |k: &str| {
+                        if k == "properties" {
+                            "attributes".to_string()
+                        } else {
+                            k.to_string()
+                        }
+                    };
+
+                    result.insert(
+                        "required".to_string(),
+                        serde_json::Value::Array(
+                            required_keys
+                                .iter()
+                                .map(|k| serde_json::Value::String(rename(k)))
+                                .collect(),
+                        ),
+                    );
+
+                    let mut resolved_props = serde_json::Map::new();
+                    for key in &required_keys {
+                        if let Some(prop_schema) = props.get(key) {
+                            resolved_props
+                                .insert(rename(key), resolve_schema(prop_schema, all_schemas));
+                        }
+                    }
+                    result.insert(
+                        "properties".to_string(),
+                        serde_json::Value::Object(resolved_props),
+                    );
+                }
+
+                serde_json::Value::Object(result)
+            } else {
+                // Non-object: copy all fields except 'example', resolving nested values
+                let mut result = serde_json::Map::new();
+                for (key, value) in obj {
+                    if key == "example" {
+                        continue;
+                    }
+                    result.insert(key.clone(), resolve_schema(value, all_schemas));
+                }
+                serde_json::Value::Object(result)
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            serde_json::Value::Array(arr.iter().map(|v| resolve_schema(v, all_schemas)).collect())
+        }
+        other => other.clone(),
+    }
+}
+
 pub fn rename_attributes_to_properties(value: serde_json::Value) -> serde_json::Value {
     match value {
         serde_json::Value::Object(map) => {
@@ -172,6 +279,64 @@ pub fn rename_attributes_to_properties(value: serde_json::Value) -> serde_json::
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn test_openai_to_structured_output_schema() {
+        let openapi_spec = generate_graph_schema_doc();
+        let result = openai_to_structured_output_schema(&openapi_spec);
+
+        let property_schema = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "property_type", "metadata"],
+            "properties": {
+                "label": { "type": "string", "minLength": 1, "maxLength": 25 },
+                "property_type": { "type": "string", "enum": ["Number", "String", "Boolean", "Select"] },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["options"],
+                    "properties": {
+                        "options": { "type": ["array", "null"], "items": { "minLength": 1, "maxLength": 50, "type": "string" } }
+                    }
+                }
+            }
+        });
+
+        let node_schema = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "color", "attributes"],
+            "properties": {
+                "label": { "type": "string", "minLength": 1, "maxLength": 25 },
+                "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "attributes": { "type": "array", "items": property_schema.clone() }
+            }
+        });
+
+        let edge_schema = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "color", "attributes"],
+            "properties": {
+                "label": { "type": "string", "minLength": 1, "maxLength": 25 },
+                "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                "attributes": { "type": "array", "items": property_schema }
+            }
+        });
+
+        let expected = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["nodes", "edges"],
+            "properties": {
+                "nodes": { "type": "array", "items": node_schema },
+                "edges": { "type": "array", "items": edge_schema }
+            }
+        });
+
+        assert_eq!(result, expected);
+    }
 
     #[test]
     fn test_rename_attributes_to_properties() {
@@ -321,7 +486,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rename_preserves_non_attributes_keys() {
+    fn test_rename_attributes_to_properties_preserves_attributes() {
         let input = json!({
             "nodes": [{ "label": "X", "attributes": [], "color": "#000" }]
         });

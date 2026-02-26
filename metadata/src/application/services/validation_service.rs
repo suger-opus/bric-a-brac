@@ -1,10 +1,9 @@
 use crate::{
-    domain::models::{
-        CreateEdgeData, CreateNodeData, PropertiesData, PropertyData, PropertySchema, PropertyType,
-    },
+    domain::models::{PropertySchemaModel, PropertyTypeModel},
     infrastructure::repositories::GraphRepository,
     presentation::errors::{AppError, RequestError},
 };
+use bric_a_brac_dtos::{CreateEdgeDataDto, CreateNodeDataDto, PropertiesDataDto};
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -21,7 +20,7 @@ impl ValidationService {
     #[tracing::instrument(level = "trace", skip(self, create_node_data))]
     pub async fn validate_create_node_data(
         &self,
-        create_node_data: &CreateNodeData,
+        create_node_data: &CreateNodeDataDto,
     ) -> Result<(), AppError> {
         let mut txn = self.pool.begin().await?;
         let node_schema = self
@@ -37,7 +36,7 @@ impl ValidationService {
     #[tracing::instrument(level = "trace", skip(self, create_edge_data))]
     pub async fn validate_create_edge_data(
         &self,
-        create_edge_data: &CreateEdgeData,
+        create_edge_data: &CreateEdgeDataDto,
     ) -> Result<(), AppError> {
         let mut txn = self.pool.begin().await?;
         let edge_schema = self
@@ -53,13 +52,11 @@ impl ValidationService {
     #[tracing::instrument(level = "trace", skip(self, properties_data, properties_schemas))]
     fn validate_properties(
         &self,
-        properties_data: &PropertiesData,
-        properties_schemas: &[PropertySchema],
+        properties_data: &PropertiesDataDto,
+        properties_schemas: &[PropertySchemaModel],
     ) -> Result<(), AppError> {
-        properties_data
-            .0
-            .keys()
-            .try_for_each(|property_data_key| -> Result<(), AppError> {
+        properties_data.values.keys().try_for_each(
+            |property_data_key| -> Result<(), AppError> {
                 if let Some(_) = properties_schemas
                     .iter()
                     .find(|schema| schema.key == *property_data_key)
@@ -72,10 +69,11 @@ impl ValidationService {
                     }
                     .into())
                 }
-            })?;
+            },
+        )?;
 
         properties_schemas.iter().try_for_each(|property_schema| {
-            if let Some(property_data) = properties_data.0.get(&property_schema.key) {
+            if let Some(property_data) = properties_data.values.get(&property_schema.key) {
                 self.validate_property(property_data, property_schema)
             } else {
                 Err(RequestError::InvalidInput {
@@ -93,14 +91,14 @@ impl ValidationService {
     #[tracing::instrument(level = "trace", skip(self, property_data_value, property_schema))]
     fn validate_property(
         &self,
-        property_data_value: &PropertyData,
-        property_schema: &PropertySchema,
+        property_data_value: &serde_json::Value,
+        property_schema: &PropertySchemaModel,
     ) -> Result<(), AppError> {
         match (&property_schema.property_type, property_data_value) {
-            (PropertyType::String, PropertyData::String(_)) => Ok(()),
-            (PropertyType::Number, PropertyData::Number(_)) => Ok(()),
-            (PropertyType::Boolean, PropertyData::Boolean(_)) => Ok(()),
-            (PropertyType::Select, PropertyData::String(value)) => {
+            (PropertyTypeModel::String, serde_json::Value::String(_)) => Ok(()),
+            (PropertyTypeModel::Number, serde_json::Value::Number(_)) => Ok(()),
+            (PropertyTypeModel::Boolean, serde_json::Value::Bool(_)) => Ok(()),
+            (PropertyTypeModel::Select, serde_json::Value::String(value)) => {
                 if let Some(options) = &property_schema.metadata.options {
                     if !options.contains(value) {
                         return Err(RequestError::InvalidInput {

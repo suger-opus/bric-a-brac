@@ -1,0 +1,24 @@
+[package]
+name = "bric-a-brac-dtos"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bric-a-brac-protos = { workspace = true }
+bric-a-brac-id = { workspace = true }
+
+chrono = { workspace = true, features = ["serde"] }
+derive_more = { workspace = true, features = ["debug", "display"] }
+lazy_static = { workspace = true }
+prost-types = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+utoipa = { workspace = true, features = ["chrono", "uuid"]  }
+uuid = { workspace = true, features = ["serde"] }
+validator = { workspace = true, features = ["derive"] }
+
+[lints]
+workspace = true

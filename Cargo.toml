@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/bric-a-brac-id",
     "crates/bric-a-brac-protos",
+    "crates/bric-a-brac-dtos",
     "knowledge",
     "metadata",
     "ai",
@@ -17,9 +18,10 @@ authors = ["suger-opus@proton.me"]
 # Internal crates
 bric-a-brac-id = { path = "crates/bric-a-brac-id" }
 bric-a-brac-protos = { path = "crates/bric-a-brac-protos" }
+bric-a-brac-dtos = { path = "crates/bric-a-brac-dtos" }
 
 # Core dependencies
-anyhow = "1.0"
+anyhow = "1.0.102"
 tokio = "1.41.1"
 
 # Serialization
@@ -31,15 +33,17 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 # CLI
-clap = "4.5"
+clap = "4.5.60"
 
 # Derive macros
 derive_more = "2.1.1"
 
 # gRPC / Protobuf
-prost = "0.13"
-tonic = "0.13"
-tonic-build = "0.13"
+prost = "0.14.3"
+prost-types = "0.14.3"
+tonic = "0.14.5"
+tonic-prost = "0.14.5"
+tonic-prost-build = "0.14.5"
 
 # Database
 sqlx = "0.8"
@@ -57,7 +61,7 @@ multer = "3.1"
 http = "1.4"
 
 # Utilities
-chrono = "0.4"
+chrono = "0.4.44"
 futures-util = "0.3"
 regex = "1.10"
 thiserror = "2.0"

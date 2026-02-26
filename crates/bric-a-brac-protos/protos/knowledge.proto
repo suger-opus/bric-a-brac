@@ -2,56 +2,24 @@ syntax = "proto3";
 
 package knowledge;
 
+import "common.proto";
+
 service Knowledge {
-  rpc InsertNode(InsertNodeRequest) returns (NodeData);
-  rpc InsertEdge(InsertEdgeRequest) returns (EdgeData);
-  rpc LoadGraph(LoadGraphRequest) returns (GraphData);
-}
-
-message InsertNodeRequest {
-  string graph_id = 1;
-  string node_data_id = 2;
-  string key = 3;
-  map<string, PropertyValue> properties = 4;
-}
-
-message InsertEdgeRequest {
-  string edge_data_id = 1;
-  string from_node_data_id = 2;
-  string to_node_data_id = 3;
-  string key = 4;
-  map<string, PropertyValue> properties = 5;
+    rpc LoadGraph(LoadGraphRequest) returns (common.GraphDataProto);
+    rpc InsertNode(InsertNodeRequest) returns (common.NodeDataProto);
+    rpc InsertEdge(InsertEdgeRequest) returns (common.EdgeDataProto);
 }
 
 message LoadGraphRequest {
   string graph_id = 1;
 }
 
-message GraphData {
-  repeated NodeData nodes = 1;
-  repeated EdgeData edges = 2;
+message InsertNodeRequest {
+    string graph_id = 1;
+    common.CreateNodeDataProto node_data = 2;
 }
 
-message PropertyValue {
-  oneof value {
-    string string_value = 1;
-    double number_value = 2;
-    bool bool_value = 3;
-  }
+message InsertEdgeRequest {
+    string graph_id = 1;
+    common.CreateEdgeDataProto edge_data = 2;
 }
-
-message NodeData {
-  string graph_id = 1;
-  string node_data_id = 2;
-  string key = 3;
-  map<string, PropertyValue> properties = 4;
-}
-
-message EdgeData {
-  string edge_data_id = 1;
-  string key = 2;
-  string from_node_data_id = 3;
-  string to_node_data_id = 4;
-  map<string, PropertyValue> properties = 5;
-}
-

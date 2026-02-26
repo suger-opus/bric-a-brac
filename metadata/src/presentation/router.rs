@@ -1,5 +1,3 @@
-use crate::presentation::openapi::GenerateSchemaApiDoc;
-
 use super::{
     http::{access_handler, graph_handler, user_handler},
     openapi::ApiDoc,
@@ -29,18 +27,6 @@ pub fn build(state: ApiState) -> Router {
                 }
             }),
         )
-        .route(
-            "/docs/generate-schema/openapi.json",
-            get(|| async {
-                match GenerateSchemaApiDoc::openapi().to_json() {
-                    Ok(json_str) => match serde_json::from_str::<serde_json::Value>(&json_str) {
-                        Ok(json) => Json(json),
-                        Err(_) => Json(serde_json::json!({})),
-                    },
-                    Err(_) => Json(serde_json::json!({})),
-                }
-            }),
-        )
         .route("/users", post(user_handler::create))
         .route("/users/me", get(user_handler::get_current))
         .route("/graphs", get(graph_handler::get_all_metadata))
@@ -51,6 +37,10 @@ pub fn build(state: ApiState) -> Router {
         .route(
             "/graphs/{graph_id}/schema/generate",
             post(graph_handler::generate_schema),
+        )
+        .route(
+            "/graphs/{graph_id}/data/generate",
+            post(graph_handler::generate_data),
         )
         .route(
             "/graphs/{graph_id}/schema",

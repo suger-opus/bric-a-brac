@@ -1,45 +1,62 @@
-use crate::domain::models::{CreateUser, User, UserId};
+use crate::domain::models::{CreateUserModel, UserIdModel, UserModel};
+use bric_a_brac_id::id;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
 
-#[derive(Debug, Deserialize, ToSchema, Validate)]
-pub struct CreateUserDto {
-    #[validate(email)]
-    #[schema(format = "email")]
-    pub email: String,
-    #[validate(length(min = 3, max = 50))]
-    #[schema(min_length = 3, max_length = 50)]
-    pub username: String,
+id!(UserIdDto);
+
+impl From<UserIdModel> for UserIdDto {
+    fn from(user_id: UserIdModel) -> Self {
+        Self::from(*user_id.as_ref())
+    }
 }
 
-impl CreateUserDto {
-    pub fn into_domain(self) -> CreateUser {
-        CreateUser {
-            email: self.email,
-            username: self.username,
-        }
+impl From<UserIdDto> for UserIdModel {
+    fn from(user_id: UserIdDto) -> Self {
+        Self::from(*user_id.as_ref())
     }
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct UserDto {
-    pub user_id: UserId,
+    pub user_id: UserIdDto,
     pub username: String,
     pub email: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-impl From<User> for UserDto {
-    fn from(user: User) -> Self {
+impl From<UserModel> for UserDto {
+    fn from(user: UserModel) -> Self {
         UserDto {
-            user_id: user.user_id,
+            user_id: user.user_id.into(),
             username: user.username,
             email: user.email,
             created_at: user.created_at,
             updated_at: user.updated_at,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, ToSchema, Validate)]
+pub struct CreateUserDto {
+    #[validate(email)]
+    #[schema(format = "email")]
+    pub email: String,
+
+    #[validate(length(min = 3, max = 50))]
+    #[schema(min_length = 3, max_length = 50)]
+    pub username: String,
+}
+
+impl From<CreateUserDto> for CreateUserModel {
+    fn from(dto: CreateUserDto) -> Self {
+        CreateUserModel {
+            user_id: UserIdModel::new(),
+            email: dto.email,
+            username: dto.username,
         }
     }
 }

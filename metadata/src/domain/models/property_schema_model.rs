@@ -1,57 +1,44 @@
-use super::{EdgeSchemaId, NodeSchemaId};
+use super::{EdgeSchemaIdModel, NodeSchemaIdModel};
 use bric_a_brac_id::id;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-id!(PropertySchemaId);
+id!(PropertySchemaIdModel);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PropertyMetadata {
+pub struct PropertyMetadataModel {
     pub options: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "property_type")]
-pub enum PropertyType {
+pub enum PropertyTypeModel {
     Number,
     String,
     Boolean,
     Select,
 }
 
-impl TryFrom<&str> for PropertyType {
-    type Error = String;
-
-    fn try_from(type_str: &str) -> Result<Self, Self::Error> {
-        match type_str {
-            "Number" => Ok(PropertyType::Number),
-            "String" => Ok(PropertyType::String),
-            "Boolean" => Ok(PropertyType::Boolean),
-            "Select" => Ok(PropertyType::Select),
-            _ => Err(format!("Unsupported property type: {}", type_str)),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct PropertySchema {
-    pub property_schema_id: PropertySchemaId,
-    pub node_schema_id: Option<NodeSchemaId>,
-    pub edge_schema_id: Option<EdgeSchemaId>,
+#[derive(Debug, Clone, Serialize)]
+pub struct PropertySchemaModel {
+    pub property_schema_id: PropertySchemaIdModel,
+    pub node_schema_id: Option<NodeSchemaIdModel>,
+    pub edge_schema_id: Option<EdgeSchemaIdModel>,
     pub label: String,
     pub key: String,
-    pub property_type: PropertyType,
-    pub metadata: PropertyMetadata,
+    pub property_type: PropertyTypeModel,
+    pub metadata: PropertyMetadataModel,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CreatePropertySchema {
-    pub node_schema_id: Option<NodeSchemaId>,
-    pub edge_schema_id: Option<EdgeSchemaId>,
+pub struct CreatePropertySchemaModel {
+    pub property_schema_id: PropertySchemaIdModel,
+    pub node_schema_id: Option<NodeSchemaIdModel>,
+    pub edge_schema_id: Option<EdgeSchemaIdModel>,
     pub label: String,
     pub key: String,
-    pub property_type: PropertyType,
-    pub metadata: PropertyMetadata,
+    pub property_type: PropertyTypeModel,
+    pub metadata: PropertyMetadataModel,
 }

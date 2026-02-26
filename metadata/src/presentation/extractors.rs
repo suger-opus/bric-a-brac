@@ -1,5 +1,5 @@
 use super::errors::RequestError;
-use crate::domain::models::UserId;
+use crate::application::dtos::UserIdDto;
 use axum::{
     body::Body,
     extract::{FromRequest, FromRequestParts, Request},
@@ -11,7 +11,7 @@ use utoipa::ToSchema;
 const MAX_FILE_SIZE: usize = 100 * 1024; // 100KB
 
 pub struct AuthenticatedUser {
-    pub user_id: UserId,
+    pub user_id: UserIdDto,
 }
 
 impl<S> FromRequestParts<S> for AuthenticatedUser
@@ -32,7 +32,7 @@ where
             })?;
 
         let user_id = user_id_str
-            .parse::<UserId>()
+            .parse::<UserIdDto>()
             .map_err(|_| RequestError::Unauthorized {
                 reason: "Invalid user_id format - must be a valid UUID".to_string(),
             })?;

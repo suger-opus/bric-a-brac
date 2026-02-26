@@ -1,9 +1,10 @@
 use crate::{
     domain::models::{
-        CreateEdgeSchema, CreateGraph, CreateNodeSchema, CreatePropertySchema,
-        EdgeSchema, EdgeSchemaId, Graph, GraphId, GraphMetadata, GraphSchema, NodeSchema,
-        NodeSchemaId, PropertyMetadata, PropertySchema, PropertySchemaId, PropertyType, Reddit,
-        Role, UserId,
+        CreateEdgeSchemaModel, CreateGraphModel, CreateNodeSchemaModel, CreatePropertySchemaModel,
+        EdgeSchemaIdModel, EdgeSchemaModel, GraphIdModel, GraphMetadataModel, GraphModel,
+        GraphSchemaModel, NodeSchemaIdModel, NodeSchemaModel, PropertyMetadataModel,
+        PropertySchemaIdModel, PropertySchemaModel, PropertyTypeModel, RedditModel, RoleModel,
+        UserIdModel,
     },
     presentation::errors::DatabaseError,
 };
@@ -23,8 +24,8 @@ impl GraphRepository {
     pub async fn get_all_metadata(
         &self,
         connection: &mut PgConnection,
-        user_id: UserId,
-    ) -> Result<Vec<GraphMetadata>, DatabaseError> {
+        user_id: UserIdModel,
+    ) -> Result<Vec<GraphMetadataModel>, DatabaseError> {
         let graphs = sqlx::query_as!(
             GraphMetadataRow,
             r#"
@@ -61,9 +62,9 @@ JOIN users u ON owner_access.user_id = u.user_id
     pub async fn get_metadata(
         &self,
         connection: &mut PgConnection,
-        graph_id: GraphId,
-        user_id: UserId,
-    ) -> Result<GraphMetadata, DatabaseError> {
+        graph_id: GraphIdModel,
+        user_id: UserIdModel,
+    ) -> Result<GraphMetadataModel, DatabaseError> {
         let graph = sqlx::query_as!(
             GraphMetadataRow,
             r#"
@@ -102,8 +103,8 @@ WHERE g.graph_id = $2
     pub async fn get_schema(
         &self,
         connection: &mut PgConnection,
-        graph_id: GraphId,
-    ) -> Result<GraphSchema, DatabaseError> {
+        graph_id: GraphIdModel,
+    ) -> Result<GraphSchemaModel, DatabaseError> {
         let schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -168,8 +169,8 @@ ORDER BY "schema_type!:_"
     pub async fn get_node_schema_by_id(
         &self,
         connection: &mut PgConnection,
-        node_schema_id: NodeSchemaId,
-    ) -> Result<NodeSchema, DatabaseError> {
+        node_schema_id: NodeSchemaIdModel,
+    ) -> Result<NodeSchemaModel, DatabaseError> {
         let nodes_schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -209,7 +210,7 @@ WHERE ns.node_schema_id = $1
         &self,
         connection: &mut PgConnection,
         node_schema_key: String,
-    ) -> Result<NodeSchema, DatabaseError> {
+    ) -> Result<NodeSchemaModel, DatabaseError> {
         let nodes_schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -248,8 +249,8 @@ WHERE ns.key = $1
     pub async fn get_edge_schema_by_id(
         &self,
         connection: &mut PgConnection,
-        edge_schema_id: EdgeSchemaId,
-    ) -> Result<EdgeSchema, DatabaseError> {
+        edge_schema_id: EdgeSchemaIdModel,
+    ) -> Result<EdgeSchemaModel, DatabaseError> {
         let edges_schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -289,7 +290,7 @@ WHERE es.edge_schema_id = $1
         &self,
         connection: &mut PgConnection,
         edge_schema_key: String,
-    ) -> Result<EdgeSchema, DatabaseError> {
+    ) -> Result<EdgeSchemaModel, DatabaseError> {
         let edges_schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -328,8 +329,8 @@ WHERE es.key = $1
     pub async fn create_graph(
         &self,
         connection: &mut PgConnection,
-        create_graph: CreateGraph,
-    ) -> Result<Graph, DatabaseError> {
+        create_graph: CreateGraphModel,
+    ) -> Result<GraphModel, DatabaseError> {
         tracing::debug!(create_graph_name = ?create_graph.name);
 
         let graph = sqlx::query_as!(
@@ -348,7 +349,7 @@ RETURNING
     nb_data_nodes,
     nb_data_edges
             "#,
-            GraphId::new() as _,
+            create_graph.graph_id as _,
             create_graph.name,
             create_graph.description,
             create_graph.is_public
@@ -363,9 +364,9 @@ RETURNING
     pub async fn create_nodes_schemas(
         &self,
         connection: &mut PgConnection,
-        graph_id: GraphId,
-        nodes_schemas: Vec<(NodeSchemaId, CreateNodeSchema)>,
-    ) -> Result<Vec<NodeSchema>, DatabaseError> {
+        graph_id: GraphIdModel,
+        nodes_schemas: Vec<CreateNodeSchemaModel>,
+    ) -> Result<Vec<NodeSchemaModel>, DatabaseError> {
         tracing::debug!(nodes_schemas_len = ?nodes_schemas.len());
 
         let mut node_schema_ids = vec![];
@@ -374,8 +375,8 @@ RETURNING
         let mut keys = vec![];
         let mut colors = vec![];
 
-        for (node_schema_id, schema) in nodes_schemas {
-            node_schema_ids.push(node_schema_id);
+        for schema in nodes_schemas {
+            node_schema_ids.push(schema.node_schema_id);
             graph_ids.push(graph_id);
             labels.push(schema.label.clone());
             keys.push(schema.key.clone());
@@ -417,9 +418,9 @@ SELECT * FROM UNNEST(
     pub async fn create_edges_schemas(
         &self,
         connection: &mut PgConnection,
-        graph_id: GraphId,
-        edges_schemas: Vec<(EdgeSchemaId, CreateEdgeSchema)>,
-    ) -> Result<Vec<EdgeSchema>, DatabaseError> {
+        graph_id: GraphIdModel,
+        edges_schemas: Vec<CreateEdgeSchemaModel>,
+    ) -> Result<Vec<EdgeSchemaModel>, DatabaseError> {
         tracing::debug!(edges_schemas_len = ?edges_schemas.len());
 
         let mut edge_schema_ids = vec![];
@@ -428,8 +429,8 @@ SELECT * FROM UNNEST(
         let mut keys = vec![];
         let mut colors = vec![];
 
-        for (edge_schema_id, schema) in edges_schemas {
-            edge_schema_ids.push(edge_schema_id);
+        for schema in edges_schemas {
+            edge_schema_ids.push(schema.edge_schema_id);
             graph_ids.push(graph_id);
             labels.push(schema.label.clone());
             keys.push(schema.key.clone());
@@ -471,8 +472,8 @@ SELECT * FROM UNNEST(
     pub async fn create_properties(
         &self,
         connection: &mut PgConnection,
-        create_properties: Vec<CreatePropertySchema>,
-    ) -> Result<Vec<PropertySchema>, DatabaseError> {
+        create_properties: Vec<CreatePropertySchemaModel>,
+    ) -> Result<Vec<PropertySchemaModel>, DatabaseError> {
         tracing::debug!(create_properties_len = ?create_properties.len());
 
         let mut property_schema_ids = vec![];
@@ -484,7 +485,7 @@ SELECT * FROM UNNEST(
         let mut metadatas = vec![];
 
         for property in create_properties {
-            property_schema_ids.push(PropertySchemaId::new());
+            property_schema_ids.push(property.property_schema_id);
             node_schema_ids.push(property.node_schema_id);
             edge_schema_ids.push(property.edge_schema_id);
             labels.push(property.label.clone());
@@ -536,18 +537,18 @@ SELECT * FROM UNNEST(
 
 #[derive(sqlx::FromRow)]
 struct GraphRow {
-    graph_id: GraphId,
+    graph_id: GraphIdModel,
     name: String,
     description: String,
     is_public: bool,
-    reddit: Json<Reddit>,
+    reddit: Json<RedditModel>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     nb_data_nodes: i32,
     nb_data_edges: i32,
 }
 
-impl From<GraphRow> for Graph {
+impl From<GraphRow> for GraphModel {
     fn from(row: GraphRow) -> Self {
         Self {
             graph_id: row.graph_id,
@@ -565,14 +566,14 @@ impl From<GraphRow> for Graph {
 
 #[derive(sqlx::FromRow)]
 struct GraphMetadataRow {
-    graph_id: GraphId,
+    graph_id: GraphIdModel,
     owner_username: String,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     name: String,
     description: String,
-    reddit: Json<Reddit>,
-    user_role: Role,
+    reddit: Json<RedditModel>,
+    user_role: RoleModel,
     is_public: bool,
     is_bookmarked_by_user: bool,
     is_cheered_by_user: bool,
@@ -582,7 +583,7 @@ struct GraphMetadataRow {
     nb_cheers: i32,
 }
 
-impl From<GraphMetadataRow> for GraphMetadata {
+impl From<GraphMetadataRow> for GraphMetadataModel {
     fn from(row: GraphMetadataRow) -> Self {
         Self {
             graph_id: row.graph_id,
@@ -606,8 +607,8 @@ impl From<GraphMetadataRow> for GraphMetadata {
 
 #[derive(sqlx::FromRow)]
 struct NodeSchemaRow {
-    node_schema_id: NodeSchemaId,
-    graph_id: GraphId,
+    node_schema_id: NodeSchemaIdModel,
+    graph_id: GraphIdModel,
     label: String,
     key: String,
     color: String,
@@ -615,7 +616,7 @@ struct NodeSchemaRow {
     updated_at: DateTime<Utc>,
 }
 
-impl From<NodeSchemaRow> for NodeSchema {
+impl From<NodeSchemaRow> for NodeSchemaModel {
     fn from(row: NodeSchemaRow) -> Self {
         Self {
             node_schema_id: row.node_schema_id,
@@ -632,8 +633,8 @@ impl From<NodeSchemaRow> for NodeSchema {
 
 #[derive(sqlx::FromRow)]
 struct EdgeSchemaRow {
-    edge_schema_id: EdgeSchemaId,
-    graph_id: GraphId,
+    edge_schema_id: EdgeSchemaIdModel,
+    graph_id: GraphIdModel,
     label: String,
     key: String,
     color: String,
@@ -641,7 +642,7 @@ struct EdgeSchemaRow {
     updated_at: DateTime<Utc>,
 }
 
-impl From<EdgeSchemaRow> for EdgeSchema {
+impl From<EdgeSchemaRow> for EdgeSchemaModel {
     fn from(row: EdgeSchemaRow) -> Self {
         Self {
             edge_schema_id: row.edge_schema_id,
@@ -658,20 +659,20 @@ impl From<EdgeSchemaRow> for EdgeSchema {
 
 #[derive(sqlx::FromRow)]
 struct PropertySchemaRow {
-    property_schema_id: PropertySchemaId,
-    node_schema_id: Option<NodeSchemaId>,
-    edge_schema_id: Option<EdgeSchemaId>,
+    property_schema_id: PropertySchemaIdModel,
+    node_schema_id: Option<NodeSchemaIdModel>,
+    edge_schema_id: Option<EdgeSchemaIdModel>,
     label: String,
     key: String,
-    property_type: PropertyType,
-    metadata: Json<PropertyMetadata>,
+    property_type: PropertyTypeModel,
+    metadata: Json<PropertyMetadataModel>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
 }
 
-impl From<PropertySchemaRow> for PropertySchema {
+impl From<PropertySchemaRow> for PropertySchemaModel {
     fn from(row: PropertySchemaRow) -> Self {
-        PropertySchema {
+        PropertySchemaModel {
             property_schema_id: row.property_schema_id,
             node_schema_id: row.node_schema_id,
             edge_schema_id: row.edge_schema_id,
@@ -688,27 +689,27 @@ impl From<PropertySchemaRow> for PropertySchema {
 #[derive(Default, sqlx::FromRow)]
 struct SchemaRow {
     schema_type: String,
-    node_schema_id: Option<NodeSchemaId>,
-    edge_schema_id: Option<EdgeSchemaId>,
-    graph_id: GraphId,
+    node_schema_id: Option<NodeSchemaIdModel>,
+    edge_schema_id: Option<EdgeSchemaIdModel>,
+    graph_id: GraphIdModel,
     label: String,
     key: String,
     color: String,
     schema_created_at: DateTime<Utc>,
     schema_updated_at: DateTime<Utc>,
-    property_schema_id: Option<PropertySchemaId>,
-    property_node_schema_id: Option<NodeSchemaId>,
-    property_edge_schema_id: Option<EdgeSchemaId>,
+    property_schema_id: Option<PropertySchemaIdModel>,
+    property_node_schema_id: Option<NodeSchemaIdModel>,
+    property_edge_schema_id: Option<EdgeSchemaIdModel>,
     property_label: Option<String>,
     property_key: Option<String>,
-    property_type: Option<PropertyType>,
-    property_metadata: Option<Json<PropertyMetadata>>,
+    property_type: Option<PropertyTypeModel>,
+    property_metadata: Option<Json<PropertyMetadataModel>>,
     property_created_at: Option<DateTime<Utc>>,
     property_updated_at: Option<DateTime<Utc>>,
 }
 
 impl SchemaRow {
-    fn extract_property(&self) -> Option<PropertySchema> {
+    fn extract_property(&self) -> Option<PropertySchemaModel> {
         match (
             self.property_schema_id,
             &self.property_label,
@@ -726,7 +727,7 @@ impl SchemaRow {
                 Some(metadata),
                 Some(created_at),
                 Some(updated_at),
-            ) => Some(PropertySchema {
+            ) => Some(PropertySchemaModel {
                 property_schema_id,
                 node_schema_id: self.property_node_schema_id,
                 edge_schema_id: self.property_edge_schema_id,
@@ -742,12 +743,12 @@ impl SchemaRow {
     }
 }
 
-impl TryFrom<Vec<SchemaRow>> for GraphSchema {
+impl TryFrom<Vec<SchemaRow>> for GraphSchemaModel {
     type Error = DatabaseError;
 
     fn try_from(schemas: Vec<SchemaRow>) -> Result<Self, Self::Error> {
-        let mut nodes_schemas_map: HashMap<NodeSchemaId, Vec<SchemaRow>> = HashMap::new();
-        let mut edges_schemas_map: HashMap<EdgeSchemaId, Vec<SchemaRow>> = HashMap::new();
+        let mut nodes_schemas_map: HashMap<NodeSchemaIdModel, Vec<SchemaRow>> = HashMap::new();
+        let mut edges_schemas_map: HashMap<EdgeSchemaIdModel, Vec<SchemaRow>> = HashMap::new();
 
         for row in schemas {
             if row.schema_type == "node" {
@@ -767,7 +768,7 @@ impl TryFrom<Vec<SchemaRow>> for GraphSchema {
             }
         }
 
-        Ok(GraphSchema {
+        Ok(GraphSchemaModel {
             nodes: nodes_schemas_map
                 .into_iter()
                 .map(|(_, schemas)| schemas.try_into())
@@ -780,7 +781,7 @@ impl TryFrom<Vec<SchemaRow>> for GraphSchema {
     }
 }
 
-impl TryFrom<Vec<SchemaRow>> for NodeSchema {
+impl TryFrom<Vec<SchemaRow>> for NodeSchemaModel {
     type Error = DatabaseError;
 
     fn try_from(schemas: Vec<SchemaRow>) -> Result<Self, Self::Error> {
@@ -804,7 +805,7 @@ impl TryFrom<Vec<SchemaRow>> for NodeSchema {
             .filter_map(|row| row.extract_property())
             .collect();
 
-        Ok(NodeSchema {
+        Ok(NodeSchemaModel {
             node_schema_id: node_schema_id,
             graph_id: first_row.graph_id,
             label: first_row.label.clone(),
@@ -817,7 +818,7 @@ impl TryFrom<Vec<SchemaRow>> for NodeSchema {
     }
 }
 
-impl TryFrom<Vec<SchemaRow>> for EdgeSchema {
+impl TryFrom<Vec<SchemaRow>> for EdgeSchemaModel {
     type Error = DatabaseError;
 
     fn try_from(schemas: Vec<SchemaRow>) -> Result<Self, Self::Error> {
@@ -841,7 +842,7 @@ impl TryFrom<Vec<SchemaRow>> for EdgeSchema {
             .filter_map(|row| row.extract_property())
             .collect();
 
-        Ok(EdgeSchema {
+        Ok(EdgeSchemaModel {
             edge_schema_id: edge_schema_id,
             graph_id: first_row.graph_id,
             label: first_row.label.clone(),

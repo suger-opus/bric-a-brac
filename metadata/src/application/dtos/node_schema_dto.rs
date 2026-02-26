@@ -1,85 +1,50 @@
-use super::{CreatePropertySchemaDto, PropertySchemaDto};
-use crate::domain::{models::{CreateNodeSchema, GraphId, NodeSchema, NodeSchemaId}, utils::generate_key};
-use chrono::{DateTime, Utc};
-use lazy_static::lazy_static;
-use regex::Regex;
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
-use validator::Validate;
+use super::CreatePropertySchemaIntoDomain;
+use crate::domain::{
+    models::{CreateNodeSchemaModel, NodeSchemaIdModel, NodeSchemaModel},
+    utils::generate_key,
+};
+use bric_a_brac_dtos::{CreateNodeSchemaDto, NodeSchemaDto, NodeSchemaIdDto};
 
-lazy_static! {
-    static ref COLOR_REGEX: Regex = Regex::new(r"^#[0-9A-Fa-f]{6}$").unwrap();
+impl From<NodeSchemaIdModel> for NodeSchemaIdDto {
+    fn from(graph_id: NodeSchemaIdModel) -> Self {
+        Self::from(*graph_id.as_ref())
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
-pub struct CreateNodeSchemaDto {
-    #[validate(length(min = 1, max = 25))]
-    #[schema(min_length = 1, max_length = 25)]
-    pub label: String,
-
-    #[validate(regex(path = "*COLOR_REGEX"))]
-    #[schema(pattern = "^#[0-9A-Fa-f]{6}$")]
-    pub color: String,
-
-    #[validate(nested)]
-    pub properties: Vec<CreatePropertySchemaDto>,
+impl From<NodeSchemaIdDto> for NodeSchemaIdModel {
+    fn from(graph_id: NodeSchemaIdDto) -> Self {
+        Self::from(*graph_id.as_ref())
+    }
 }
 
-impl CreateNodeSchemaDto {
-    pub fn into_domain(self) -> CreateNodeSchema {
-        CreateNodeSchema {
-            label: self.label,
+impl From<NodeSchemaModel> for NodeSchemaDto {
+    fn from(model: NodeSchemaModel) -> Self {
+        Self {
+            node_schema_id: model.node_schema_id.into(),
+            graph_id: model.graph_id.into(),
+            label: model.label,
+            key: model.key,
+            color: model.color,
+            created_at: model.created_at,
+            updated_at: model.updated_at,
+            properties: model.properties.into_iter().map(From::from).collect(),
+        }
+    }
+}
+
+impl From<CreateNodeSchemaDto> for CreateNodeSchemaModel {
+    fn from(dto: CreateNodeSchemaDto) -> Self {
+        let node_schema_id = NodeSchemaIdModel::new();
+
+        Self {
+            node_schema_id,
+            label: dto.label,
             key: generate_key(),
-            color: self.color,
-            properties: self
+            color: dto.color,
+            properties: dto
                 .properties
                 .into_iter()
-                .map(|prop| prop.into_domain())
-                .collect(),
-        }
-    }
-}
-
-impl From<CreateNodeSchema> for CreateNodeSchemaDto {
-    fn from(node_schema: CreateNodeSchema) -> Self {
-        Self {
-            label: node_schema.label,
-            color: node_schema.color,
-            properties: node_schema
-                .properties
-                .into_iter()
-                .map(CreatePropertySchemaDto::from)
-                .collect(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct NodeSchemaDto {
-    pub node_schema_id: NodeSchemaId,
-    pub graph_id: GraphId,
-    pub label: String,
-    pub key: String,
-    pub color: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub properties: Vec<PropertySchemaDto>,
-}
-
-impl From<NodeSchema> for NodeSchemaDto {
-    fn from(node_schema: NodeSchema) -> Self {
-        Self {
-            node_schema_id: node_schema.node_schema_id,
-            graph_id: node_schema.graph_id,
-            label: node_schema.label,
-            key: node_schema.key,
-            color: node_schema.color,
-            created_at: node_schema.created_at,
-            updated_at: node_schema.updated_at,
-            properties: node_schema
-                .properties
-                .into_iter()
-                .map(PropertySchemaDto::from)
+                .map(|prop| prop.into_domain(Some(node_schema_id), None))
                 .collect(),
         }
     }

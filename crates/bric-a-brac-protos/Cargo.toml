@@ -7,17 +7,19 @@ edition.workspace = true
 derive_more = { workspace = true, features = ["display"] }
 http = { workspace = true }
 prost = { workspace = true }
-serde = { workspace = true }
+prost-types = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tonic = { workspace = true }
+tonic-prost = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true, features = ["trace"] }
 tracing = { workspace = true }
-uuid = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
 
 [build-dependencies]
-tonic-build = { workspace = true }
+tonic-prost-build = { workspace = true }
 
 [lints.rust]
 unsafe_code = "deny"

@@ -168,18 +168,6 @@ impl From<AppError> for HttpError {
                 tracing::error!(error = ?err, "Request failed: (gRPC) Disconnected");
                 HttpError::bad_gateway("External service disconnected", *service, "")
             }
-            AppError::GrpcClient(GrpcClientError::Deserialization {
-                service,
-                expected_struct,
-                source: _,
-            }) => {
-                tracing::error!(error = ?err, "Request failed: (gRPC) Deserialization");
-                HttpError::bad_gateway(
-                    "External service response deserialization failed",
-                    *service,
-                    expected_struct,
-                )
-            }
             AppError::GrpcClient(GrpcClientError::Base(BaseGrpcClientError::Request {
                 service,
                 message,
@@ -188,22 +176,6 @@ impl From<AppError> for HttpError {
                 tracing::error!(error = ?err, "Request failed: (gRPC) Request");
                 HttpError::bad_gateway("External service request failed", *service, message)
             }
-            AppError::GrpcClient(GrpcClientError::DomainConversion { service, reason }) => {
-                tracing::error!(error = ?err, "Request failed: (gRPC) Domain Conversion");
-                HttpError::bad_gateway(
-                    "External service response conversion to domain model failed",
-                    *service,
-                    reason,
-                )
-            }
-            AppError::GrpcClient(GrpcClientError::DomainUuidConversion { service, source: _ }) => {
-                tracing::error!(error = ?err, "Request failed: (gRPC) Domain UUID Conversion");
-                HttpError::bad_gateway(
-                    "External service response UUID conversion to domain UUID failed",
-                    *service,
-                    "UUID conversion error",
-                )
-            }
             AppError::GrpcClient(GrpcClientError::Base(BaseGrpcClientError::MutexPoisoned {
                 message,
             })) => {
@@ -211,6 +183,11 @@ impl From<AppError> for HttpError {
                 HttpError::internal_server_error(
                     format!("Synchronization failed: {}", message).as_str(),
                 )
+            }
+            // TODO: handle each error enum case
+            AppError::GrpcClient(GrpcClientError::Conversion(_)) => {
+                tracing::error!(error = ?err, "Request failed: (gRPC) DTO Conversion Error");
+                HttpError::internal_server_error("Failed to convert data from gRPC service")
             }
 
             // --- Request errors ---

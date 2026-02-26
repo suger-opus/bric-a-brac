@@ -1,5 +1,5 @@
 use crate::{
-    domain::models::{CreateUser, User, UserId},
+    domain::models::{CreateUserModel, UserIdModel, UserModel},
     presentation::errors::DatabaseError,
 };
 use sqlx::PgConnection;
@@ -16,10 +16,10 @@ impl UserRepository {
     pub async fn create(
         &self,
         connection: &mut PgConnection,
-        create_user: CreateUser,
-    ) -> Result<User, DatabaseError> {
+        create_user: CreateUserModel,
+    ) -> Result<UserModel, DatabaseError> {
         let user = sqlx::query_as!(
-            User,
+            UserModel,
             r#"
 INSERT INTO users (user_id, email, username)
 VALUES ($1, $2, $3)
@@ -30,7 +30,7 @@ RETURNING
     created_at,
     updated_at
             "#,
-            UserId::new() as _,
+            create_user.user_id as _,
             create_user.email,
             create_user.username
         )
@@ -44,10 +44,10 @@ RETURNING
     pub async fn get(
         &self,
         connection: &mut PgConnection,
-        user_id: UserId,
-    ) -> Result<User, DatabaseError> {
+        user_id: UserIdModel,
+    ) -> Result<UserModel, DatabaseError> {
         let user = sqlx::query_as!(
-            User,
+            UserModel,
             r#"
 SELECT
     user_id,

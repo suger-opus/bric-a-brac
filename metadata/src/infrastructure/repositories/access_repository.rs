@@ -1,5 +1,5 @@
 use crate::{
-    domain::models::{Access, CreateAccess},
+    domain::models::{AccessModel, CreateAccessModel},
     presentation::errors::DatabaseError,
 };
 use sqlx::PgConnection;
@@ -16,10 +16,10 @@ impl AccessRepository {
     pub async fn create(
         &self,
         connection: &mut PgConnection,
-        create_access: CreateAccess,
-    ) -> Result<Access, DatabaseError> {
+        create_access: CreateAccessModel,
+    ) -> Result<AccessModel, DatabaseError> {
         let access = sqlx::query_as!(
-            Access,
+            AccessModel,
             r#"
 INSERT INTO accesses (graph_id, user_id, role)
 VALUES ($1, $2, $3)

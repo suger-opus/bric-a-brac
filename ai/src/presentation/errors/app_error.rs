@@ -1,7 +1,7 @@
-use std::str::Utf8Error;
-
 use crate::presentation::errors::TonicError;
-use bric_a_brac_protos::{BaseGrpcClientError, GrpcServiceKind};
+use bric_a_brac_dtos::DtosConversionError;
+use bric_a_brac_protos::BaseGrpcClientError;
+use std::str::Utf8Error;
 use tonic::Status;
 
 #[derive(Debug, thiserror::Error)]
@@ -9,13 +9,8 @@ pub enum GrpcClientError {
     #[error(transparent)]
     Base(#[from] BaseGrpcClientError),
 
-    #[error("gRPC service {service}: failed to deserialize response into {expected_struct}")]
-    Deserialization {
-        service: GrpcServiceKind,
-        expected_struct: String,
-        #[source]
-        source: serde_json::Error,
-    },
+    #[error(transparent)]
+    Conversion(#[from] DtosConversionError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -34,17 +29,32 @@ pub enum OpenRouterClientError {
         source: reqwest::Error,
     },
 
+    #[error("OpenRouter API returned an invalid response format: {reason}")]
+    ResponseFormat { reason: String },
+
+    #[error("Failed to convert OpenRouter API response: {context}")]
+    ResponseConversion {
+        context: String,
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("OpenRouter API response validation failed: {context}")]
+    ResponseValidation {
+        context: String,
+        #[source]
+        source: validator::ValidationErrors,
+    },
+
     #[error("OpenRouter API returned non-success status {status}: {body}")]
     NoSuccessResponse {
         status: reqwest::StatusCode,
         body: String,
     },
 
-    #[error("OpenRouter API returned an invalid response {reason}")]
-    Response { reason: String },
-
-    #[error("Failed to deserialize OpenRouter API")]
+    #[error("Failed to deserialize OpenRouter API response: {context}")]
     Deserialization {
+        context: String,
         #[source]
         source: serde_json::Error,
     },
@@ -74,19 +84,18 @@ pub enum AppError {
         source: Utf8Error,
     },
 
-    #[error("Failed to serialize schema: {message}")]
-    JsonToString {
-        message: String,
-        #[source]
-        source: serde_json::Error,
-    },
-
-    #[error("Schema generation failed: {message}")]
-    SchemaGeneration { message: String },
+    #[error("Internal error: {context}")]
+    Internal { context: String },
 }
 
 impl From<AppError> for Status {
     fn from(err: AppError) -> Self {
         TonicError::from(err).into()
+    }
+}
+
+impl From<DtosConversionError> for AppError {
+    fn from(err: DtosConversionError) -> Self {
+        AppError::GrpcClient(err.into())
     }
 }

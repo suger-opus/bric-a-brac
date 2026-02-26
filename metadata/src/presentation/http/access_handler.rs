@@ -1,7 +1,6 @@
-use super::super::{extractors::AuthenticatedUser, state::ApiState};
 use crate::{
     application::dtos::{AccessDto, CreateAccessDto},
-    domain::models::GraphId,
+    presentation::{extractors::AuthenticatedUser, state::ApiState},
 };
 use axum::{
     extract::{Path, State},
@@ -9,11 +8,12 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use bric_a_brac_dtos::GraphIdDto;
 
 #[utoipa::path(
     post,
     path = "/accesses/graphs/{graph_id}",
-    params(("graph_id" = GraphId, Path, description = "ID of the graph to grant access to")),
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to grant access to")),
     tag = "Access",
     request_body = CreateAccessDto,
     responses(
@@ -28,7 +28,7 @@ use axum::{
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn create(
     State(state): State<ApiState>,
-    Path(graph_id): Path<GraphId>,
+    Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateAccessDto>,
 ) -> impl IntoResponse {

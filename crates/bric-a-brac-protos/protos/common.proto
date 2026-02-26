@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package common;
+
+import "google/protobuf/timestamp.proto";
+
+message GraphSchemaProto {
+    repeated NodeSchemaProto nodes = 1;
+    repeated EdgeSchemaProto edges = 2;
+}
+
+message NodeSchemaProto {
+    string node_schema_id = 1;
+    string graph_id = 2;
+    string label = 3;
+    string key = 4;
+    string color = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
+    repeated PropertySchemaProto properties = 8;
+}
+
+message EdgeSchemaProto {
+    string edge_schema_id = 1;
+    string graph_id = 2;
+    string label = 3;
+    string key = 4;
+    string color = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
+    repeated PropertySchemaProto properties = 8;
+}
+
+message PropertySchemaProto {
+    string property_schema_id = 1;
+    optional string node_schema_id = 2;
+    optional string edge_schema_id = 3;
+    string label = 4;
+    string key = 5;
+    PropertyTypeProto property_type = 6;
+    PropertyMetadataProto metadata = 7;
+    google.protobuf.Timestamp created_at = 8;
+    google.protobuf.Timestamp updated_at = 9;
+}
+
+message CreateGraphSchemaProto {
+    repeated CreateNodeSchemaProto nodes = 1;
+    repeated CreateEdgeSchemaProto edges = 2;
+}
+
+message CreateNodeSchemaProto {
+    string label = 1;
+    string color = 3;
+    repeated CreatePropertySchemaProto properties = 4;
+}
+
+message CreateEdgeSchemaProto {
+    string label = 1;
+    string color = 3;
+    repeated CreatePropertySchemaProto properties = 4;
+}
+
+message CreatePropertySchemaProto {
+    string label = 1;
+    PropertyTypeProto property_type = 3;
+    PropertyMetadataProto metadata = 4;
+}
+
+message GraphDataProto {
+  repeated NodeDataProto nodes = 1;
+  repeated EdgeDataProto edges = 2;
+}
+
+message NodeDataProto {
+    string node_data_id = 2;
+    string key = 3;
+    map<string, PropertyValueProto> properties = 4;
+}
+
+message EdgeDataProto {
+  string edge_data_id = 1;
+  string key = 2;
+  string from_node_data_id = 3;
+  string to_node_data_id = 4;
+  map<string, PropertyValueProto> properties = 5;
+}
+
+message CreateGraphDataProto {
+    repeated CreateNodeDataProto nodes = 1;
+    repeated CreateEdgeDataProto edges = 2;
+}
+
+message CreateNodeDataProto {
+    string key = 1;
+    map<string, PropertyValueProto> properties = 2;
+}
+
+message CreateEdgeDataProto {
+    string from_node_data_id = 1;
+    string to_node_data_id = 2;
+    string key = 3;
+    map<string, PropertyValueProto> properties = 4;
+}
+
+message PropertyValueProto {
+    oneof value {
+        string string_value = 1;
+        double number_value = 2;
+        bool bool_value = 3;
+    }
+}
+
+enum PropertyTypeProto {
+    NUMBER = 0;
+    STRING = 1;
+    BOOLEAN = 2;
+    SELECT = 3;
+}
+
+message PropertyMetadataProto {
+    repeated string options = 1;
+}

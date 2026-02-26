@@ -1,10 +1,5 @@
 use crate::{
-    application::dtos::{
-        CreateEdgeDataDto, CreateEdgeSchemaDto, CreateGraphDto, CreateGraphSchemaDto,
-        CreateNodeDataDto, CreateNodeSchemaDto, EdgeDataDto, EdgeSchemaDto, GraphDataDto,
-        GraphMetadataDto, GraphSchemaDto, NodeDataDto, NodeSchemaDto,
-    },
-    domain::models::GraphId,
+    application::dtos::{CreateGraphDto, GraphMetadataDto},
     presentation::{
         extractors::{AuthenticatedUser, MultipartFileUpload},
         state::ApiState,
@@ -15,6 +10,11 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     Json,
+};
+use bric_a_brac_dtos::{
+    CreateEdgeDataDto, CreateEdgeSchemaDto, CreateGraphSchemaDto, CreateNodeDataDto,
+    CreateNodeSchemaDto, EdgeDataDto, EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto,
+    NodeDataDto, NodeSchemaDto,
 };
 
 #[utoipa::path(
@@ -44,7 +44,7 @@ pub async fn get_all_metadata(
 #[utoipa::path(
     get,
     path = "/graphs/{graph_id}",
-    params(("graph_id" = GraphId, Path, description = "ID of the graph to retrieve")),
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to retrieve")),
     tag = "Graphs",
     responses(
         (status = 200, description = "Graph metadata retrieved successfully", body = GraphMetadataDto),
@@ -56,7 +56,7 @@ pub async fn get_all_metadata(
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id))]
 pub async fn get_metadata(
     State(state): State<ApiState>,
-    Path(graph_id): Path<GraphId>,
+    Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
 ) -> impl IntoResponse {
     tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
@@ -71,7 +71,7 @@ pub async fn get_metadata(
 #[utoipa::path(
     get,
     path = "/graphs/{graph_id}/schema",
-    params(("graph_id" = GraphId, Path, description = "ID of the graph to retrieve schema for")),
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to retrieve schema for")),
     tag = "Graphs",
     responses(
         (status = 200, description = "Graph schema retrieved successfully", body = GraphSchemaDto),
@@ -83,7 +83,7 @@ pub async fn get_metadata(
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id))]
 pub async fn get_schema(
     State(state): State<ApiState>,
-    Path(graph_id): Path<GraphId>,
+    Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
 ) -> impl IntoResponse {
     tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
@@ -98,7 +98,7 @@ pub async fn get_schema(
 #[utoipa::path(
     get,
     path = "/graphs/{graph_id}/data",
-    params(("graph_id" = GraphId, Path, description = "ID of the graph to retrieve data for")),
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to retrieve data for")),
     tag = "Graphs",
     responses(
         (status = 200, description = "Graph data retrieved successfully", body = GraphDataDto),
@@ -110,7 +110,7 @@ pub async fn get_schema(
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id))]
 pub async fn get_data(
     State(state): State<ApiState>,
-    Path(graph_id): Path<GraphId>,
+    Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
 ) -> impl IntoResponse {
     tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
@@ -152,7 +152,7 @@ pub async fn create_graph(
 #[utoipa::path(
     post,
     path = "/graphs/{graph_id}/schema/generate",
-    params(("graph_id" = GraphId, Path, description = "ID of the graph to generate schema for")),
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to generate schema for")),
     tag = "Graphs",
     request_body(
         content_type = "multipart/form-data",
@@ -173,7 +173,7 @@ pub async fn create_graph(
 )]
 pub async fn generate_schema(
     State(state): State<ApiState>,
-    Path(graph_id): Path<GraphId>,
+    Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     MultipartFileUpload {
         file_content,
@@ -191,8 +191,53 @@ pub async fn generate_schema(
 
 #[utoipa::path(
     post,
+    path = "/graphs/{graph_id}/data",
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to populate data for")),
+    tag = "Graphs",
+    request_body(
+        content_type = "multipart/form-data",
+        description = "File containing graph data to analyze for population",
+        content = MultipartFileUpload
+    ),
+    responses(
+        (status = 200, description = "Graph populated successfully"),
+        (status = 400, description = "Invalid input data"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Graph not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tracing::instrument(
+    level = "trace",
+    skip(state, graph_id, user_id, file_content, file_type)
+)]
+pub async fn generate_data(
+    State(state): State<ApiState>,
+    Path(graph_id): Path<GraphIdDto>,
+    AuthenticatedUser { user_id }: AuthenticatedUser,
+    MultipartFileUpload {
+        file_content,
+        file_type,
+    }: MultipartFileUpload,
+) -> Result<impl IntoResponse, impl IntoResponse> {
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, file_content_len = %file_content.len(), file_type = ?file_type);
+
+    state
+        .graph_service
+        .generate_data(graph_id, file_content, file_type)
+        .await
+        .map(|_| {
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"message": "Graph populated successfully"})),
+            )
+        })
+}
+
+#[utoipa::path(
+    post,
     path = "/graphs/{graph_id}/schema",
-    params(("graph_id" = GraphId, Path, description = "ID of the graph to create schema for")),
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to create schema for")),
     tag = "Graphs",
     request_body = CreateGraphSchemaDto,
     responses(
@@ -206,7 +251,7 @@ pub async fn generate_schema(
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn create_schema(
     State(state): State<ApiState>,
-    Path(graph_id): Path<GraphId>,
+    Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateGraphSchemaDto>,
 ) -> impl IntoResponse {
@@ -222,7 +267,7 @@ pub async fn create_schema(
 #[utoipa::path(
     post,
     path = "/graphs/{graph_id}/schema/nodes",
-    params(("graph_id" = GraphId, Path, description = "ID of the graph to add node schema to")),
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to add node schema to")),
     tag = "Graphs",
     request_body = CreateNodeSchemaDto,
     responses(
@@ -236,7 +281,7 @@ pub async fn create_schema(
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn create_node_schema(
     State(state): State<ApiState>,
-    Path(graph_id): Path<GraphId>,
+    Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateNodeSchemaDto>,
 ) -> impl IntoResponse {
@@ -252,7 +297,7 @@ pub async fn create_node_schema(
 #[utoipa::path(
     post,
     path = "/graphs/{graph_id}/schema/edges",
-    params(("graph_id" = GraphId, Path, description = "ID of the graph to add edge schema to")),
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to add edge schema to")),
     tag = "Graphs",
     request_body = CreateEdgeSchemaDto,
     responses(
@@ -266,7 +311,7 @@ pub async fn create_node_schema(
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn create_edge_schema(
     State(state): State<ApiState>,
-    Path(graph_id): Path<GraphId>,
+    Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateEdgeSchemaDto>,
 ) -> impl IntoResponse {
@@ -282,7 +327,7 @@ pub async fn create_edge_schema(
 #[utoipa::path(
     post,
     path = "/graphs/{graph_id}/data/nodes",
-    params(("graph_id" = GraphId, Path, description = "ID of the graph to add node data to")),
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to add node data to")),
     tag = "Graphs",
     request_body = CreateNodeDataDto,
     responses(
@@ -296,7 +341,7 @@ pub async fn create_edge_schema(
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn insert_node_data(
     State(state): State<ApiState>,
-    Path(graph_id): Path<GraphId>,
+    Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateNodeDataDto>,
 ) -> impl IntoResponse {
@@ -312,7 +357,7 @@ pub async fn insert_node_data(
 #[utoipa::path(
     post,
     path = "/graphs/{graph_id}/data/edges",
-    params(("graph_id" = GraphId, Path, description = "ID of the graph to add edge data to")),
+    params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to add edge data to")),
     tag = "Graphs",
     request_body = CreateEdgeDataDto,
     responses(
@@ -326,7 +371,7 @@ pub async fn insert_node_data(
 #[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
 pub async fn insert_edge_data(
     State(state): State<ApiState>,
-    Path(graph_id): Path<GraphId>,
+    Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateEdgeDataDto>,
 ) -> impl IntoResponse {
