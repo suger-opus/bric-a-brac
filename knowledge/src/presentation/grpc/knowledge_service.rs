@@ -26,7 +26,7 @@ impl KnowledgeService {
 
 #[tonic::async_trait]
 impl Knowledge for KnowledgeService {
-    #[tracing::instrument(level = "debug", skip(self, request))]
+    #[tracing::instrument(level = "trace", skip(self, request))]
     async fn load_graph(
         &self,
         request: Request<LoadGraphRequest>,
@@ -42,7 +42,7 @@ impl Knowledge for KnowledgeService {
         Ok(Response::new(data.into()))
     }
 
-    #[tracing::instrument(level = "debug", skip(self, request))]
+    #[tracing::instrument(level = "trace", skip(self, request))]
     async fn insert_node(
         &self,
         request: Request<InsertNodeRequest>,
@@ -63,7 +63,7 @@ impl Knowledge for KnowledgeService {
         Ok(Response::new(node.into()))
     }
 
-    #[tracing::instrument(level = "debug", skip(self, request))]
+    #[tracing::instrument(level = "trace", skip(self, request))]
     async fn insert_edge(
         &self,
         request: Request<InsertEdgeRequest>,
@@ -74,6 +74,7 @@ impl Knowledge for KnowledgeService {
         let edge = self
             .mutate_service
             .insert_edge(
+                req.graph_id.try_into().map_err(|err| AppError::from(err))?,
                 req.edge_data
                     .try_into()
                     .map_err(|err| AppError::from(err))?,

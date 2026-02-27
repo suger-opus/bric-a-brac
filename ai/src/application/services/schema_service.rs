@@ -16,7 +16,11 @@ impl SchemaService {
     }
 
     // TODO: loop & tools
-    #[tracing::instrument(level = "trace", skip(self, file_content))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "schema_service.generate_schema",
+        skip(self, file_content)
+    )]
     pub async fn generate_schema(
         &self,
         file_content: Vec<u8>,
@@ -47,7 +51,11 @@ impl SchemaService {
         Ok(generated_schema)
     }
 
-    #[tracing::instrument(level = "trace", skip(self, schema))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "schema_service.validate_schema",
+        skip(self, schema)
+    )]
     fn validate_schema(
         &self,
         schema: &serde_json::Value,

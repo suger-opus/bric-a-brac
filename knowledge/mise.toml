@@ -12,6 +12,9 @@
 # KNOWLEDGE_SERVER_HOST=""
 # KNOWLEDGE_SERVER_PORT=""
 
+# LOGS
+# RUST_LOG="warn,knowledge=trace,bric_a_brac_protos=debug"
+
 [tasks]
 db-config = "docker compose -f compose.db.yaml config"
 db-start = "docker compose -f compose.db.yaml up --build -d"

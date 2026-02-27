@@ -14,12 +14,19 @@ impl MutateRepository {
         Self
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "mutate_repository.insert_node",
+        skip(self, connection, graph_id, create_node_data)
+    )]
     pub async fn insert_node(
         &self,
         connection: &mut neo4rs::Txn,
         graph_id: GraphIdModel,
         create_node_data: CreateNodeDataModel,
     ) -> Result<NodeDataModel, DatabaseError> {
+        tracing::debug!(graph_id = ?graph_id, node_data_id = ?create_node_data.node_data_id);
+
         let mut properties: HashMap<BoltString, BoltType> =
             create_node_data.properties.try_into()?;
         properties.insert("graph_id".to_string().into(), graph_id.to_string().into());
@@ -57,11 +64,19 @@ RETURN n
         Ok(NodeDataModel::try_from(neo_node)?)
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "mutate_repository.insert_edge",
+        skip(self, connection, _graph_id, create_edge_data)
+    )]
     pub async fn insert_edge(
         &self,
         connection: &mut neo4rs::Txn,
+        _graph_id: GraphIdModel,
         create_edge_data: CreateEdgeDataModel,
     ) -> Result<EdgeDataModel, DatabaseError> {
+        tracing::debug!(graph_id = ?_graph_id, edge_data_id = ?create_edge_data.edge_data_id);
+
         let mut properties: HashMap<BoltString, BoltType> =
             create_edge_data.properties.try_into()?;
         properties.insert(

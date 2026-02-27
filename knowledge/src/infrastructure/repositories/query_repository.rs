@@ -12,17 +12,29 @@ impl QueryRepository {
         Self
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "query_repository.load_graph",
+        skip(self, connection, graph_id)
+    )]
     pub async fn load_graph(
         &self,
         connection: &mut neo4rs::Txn,
         graph_id: GraphIdModel,
     ) -> Result<GraphDataModel, DatabaseError> {
+        tracing::debug!(graph_id = ?graph_id);
+
         let nodes = self.load_graph_nodes(connection, graph_id).await?;
         let edges = self.load_graph_edges(connection, graph_id).await?;
 
         Ok(GraphDataModel { nodes, edges })
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "query_repository.load_graph_nodes",
+        skip(self, connection, graph_id)
+    )]
     async fn load_graph_nodes(
         &self,
         connection: &mut neo4rs::Txn,
@@ -41,6 +53,11 @@ impl QueryRepository {
         Ok(nodes)
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "query_repository.load_graph_edges",
+        skip(self, connection, graph_id)
+    )]
     async fn load_graph_edges(
         &self,
         connection: &mut neo4rs::Txn,

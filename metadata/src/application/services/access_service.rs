@@ -14,7 +14,11 @@ impl AccessService {
         AccessService { pool, repository }
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, create_access_dto))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "access_service.create",
+        skip(self, graph_id, create_access_dto)
+    )]
     pub async fn create(
         &self,
         graph_id: GraphIdDto,

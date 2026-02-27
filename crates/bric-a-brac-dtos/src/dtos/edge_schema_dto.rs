@@ -73,6 +73,7 @@ impl From<EdgeSchemaDto> for EdgeSchemaProto {
     }
 }
 
+// TODO: create a struct for labels and colors
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateEdgeSchemaDto {
     #[validate(length(min = 1, max = 25))]

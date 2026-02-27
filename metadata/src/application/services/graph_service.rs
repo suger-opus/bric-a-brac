@@ -47,7 +47,11 @@ impl GraphService {
         }
     }
 
-    #[tracing::instrument(level = "trace", skip(self, user_id))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.get_all_metadata",
+        skip(self, user_id)
+    )]
     pub async fn get_all_metadata(
         &self,
         user_id: UserIdDto,
@@ -62,7 +66,11 @@ impl GraphService {
         Ok(graphs.into_iter().map(GraphMetadataDto::from).collect())
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, user_id))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.get_metadata",
+        skip(self, graph_id, user_id)
+    )]
     pub async fn get_metadata(
         &self,
         graph_id: GraphIdDto,
@@ -78,7 +86,11 @@ impl GraphService {
         Ok(graph.into())
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.get_schema",
+        skip(self, graph_id)
+    )]
     pub async fn get_schema(&self, graph_id: GraphIdDto) -> Result<GraphSchemaDto, AppError> {
         let mut txn = self.pool.begin().await?;
         let schema = self
@@ -90,7 +102,11 @@ impl GraphService {
         Ok(schema.into())
     }
 
-    #[tracing::instrument(level = "trace", skip(self, user_id, create_graph))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.create_graph",
+        skip(self, user_id, create_graph)
+    )]
     pub async fn create_graph(
         &self,
         user_id: UserIdDto,
@@ -118,7 +134,11 @@ impl GraphService {
         Ok(graph.into())
     }
 
-    #[tracing::instrument(level = "trace", skip(self, _graph_id, file_content, file_type))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.generate_schema",
+        skip(self, _graph_id, file_content, file_type)
+    )]
     pub async fn generate_schema(
         &self,
         _graph_id: GraphIdDto,
@@ -133,7 +153,11 @@ impl GraphService {
         Ok(schema)
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, file_content, file_type))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.generate_data",
+        skip(self, graph_id, file_content, file_type)
+    )]
     pub async fn generate_data(
         &self,
         graph_id: GraphIdDto,
@@ -155,7 +179,11 @@ impl GraphService {
         Ok(data)
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, create_graph_schema))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.create_schema",
+        skip(self, graph_id, create_graph_schema)
+    )]
     pub async fn create_schema(
         &self,
         graph_id: GraphIdDto,
@@ -187,7 +215,7 @@ impl GraphService {
             .await?;
         let _properties = self
             .repository
-            .create_properties(&mut txn, properties)
+            .create_properties(&mut txn, graph_id.into(), properties)
             .await?;
         let schema = self
             .repository
@@ -198,7 +226,11 @@ impl GraphService {
         Ok(schema.into())
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, create_node_schema))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.create_node_schema",
+        skip(self, graph_id, create_node_schema)
+    )]
     pub async fn create_node_schema(
         &self,
         graph_id: GraphIdDto,
@@ -212,7 +244,7 @@ impl GraphService {
             .await?;
         let properties = self
             .repository
-            .create_properties(&mut txn, domain.properties)
+            .create_properties(&mut txn, graph_id.into(), domain.properties)
             .await?;
         txn.commit().await?;
 
@@ -228,7 +260,11 @@ impl GraphService {
         })
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, create_edge_schema))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.create_edge_schema",
+        skip(self, graph_id, create_edge_schema)
+    )]
     pub async fn create_edge_schema(
         &self,
         graph_id: GraphIdDto,
@@ -242,7 +278,7 @@ impl GraphService {
             .await?;
         let properties = self
             .repository
-            .create_properties(&mut txn, domain.properties)
+            .create_properties(&mut txn, graph_id.into(), domain.properties)
             .await?;
         txn.commit().await?;
 
@@ -258,12 +294,16 @@ impl GraphService {
         })
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id))]
+    #[tracing::instrument(level = "trace", name = "graph_service.get_data", skip(self, graph_id))]
     pub async fn get_data(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, AppError> {
         Ok(self.knowledge_client.load_graph(graph_id).await?)
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, create_node_data))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.insert_node_data",
+        skip(self, graph_id, create_node_data)
+    )]
     pub async fn insert_node_data(
         &self,
         graph_id: GraphIdDto,
@@ -280,7 +320,11 @@ impl GraphService {
         Ok(node_data)
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, create_edge_data))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.insert_edge_data",
+        skip(self, graph_id, create_edge_data)
+    )]
     pub async fn insert_edge_data(
         &self,
         graph_id: GraphIdDto,

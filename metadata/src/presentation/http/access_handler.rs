@@ -25,14 +25,18 @@ use bric_a_brac_dtos::GraphIdDto;
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
+#[tracing::instrument(
+    level = "trace",
+    name = "access_handler.create",
+    skip(state, graph_id, user_id, payload)
+)]
 pub async fn create(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateAccessDto>,
 ) -> impl IntoResponse {
-    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, payload = ?payload);
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
     state
         .access_service

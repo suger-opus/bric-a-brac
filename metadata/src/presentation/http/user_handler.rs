@@ -15,12 +15,12 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, payload))]
+#[tracing::instrument(level = "trace", name = "user_handler.create", skip(state, payload))]
 pub async fn create(
     State(state): State<ApiState>,
     Json(payload): Json<CreateUserDto>,
 ) -> impl IntoResponse {
-    tracing::debug!(payload = ?payload);
+    tracing::debug!(email = ?payload.email);
 
     state
         .user_service
@@ -39,7 +39,11 @@ pub async fn create(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, user_id))]
+#[tracing::instrument(
+    level = "trace",
+    name = "user_handler.get_current",
+    skip(state, user_id)
+)]
 pub async fn get_current(
     State(state): State<ApiState>,
     AuthenticatedUser { user_id }: AuthenticatedUser,

@@ -12,7 +12,11 @@ impl DataService {
         Self { openrouter_client }
     }
 
-    #[tracing::instrument(level = "trace", skip(self, schema, file_content))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "data_service.generate_data",
+        skip(self, schema, file_content)
+    )]
     pub async fn generate_data(
         &self,
         schema: GraphSchemaDto,
@@ -24,10 +28,10 @@ impl DataService {
                 source: err,
             })?;
 
-        let template = schema_to_template_csv(schema).map_err(|_| AppError::Internal {
+        let (legend, csv) = schema_to_template_csv(schema).map_err(|_| AppError::Internal {
             context: "Failed to build template CSV".to_string(),
         })?;
-        let system_prompt = build_system_prompt(&template);
+        let system_prompt = build_system_prompt(&legend, &csv);
         let user_prompt = build_user_prompt(&parsed_content);
 
         let generated_data = self
@@ -54,7 +58,7 @@ impl DataService {
     }
 }
 
-fn build_system_prompt(template: &str) -> String {
+fn build_system_prompt(legend: &str, csv: &str) -> String {
     format!(
         r##"You are a graph data extractor assistant. Your task is to extract data from a document and populate a graph — not define a schema.
 
@@ -72,15 +76,19 @@ Formatting and Output Instructions:
 - Output only the CSV tables, no extra text, explanations, or comments.
 - Use only the property values and options defined in the schema.
 - For select-type properties, use only the allowed options.
-- If a required property is missing in the document, leave it empty (do not invent values).
-- Use consistent node IDs across all tables (nodes and edges).
 - Do not output anything except the CSV tables as shown in the template.
 
-Here is a template for how to format your response based on the provided schema:
+Here is the schema of the graph, which defines the node and relationship types, their properties, and the allowed values for those properties.
+Use this as a reference to understand how to structure your output:
+
+{}
+
+Here is the template for how to format your response based on the provided schema:
+
 {}
 
 Think of it like inserting rows into a database, not defining the schema."##,
-        template
+        legend, csv
     )
 }
 
@@ -93,9 +101,9 @@ fn build_user_prompt(document: &str) -> String {
     )
 }
 
-fn schema_to_template_csv(schema: GraphSchemaDto) -> Result<String, ()> {
-    let mut out = String::new();
-    writeln!(out, "---SCHEMA---").map_err(|_| ())?;
+fn schema_to_template_csv(schema: GraphSchemaDto) -> Result<(String, String), ()> {
+    let mut legend = String::new();
+    let mut csv = String::new();
 
     let mut node_map = BTreeMap::new();
     for node in &schema.nodes {
@@ -111,7 +119,7 @@ fn schema_to_template_csv(schema: GraphSchemaDto) -> Result<String, ()> {
             node.properties.iter().map(|p| p.key.clone()).collect();
         required_keys.sort();
         writeln!(
-            out,
+            legend,
             "## Node-{}\nlabel: \"{}\"\nrequired_properties: [{}]",
             key,
             node.label,
@@ -124,7 +132,7 @@ fn schema_to_template_csv(schema: GraphSchemaDto) -> Result<String, ()> {
             edge.properties.iter().map(|p| p.key.clone()).collect();
         required_keys.sort();
         writeln!(
-            out,
+            legend,
             "## Edge-{}\nlabel: \"{}\"\nrequired_properties: [{}]",
             key,
             edge.label,
@@ -159,8 +167,8 @@ fn schema_to_template_csv(schema: GraphSchemaDto) -> Result<String, ()> {
         }
     }
     for (key, (label, property_type, options)) in &property_map {
-        writeln!(out, "## Property-{}\nlabel: \"{}\"", key, label).map_err(|_| ())?;
-        writeln!(out, "type: {}", property_type).map_err(|_| ())?;
+        writeln!(legend, "## Property-{}\nlabel: \"{}\"", key, label).map_err(|_| ())?;
+        writeln!(legend, "type: {}", property_type).map_err(|_| ())?;
         if let Some(opts) = options {
             let mut opts_vec = opts.clone();
             opts_vec.sort();
@@ -169,27 +177,26 @@ fn schema_to_template_csv(schema: GraphSchemaDto) -> Result<String, ()> {
                 .map(|o| format!("\"{}\"", o))
                 .collect::<Vec<_>>()
                 .join(", ");
-            writeln!(out, "options: [{}]", opts_str).map_err(|_| ())?;
+            writeln!(legend, "options: [{}]", opts_str).map_err(|_| ())?;
         }
     }
 
-    writeln!(out, "---CSV---").map_err(|_| ())?;
     for (key, node) in &node_map {
         let mut headers = vec!["id".to_string()];
         let mut prop_keys: Vec<String> = node.properties.iter().map(|p| p.key.clone()).collect();
         prop_keys.sort();
         headers.extend(prop_keys);
-        writeln!(out, "## Node-{}\n{}", key, headers.join(",")).map_err(|_| ())?;
+        writeln!(csv, "## Node-{}\n{}", key, headers.join(",")).map_err(|_| ())?;
     }
     for (key, edge) in &edge_map {
         let mut headers = vec!["from".to_string(), "to".to_string()];
         let mut prop_keys: Vec<String> = edge.properties.iter().map(|p| p.key.clone()).collect();
         prop_keys.sort();
         headers.extend(prop_keys);
-        writeln!(out, "## Edge-{}\n{}", key, headers.join(",")).map_err(|_| ())?;
+        writeln!(csv, "## Edge-{}\n{}", key, headers.join(",")).map_err(|_| ())?;
     }
 
-    Ok(out.trim().to_string())
+    Ok((legend.trim().to_string(), csv.trim().to_string()))
 }
 
 #[cfg(test)]
@@ -441,10 +448,8 @@ mod tests {
             ]
         }));
 
-        let result = schema_to_template_csv(schema.unwrap()).unwrap();
-        println!("{}", result);
-        let expected = r#"
----SCHEMA---
+        let (legend, csv) = schema_to_template_csv(schema.unwrap()).unwrap();
+        let expected_legend = r#"
 ## Node-ESVhRs9k
 label: "Object"
 required_properties: [JboctBKk, po86zGND]
@@ -503,7 +508,11 @@ type: String
 label: "Type"
 type: Select
 options: ["Observation", "Routine"]
----CSV---
+"#
+        .trim()
+        .to_string();
+
+        let expected_csv = r#"
 ## Node-ESVhRs9k
 id,JboctBKk,po86zGND
 ## Node-dudFcexv
@@ -518,6 +527,7 @@ from,to,MDHY1uVN
         .trim()
         .to_string();
 
-        assert_eq!(result, expected);
+        assert_eq!(legend, expected_legend);
+        assert_eq!(csv, expected_csv);
     }
 }

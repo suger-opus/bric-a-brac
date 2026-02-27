@@ -70,6 +70,7 @@ impl OpenRouterClient {
 
     #[tracing::instrument(
         level = "debug",
+        name = "openrouter_client.chat",
         skip(self, system_prompt, user_prompt, schema, previous_error)
     )]
     pub async fn chat(
@@ -79,6 +80,13 @@ impl OpenRouterClient {
         schema: Option<serde_json::Value>,
         previous_error: Option<&str>,
     ) -> Result<serde_json::Value, OpenRouterClientError> {
+        tracing::debug!(
+            system_prompt = ?system_prompt.chars().take(10).collect::<String>(),
+            user_prompt = ?user_prompt.chars().take(10).collect::<String>(),
+            has_schema = schema.is_some(),
+            has_previous_error = previous_error.is_some()
+        );
+
         let is_structured_output_needed = schema.is_some();
 
         let user_content = if let Some(errors) = previous_error {

@@ -12,12 +12,18 @@ impl UserRepository {
         UserRepository
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "user_repository.create",
+        skip(self, connection, create_user)
+    )]
     pub async fn create(
         &self,
         connection: &mut PgConnection,
         create_user: CreateUserModel,
     ) -> Result<UserModel, DatabaseError> {
+        tracing::debug!(user_id = ?create_user.user_id);
+
         let user = sqlx::query_as!(
             UserModel,
             r#"
@@ -40,12 +46,18 @@ RETURNING
         Ok(user)
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "user_repository.get",
+        skip(self, connection, user_id)
+    )]
     pub async fn get(
         &self,
         connection: &mut PgConnection,
         user_id: UserIdModel,
     ) -> Result<UserModel, DatabaseError> {
+        tracing::debug!(user_id = ?user_id);
+
         let user = sqlx::query_as!(
             UserModel,
             r#"

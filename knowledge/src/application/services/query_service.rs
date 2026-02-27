@@ -13,6 +13,11 @@ impl QueryService {
         Self { pool, repository }
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "query_service.load_graph",
+        skip(self, graph_id)
+    )]
     pub async fn load_graph(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let graph = self

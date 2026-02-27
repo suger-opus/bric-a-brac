@@ -20,12 +20,18 @@ impl GraphRepository {
         GraphRepository
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.get_all_metadata",
+        skip(self, connection, user_id)
+    )]
     pub async fn get_all_metadata(
         &self,
         connection: &mut PgConnection,
         user_id: UserIdModel,
     ) -> Result<Vec<GraphMetadataModel>, DatabaseError> {
+        tracing::debug!(user_id = ?user_id);
+
         let graphs = sqlx::query_as!(
             GraphMetadataRow,
             r#"
@@ -58,13 +64,19 @@ JOIN users u ON owner_access.user_id = u.user_id
         Ok(graphs.into_iter().map(GraphMetadataRow::into).collect())
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.get_metadata",
+        skip(self, connection, graph_id, user_id)
+    )]
     pub async fn get_metadata(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
         user_id: UserIdModel,
     ) -> Result<GraphMetadataModel, DatabaseError> {
+        tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
+
         let graph = sqlx::query_as!(
             GraphMetadataRow,
             r#"
@@ -99,12 +111,18 @@ WHERE g.graph_id = $2
         Ok(graph.into())
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.get_schema",
+        skip(self, connection, graph_id)
+    )]
     pub async fn get_schema(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
     ) -> Result<GraphSchemaModel, DatabaseError> {
+        tracing::debug!(graph_id = ?graph_id);
+
         let schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -165,12 +183,18 @@ ORDER BY "schema_type!:_"
         schemas.try_into()
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.get_node_schema_by_id",
+        skip(self, connection, node_schema_id)
+    )]
     pub async fn get_node_schema_by_id(
         &self,
         connection: &mut PgConnection,
         node_schema_id: NodeSchemaIdModel,
     ) -> Result<NodeSchemaModel, DatabaseError> {
+        tracing::debug!(node_schema_id = ?node_schema_id);
+
         let nodes_schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -205,12 +229,18 @@ WHERE ns.node_schema_id = $1
         nodes_schemas.try_into()
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.get_node_schema_by_key",
+        skip(self, connection, node_schema_key)
+    )]
     pub async fn get_node_schema_by_key(
         &self,
         connection: &mut PgConnection,
         node_schema_key: String,
     ) -> Result<NodeSchemaModel, DatabaseError> {
+        tracing::debug!(node_schema_key = ?node_schema_key);
+
         let nodes_schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -245,12 +275,18 @@ WHERE ns.key = $1
         nodes_schemas.try_into()
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.get_edge_schema_by_id",
+        skip(self, connection, edge_schema_id)
+    )]
     pub async fn get_edge_schema_by_id(
         &self,
         connection: &mut PgConnection,
         edge_schema_id: EdgeSchemaIdModel,
     ) -> Result<EdgeSchemaModel, DatabaseError> {
+        tracing::debug!(edge_schema_id = ?edge_schema_id);
+
         let edges_schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -285,12 +321,18 @@ WHERE es.edge_schema_id = $1
         edges_schemas.try_into()
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.get_edge_schema_by_key",
+        skip(self, connection, edge_schema_key)
+    )]
     pub async fn get_edge_schema_by_key(
         &self,
         connection: &mut PgConnection,
         edge_schema_key: String,
     ) -> Result<EdgeSchemaModel, DatabaseError> {
+        tracing::debug!(edge_schema_key = ?edge_schema_key);
+
         let edges_schemas = sqlx::query_as!(
             SchemaRow,
             r#"
@@ -325,13 +367,17 @@ WHERE es.key = $1
         edges_schemas.try_into()
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection, create_graph))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.create_graph",
+        skip(self, connection, create_graph)
+    )]
     pub async fn create_graph(
         &self,
         connection: &mut PgConnection,
         create_graph: CreateGraphModel,
     ) -> Result<GraphModel, DatabaseError> {
-        tracing::debug!(create_graph_name = ?create_graph.name);
+        tracing::debug!(graph_id = ?create_graph.graph_id);
 
         let graph = sqlx::query_as!(
             GraphRow,
@@ -360,14 +406,18 @@ RETURNING
         Ok(graph.into())
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection, nodes_schemas))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.create_nodes_schemas",
+        skip(self, connection, graph_id, nodes_schemas)
+    )]
     pub async fn create_nodes_schemas(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
         nodes_schemas: Vec<CreateNodeSchemaModel>,
     ) -> Result<Vec<NodeSchemaModel>, DatabaseError> {
-        tracing::debug!(nodes_schemas_len = ?nodes_schemas.len());
+        tracing::debug!(graph_id = ?graph_id, nodes_schemas_len = ?nodes_schemas.len());
 
         let mut node_schema_ids = vec![];
         let mut graph_ids = vec![];
@@ -414,14 +464,18 @@ SELECT * FROM UNNEST(
         Ok(nodes_schemas.into_iter().map(NodeSchemaRow::into).collect())
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection, edges_schemas))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.create_edges_schemas",
+        skip(self, connection, graph_id, edges_schemas)
+    )]
     pub async fn create_edges_schemas(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
         edges_schemas: Vec<CreateEdgeSchemaModel>,
     ) -> Result<Vec<EdgeSchemaModel>, DatabaseError> {
-        tracing::debug!(edges_schemas_len = ?edges_schemas.len());
+        tracing::debug!(graph_id = ?graph_id, edges_schemas_len = ?edges_schemas.len());
 
         let mut edge_schema_ids = vec![];
         let mut graph_ids = vec![];
@@ -468,13 +522,18 @@ SELECT * FROM UNNEST(
         Ok(edges_schemas.into_iter().map(EdgeSchemaRow::into).collect())
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection, create_properties))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.create_properties",
+        skip(self, connection, _graph_id, properties_schemas)
+    )]
     pub async fn create_properties(
         &self,
         connection: &mut PgConnection,
-        create_properties: Vec<CreatePropertySchemaModel>,
+        _graph_id: GraphIdModel,
+        properties_schemas: Vec<CreatePropertySchemaModel>,
     ) -> Result<Vec<PropertySchemaModel>, DatabaseError> {
-        tracing::debug!(create_properties_len = ?create_properties.len());
+        tracing::debug!(graph_id = ?_graph_id, properties_len = ?properties_schemas.len());
 
         let mut property_schema_ids = vec![];
         let mut node_schema_ids = vec![];
@@ -484,7 +543,7 @@ SELECT * FROM UNNEST(
         let mut property_types = vec![];
         let mut metadatas = vec![];
 
-        for property in create_properties {
+        for property in properties_schemas {
             property_schema_ids.push(property.property_schema_id);
             node_schema_ids.push(property.node_schema_id);
             edge_schema_ids.push(property.edge_schema_id);

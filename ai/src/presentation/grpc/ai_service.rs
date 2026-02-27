@@ -24,7 +24,11 @@ impl AiService {
 
 #[tonic::async_trait]
 impl Ai for AiService {
-    #[tracing::instrument(level = "debug", skip(self, request))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "ai_service.generate_schema",
+        skip(self, request)
+    )]
     async fn generate_schema(
         &self,
         request: Request<GenerateSchemaRequest>,
@@ -43,7 +47,11 @@ impl Ai for AiService {
         Ok(Response::new(schema.into()))
     }
 
-    #[tracing::instrument(level = "debug", skip(self, request))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "ai_service.generate_data",
+        skip(self, request)
+    )]
     async fn generate_data(
         &self,
         request: Request<GenerateDataRequest>,

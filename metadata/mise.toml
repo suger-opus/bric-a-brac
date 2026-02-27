@@ -22,7 +22,7 @@
 # DATABASE_URL="{{env.METADATA_DB_URL}}"
 
 # LOGS
-RUST_LOG="warn,metadata=trace,bric_a_brac_protos=trace"
+# RUST_LOG="warn,metadata=trace,bric_a_brac_protos=debug"
 
 [tasks]
 db-config = "docker compose -f compose.db.yaml config"

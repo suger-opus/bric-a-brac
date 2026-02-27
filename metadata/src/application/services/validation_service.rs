@@ -17,7 +17,11 @@ impl ValidationService {
         Self { pool, repository }
     }
 
-    #[tracing::instrument(level = "trace", skip(self, create_node_data))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "validation_service.validate_create_node_data",
+        skip(self, create_node_data)
+    )]
     pub async fn validate_create_node_data(
         &self,
         create_node_data: &CreateNodeDataDto,
@@ -33,7 +37,11 @@ impl ValidationService {
         Ok(())
     }
 
-    #[tracing::instrument(level = "trace", skip(self, create_edge_data))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "validation_service.validate_create_edge_data",
+        skip(self, create_edge_data)
+    )]
     pub async fn validate_create_edge_data(
         &self,
         create_edge_data: &CreateEdgeDataDto,
@@ -49,7 +57,11 @@ impl ValidationService {
         Ok(())
     }
 
-    #[tracing::instrument(level = "trace", skip(self, properties_data, properties_schemas))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "validation_service.validate_properties",
+        skip(self, properties_data, properties_schemas)
+    )]
     fn validate_properties(
         &self,
         properties_data: &PropertiesDataDto,
@@ -88,7 +100,11 @@ impl ValidationService {
         })
     }
 
-    #[tracing::instrument(level = "trace", skip(self, property_data_value, property_schema))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "validation_service.validate_property",
+        skip(self, property_data_value, property_schema)
+    )]
     fn validate_property(
         &self,
         property_data_value: &serde_json::Value,

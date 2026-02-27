@@ -27,7 +27,11 @@ use bric_a_brac_dtos::{
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, user_id))]
+#[tracing::instrument(
+    level = "trace",
+    name = "graph_handler.get_all_metadata",
+    skip(state, user_id)
+)]
 pub async fn get_all_metadata(
     State(state): State<ApiState>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
@@ -53,7 +57,11 @@ pub async fn get_all_metadata(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, graph_id, user_id))]
+#[tracing::instrument(
+    level = "trace",
+    name = "graph_handler.get_metadata",
+    skip(state, graph_id, user_id)
+)]
 pub async fn get_metadata(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
@@ -80,7 +88,11 @@ pub async fn get_metadata(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, graph_id, user_id))]
+#[tracing::instrument(
+    level = "trace",
+    name = "graph_handler.get_schema",
+    skip(state, graph_id, user_id)
+)]
 pub async fn get_schema(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
@@ -107,7 +119,11 @@ pub async fn get_schema(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, graph_id, user_id))]
+#[tracing::instrument(
+    level = "trace",
+    name = "graph_handler.get_data",
+    skip(state, graph_id, user_id)
+)]
 pub async fn get_data(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
@@ -134,13 +150,17 @@ pub async fn get_data(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, user_id, payload))]
+#[tracing::instrument(
+    level = "trace",
+    name = "graph_handler.create_graph",
+    skip(state, user_id, payload)
+)]
 pub async fn create_graph(
     State(state): State<ApiState>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateGraphDto>,
 ) -> impl IntoResponse {
-    tracing::debug!(user_id = ?user_id, payload = ?payload);
+    tracing::debug!(user_id = ?user_id);
 
     state
         .graph_service
@@ -169,6 +189,7 @@ pub async fn create_graph(
 )]
 #[tracing::instrument(
     level = "trace",
+    name = "graph_handler.generate_schema",
     skip(state, graph_id, user_id, file_content, file_type)
 )]
 pub async fn generate_schema(
@@ -209,6 +230,7 @@ pub async fn generate_schema(
 )]
 #[tracing::instrument(
     level = "trace",
+    name = "graph_handler.generate_data",
     skip(state, graph_id, user_id, file_content, file_type)
 )]
 pub async fn generate_data(
@@ -248,14 +270,18 @@ pub async fn generate_data(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
+#[tracing::instrument(
+    level = "trace",
+    name = "graph_handler.create_schema",
+    skip(state, graph_id, user_id, payload)
+)]
 pub async fn create_schema(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateGraphSchemaDto>,
 ) -> impl IntoResponse {
-    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, payload = ?payload);
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
     state
         .graph_service
@@ -278,14 +304,18 @@ pub async fn create_schema(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
+#[tracing::instrument(
+    level = "trace",
+    name = "graph_handler.create_node_schema",
+    skip(state, graph_id, user_id, payload)
+)]
 pub async fn create_node_schema(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateNodeSchemaDto>,
 ) -> impl IntoResponse {
-    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, payload = ?payload);
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
     state
         .graph_service
@@ -308,14 +338,18 @@ pub async fn create_node_schema(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
+#[tracing::instrument(
+    level = "trace",
+    name = "graph_handler.create_edge_schema",
+    skip(state, graph_id, user_id, payload)
+)]
 pub async fn create_edge_schema(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateEdgeSchemaDto>,
 ) -> impl IntoResponse {
-    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, payload = ?payload);
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
     state
         .graph_service
@@ -338,14 +372,18 @@ pub async fn create_edge_schema(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
+#[tracing::instrument(
+    level = "trace",
+    name = "graph_handler.insert_node_data",
+    skip(state, graph_id, user_id, payload)
+)]
 pub async fn insert_node_data(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateNodeDataDto>,
 ) -> impl IntoResponse {
-    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, payload = ?payload);
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
     state
         .graph_service
@@ -368,14 +406,18 @@ pub async fn insert_node_data(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(level = "trace", skip(state, graph_id, user_id, payload))]
+#[tracing::instrument(
+    level = "trace",
+    name = "graph_handler.insert_edge_data",
+    skip(state, graph_id, user_id, payload)
+)]
 pub async fn insert_edge_data(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateEdgeDataDto>,
 ) -> impl IntoResponse {
-    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id, payload = ?payload);
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
     state
         .graph_service

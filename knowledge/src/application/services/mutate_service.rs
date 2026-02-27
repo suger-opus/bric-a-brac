@@ -15,6 +15,11 @@ impl MutateService {
         Self { pool, repository }
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "mutate_service.insert_node",
+        skip(self, graph_id, create_node_data)
+    )]
     pub async fn insert_node(
         &self,
         graph_id: GraphIdDto,
@@ -30,14 +35,20 @@ impl MutateService {
         Ok(node.into())
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "mutate_service.insert_edge",
+        skip(self, graph_id, create_edge_data)
+    )]
     pub async fn insert_edge(
         &self,
+        graph_id: GraphIdDto,
         create_edge_data: CreateEdgeDataDto,
     ) -> Result<EdgeDataDto, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let edge = self
             .repository
-            .insert_edge(&mut txn, create_edge_data.into())
+            .insert_edge(&mut txn, graph_id.into(), create_edge_data.into())
             .await?;
         txn.commit().await?;
 

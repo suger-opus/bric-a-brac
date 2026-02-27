@@ -12,12 +12,18 @@ impl AccessRepository {
         AccessRepository
     }
 
-    #[tracing::instrument(level = "debug", skip(self, connection))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "access_repository.create",
+        skip(self, connection, create_access)
+    )]
     pub async fn create(
         &self,
         connection: &mut PgConnection,
         create_access: CreateAccessModel,
     ) -> Result<AccessModel, DatabaseError> {
+        tracing::debug!(graph_id = ?create_access.graph_id, user_id = ?create_access.user_id, role = ?create_access.role);
+
         let access = sqlx::query_as!(
             AccessModel,
             r#"
