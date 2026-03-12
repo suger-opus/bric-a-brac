@@ -91,8 +91,9 @@ message CreateGraphDataProto {
 }
 
 message CreateNodeDataProto {
-    string key = 1;
-    map<string, PropertyValueProto> properties = 2;
+    string node_data_id = 1;
+    string key = 2;
+    map<string, PropertyValueProto> properties = 3;
 }
 
 message CreateEdgeDataProto {

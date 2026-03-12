@@ -15,7 +15,12 @@ export class ApiUserService implements UserService {
   async get(): Promise<User> {
     try {
       const response = await this.api.get("/me");
-      return v.parse(UserDto, response);
+      const user = v.safeParse(UserDto, response);
+      if (!user.success) {
+        console.error("Validation errors:", user.issues);
+        throw new Error("Failed to parse user data");
+      }
+      return user.output;
     } catch (error) {
       console.error("Failed to get user:", error);
       throw error;

@@ -3,6 +3,7 @@ import * as v from "valibot";
 import {
   CreateEdgeDataDto,
   CreateEdgeSchemaDto,
+  CreateGraphDataDto,
   CreateGraphDto,
   CreateGraphSchemaDto,
   CreateNodeDataDto,
@@ -38,6 +39,7 @@ export type GraphData = v.InferOutput<typeof GraphDataDto>;
 export type GraphMetadata = v.InferOutput<typeof GraphMetadataDto>;
 export type User = v.InferOutput<typeof UserDto>;
 
+export type CreateGraphData = v.InferOutput<typeof CreateGraphDataDto>;
 export type CreatePropertySchema = v.InferOutput<typeof CreatePropertySchemaDto>;
 export type PropertiesData = v.InferOutput<typeof PropertiesDataDto>;
 export type CreateNodeSchema = v.InferOutput<typeof CreateNodeSchemaDto>;

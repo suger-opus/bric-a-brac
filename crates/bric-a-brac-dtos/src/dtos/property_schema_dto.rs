@@ -40,14 +40,8 @@ impl TryFrom<PropertySchemaProto> for PropertySchemaDto {
     fn try_from(proto: PropertySchemaProto) -> Result<Self, Self::Error> {
         Ok(Self {
             property_schema_id: proto.property_schema_id.try_into()?,
-            node_schema_id: proto
-                .node_schema_id
-                .map(|id| id.try_into())
-                .transpose()?,
-            edge_schema_id: proto
-                .edge_schema_id
-                .map(|id| id.try_into())
-                .transpose()?,
+            node_schema_id: proto.node_schema_id.map(|id| id.try_into()).transpose()?,
+            edge_schema_id: proto.edge_schema_id.map(|id| id.try_into()).transpose()?,
             label: proto.label,
             key: proto.key,
             property_type: proto.property_type.try_into()?,
@@ -148,8 +142,8 @@ impl From<MetadataOptionString> for String {
     }
 }
 
-// TODO: Add metadata validation from property_type
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+#[validate(schema(function = "validate_metadata_from_type"))]
 pub struct CreatePropertySchemaDto {
     #[validate(length(min = 1, max = 25))]
     #[schema(min_length = 1, max_length = 25)]
@@ -159,6 +153,31 @@ pub struct CreatePropertySchemaDto {
 
     #[validate(nested)]
     pub metadata: PropertyMetadataDto,
+}
+
+fn validate_metadata_from_type(
+    dto: &CreatePropertySchemaDto,
+) -> Result<(), validator::ValidationError> {
+    match dto.property_type {
+        PropertyTypeDto::Select => match &dto.metadata.options {
+            None => Err(validator::ValidationError::new(
+                "Select type requires at least one option in metadata",
+            )),
+            Some(v) if v.is_empty() => Err(validator::ValidationError::new(
+                "Select type requires at least one option in metadata",
+            )),
+            _ => Ok(()),
+        },
+        _ => {
+            if dto.metadata.options.is_some() {
+                Err(validator::ValidationError::new(
+                    "Only Select type can have metadata options",
+                ))
+            } else {
+                Ok(())
+            }
+        }
+    }
 }
 
 impl TryFrom<CreatePropertySchemaProto> for CreatePropertySchemaDto {

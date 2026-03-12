@@ -6,20 +6,14 @@ import "common.proto";
 
 service Knowledge {
     rpc LoadGraph(LoadGraphRequest) returns (common.GraphDataProto);
-    rpc InsertNode(InsertNodeRequest) returns (common.NodeDataProto);
-    rpc InsertEdge(InsertEdgeRequest) returns (common.EdgeDataProto);
+    rpc InsertGraph(InsertGraphRequest) returns (common.GraphDataProto);
 }
 
 message LoadGraphRequest {
   string graph_id = 1;
 }
 
-message InsertNodeRequest {
+message InsertGraphRequest {
     string graph_id = 1;
-    common.CreateNodeDataProto node_data = 2;
-}
-
-message InsertEdgeRequest {
-    string graph_id = 1;
-    common.CreateEdgeDataProto edge_data = 2;
+    common.CreateGraphDataProto graph_data = 2;
 }

@@ -63,6 +63,17 @@ impl TryFrom<CreateGraphDataProto> for CreateGraphDataDto {
     }
 }
 
+impl TryFrom<Option<CreateGraphDataProto>> for CreateGraphDataDto {
+    type Error = DtosConversionError;
+
+    fn try_from(proto: Option<CreateGraphDataProto>) -> Result<Self, Self::Error> {
+        let proto = proto.ok_or_else(|| DtosConversionError::NoField {
+            field_name: "CreateGraphDataProto".to_string(),
+        })?;
+        Self::try_from(proto)
+    }
+}
+
 impl From<CreateGraphDataDto> for CreateGraphDataProto {
     fn from(dto: CreateGraphDataDto) -> Self {
         Self {

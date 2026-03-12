@@ -1,20 +1,15 @@
 use super::ValidationService;
 use crate::{
     application::dtos::{CreateGraphDto, GraphMetadataDto, UserIdDto},
-    domain::models::{
-        CreateAccessModel, CreateEdgeSchemaModel, CreateGraphSchemaModel, CreateNodeSchemaModel,
-        RoleModel,
-    },
+    domain::models::{CreateAccessModel, CreateGraphSchemaModel, RoleModel},
     infrastructure::{
         clients::{AiClient, KnowledgeClient},
         repositories::{AccessRepository, GraphRepository},
     },
-    presentation::errors::{AppError, DatabaseError},
+    presentation::errors::AppError,
 };
 use bric_a_brac_dtos::{
-    CreateEdgeDataDto, CreateEdgeSchemaDto, CreateGraphDataDto, CreateGraphSchemaDto,
-    CreateNodeDataDto, CreateNodeSchemaDto, EdgeDataDto, EdgeSchemaDto, GraphDataDto, GraphIdDto,
-    GraphSchemaDto, NodeDataDto, NodeSchemaDto,
+    CreateGraphDataDto, CreateGraphSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto,
 };
 use sqlx::PgPool;
 
@@ -68,42 +63,6 @@ impl GraphService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "graph_service.get_metadata",
-        skip(self, graph_id, user_id)
-    )]
-    pub async fn get_metadata(
-        &self,
-        graph_id: GraphIdDto,
-        user_id: UserIdDto,
-    ) -> Result<GraphMetadataDto, AppError> {
-        let mut txn = self.pool.begin().await?;
-        let graph = self
-            .repository
-            .get_metadata(&mut txn, graph_id.into(), user_id.into())
-            .await?;
-        txn.commit().await?;
-
-        Ok(graph.into())
-    }
-
-    #[tracing::instrument(
-        level = "trace",
-        name = "graph_service.get_schema",
-        skip(self, graph_id)
-    )]
-    pub async fn get_schema(&self, graph_id: GraphIdDto) -> Result<GraphSchemaDto, AppError> {
-        let mut txn = self.pool.begin().await?;
-        let schema = self
-            .repository
-            .get_schema(&mut txn, graph_id.into())
-            .await?;
-        txn.commit().await?;
-
-        Ok(schema.into())
-    }
-
-    #[tracing::instrument(
-        level = "trace",
         name = "graph_service.create_graph",
         skip(self, user_id, create_graph)
     )]
@@ -136,34 +95,30 @@ impl GraphService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "graph_service.generate_schema",
-        skip(self, _graph_id, file_content, file_type)
+        name = "graph_service.get_metadata",
+        skip(self, graph_id, user_id)
     )]
-    pub async fn generate_schema(
+    pub async fn get_metadata(
         &self,
-        _graph_id: GraphIdDto,
-        file_content: Vec<u8>,
-        file_type: String,
-    ) -> Result<CreateGraphSchemaDto, AppError> {
-        let schema = self
-            .ai_client
-            .generate_schema(file_content, file_type)
+        graph_id: GraphIdDto,
+        user_id: UserIdDto,
+    ) -> Result<GraphMetadataDto, AppError> {
+        let mut txn = self.pool.begin().await?;
+        let graph = self
+            .repository
+            .get_metadata(&mut txn, graph_id.into(), user_id.into())
             .await?;
+        txn.commit().await?;
 
-        Ok(schema)
+        Ok(graph.into())
     }
 
     #[tracing::instrument(
         level = "trace",
-        name = "graph_service.generate_data",
-        skip(self, graph_id, file_content, file_type)
+        name = "graph_service.get_schema",
+        skip(self, graph_id)
     )]
-    pub async fn generate_data(
-        &self,
-        graph_id: GraphIdDto,
-        file_content: Vec<u8>,
-        file_type: String,
-    ) -> Result<CreateGraphDataDto, AppError> {
+    pub async fn get_schema(&self, graph_id: GraphIdDto) -> Result<GraphSchemaDto, AppError> {
         let mut txn = self.pool.begin().await?;
         let schema = self
             .repository
@@ -171,12 +126,7 @@ impl GraphService {
             .await?;
         txn.commit().await?;
 
-        let data = self
-            .ai_client
-            .generate_data(schema.into(), file_content, file_type)
-            .await?;
-
-        Ok(data)
+        Ok(schema.into())
     }
 
     #[tracing::instrument(
@@ -228,70 +178,21 @@ impl GraphService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "graph_service.create_node_schema",
-        skip(self, graph_id, create_node_schema)
+        name = "graph_service.generate_schema",
+        skip(self, _graph_id, file_content, file_type)
     )]
-    pub async fn create_node_schema(
+    pub async fn generate_schema(
         &self,
-        graph_id: GraphIdDto,
-        create_node_schema: CreateNodeSchemaDto,
-    ) -> Result<NodeSchemaDto, AppError> {
-        let domain: CreateNodeSchemaModel = create_node_schema.into();
-        let mut txn = self.pool.begin().await?;
-        let nodes_schemas = self
-            .repository
-            .create_nodes_schemas(&mut txn, graph_id.into(), vec![domain.clone()])
+        _graph_id: GraphIdDto,
+        file_content: Vec<u8>,
+        file_type: String,
+    ) -> Result<CreateGraphSchemaDto, AppError> {
+        let schema = self
+            .ai_client
+            .generate_schema(file_content, file_type)
             .await?;
-        let properties = self
-            .repository
-            .create_properties(&mut txn, graph_id.into(), domain.properties)
-            .await?;
-        txn.commit().await?;
 
-        Ok(NodeSchemaDto {
-            properties: properties.into_iter().map(|p| p.into()).collect(),
-            ..nodes_schemas
-                .into_iter()
-                .next()
-                .ok_or_else(|| DatabaseError::UnexpectedState {
-                    reason: "No rows returned for node schema".to_string(),
-                })?
-                .into()
-        })
-    }
-
-    #[tracing::instrument(
-        level = "trace",
-        name = "graph_service.create_edge_schema",
-        skip(self, graph_id, create_edge_schema)
-    )]
-    pub async fn create_edge_schema(
-        &self,
-        graph_id: GraphIdDto,
-        create_edge_schema: CreateEdgeSchemaDto,
-    ) -> Result<EdgeSchemaDto, AppError> {
-        let domain: CreateEdgeSchemaModel = create_edge_schema.into();
-        let mut txn = self.pool.begin().await?;
-        let edges_schemas = self
-            .repository
-            .create_edges_schemas(&mut txn, graph_id.into(), vec![domain.clone()])
-            .await?;
-        let properties = self
-            .repository
-            .create_properties(&mut txn, graph_id.into(), domain.properties)
-            .await?;
-        txn.commit().await?;
-
-        Ok(EdgeSchemaDto {
-            properties: properties.into_iter().map(|p| p.into()).collect(),
-            ..edges_schemas
-                .into_iter()
-                .next()
-                .ok_or_else(|| DatabaseError::UnexpectedState {
-                    reason: "No rows returned for edge schema".to_string(),
-                })?
-                .into()
-        })
+        Ok(schema)
     }
 
     #[tracing::instrument(level = "trace", name = "graph_service.get_data", skip(self, graph_id))]
@@ -301,43 +202,49 @@ impl GraphService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "graph_service.insert_node_data",
-        skip(self, graph_id, create_node_data)
+        name = "graph_service.insert_data",
+        skip(self, graph_id, create_graph_data)
     )]
-    pub async fn insert_node_data(
+    pub async fn insert_data(
         &self,
         graph_id: GraphIdDto,
-        create_node_data: CreateNodeDataDto,
-    ) -> Result<NodeDataDto, AppError> {
+        mut create_graph_data: CreateGraphDataDto,
+    ) -> Result<GraphDataDto, AppError> {
         self.validation_service
-            .validate_create_node_data(&create_node_data)
+            .validate_create_graph_data(graph_id, &mut create_graph_data)
             .await?;
 
-        let node_data = self
+        let graph_data = self
             .knowledge_client
-            .insert_node(graph_id, create_node_data)
+            .insert_graph(graph_id, create_graph_data)
             .await?;
-        Ok(node_data)
+
+        Ok(graph_data)
     }
 
     #[tracing::instrument(
         level = "trace",
-        name = "graph_service.insert_edge_data",
-        skip(self, graph_id, create_edge_data)
+        name = "graph_service.generate_data",
+        skip(self, graph_id, file_content, file_type)
     )]
-    pub async fn insert_edge_data(
+    pub async fn generate_data(
         &self,
         graph_id: GraphIdDto,
-        create_edge_data: CreateEdgeDataDto,
-    ) -> Result<EdgeDataDto, AppError> {
-        self.validation_service
-            .validate_create_edge_data(&create_edge_data)
+        file_content: Vec<u8>,
+        file_type: String,
+    ) -> Result<CreateGraphDataDto, AppError> {
+        let mut txn = self.pool.begin().await?;
+        let schema = self
+            .repository
+            .get_schema(&mut txn, graph_id.into())
+            .await?;
+        txn.commit().await?;
+
+        let data = self
+            .ai_client
+            .generate_data(schema.into(), file_content, file_type)
             .await?;
 
-        let edge_data = self
-            .knowledge_client
-            .insert_edge(graph_id, create_edge_data)
-            .await?;
-        Ok(edge_data)
+        Ok(data)
     }
 }

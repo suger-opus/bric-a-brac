@@ -1,28 +1,18 @@
 import {
+  CreateGraphDataDto,
   CreateGraphSchemaDto,
-  EdgeDataDto,
-  EdgeSchemaDto,
   GraphDataDto,
   GraphMetadataDto,
-  GraphSchemaDto,
-  NodeDataDto,
-  NodeSchemaDto
+  GraphSchemaDto
 } from "@/lib/api/dtos";
 import { proxy } from "@/lib/api/proxy";
 import {
-  CreateEdgeData,
-  CreateEdgeSchema,
   CreateGraph,
+  CreateGraphData,
   CreateGraphSchema,
-  CreateNodeData,
-  CreateNodeSchema,
-  EdgeData,
-  EdgeSchema,
   GraphData,
   GraphMetadata,
-  GraphSchema,
-  NodeData,
-  NodeSchema
+  GraphSchema
 } from "@/types";
 import * as v from "valibot";
 
@@ -37,11 +27,9 @@ export interface GraphService {
     file_content: File,
     file_type: string
   ): Promise<CreateGraphSchema>;
+  generateData(graph_id: string, file_content: File, file_type: string): Promise<CreateGraphData>;
   createSchema(graph_id: string, body: CreateGraphSchema): Promise<GraphSchema>;
-  createNodeSchema(graph_id: string, body: CreateNodeSchema): Promise<NodeSchema>;
-  createEdgeSchema(graph_id: string, body: CreateEdgeSchema): Promise<EdgeSchema>;
-  createNodeData(graph_id: string, body: CreateNodeData): Promise<NodeData>;
-  createEdgeData(graph_id: string, body: CreateEdgeData): Promise<EdgeData>;
+  createData(graph_id: string, body: CreateGraphData): Promise<GraphData>;
 }
 
 export class ApiGraphService implements GraphService {
@@ -52,7 +40,12 @@ export class ApiGraphService implements GraphService {
   async getAllMetadata(): Promise<GraphMetadata[]> {
     try {
       const response = await this.api("").get();
-      return v.parse(v.array(GraphMetadataDto), response);
+      const metadata = v.safeParse(v.array(GraphMetadataDto), response);
+      if (!metadata.success) {
+        console.error("Validation errors:", metadata.issues);
+        throw new Error("Failed to parse graph metadata");
+      }
+      return metadata.output;
     } catch (error) {
       console.error("Failed to get all graph metadata:", error);
       throw error;
@@ -62,7 +55,12 @@ export class ApiGraphService implements GraphService {
   async getOneMetadata(graph_id: string): Promise<GraphMetadata> {
     try {
       const response = await this.api(`/${graph_id}`).get();
-      return v.parse(GraphMetadataDto, response);
+      const metadata = v.safeParse(GraphMetadataDto, response);
+      if (!metadata.success) {
+        console.error("Validation errors:", metadata.issues);
+        throw new Error("Failed to parse graph metadata");
+      }
+      return metadata.output;
     } catch (error) {
       console.error("Failed to get one graph metadata:", error);
       throw error;
@@ -72,7 +70,12 @@ export class ApiGraphService implements GraphService {
   async getData(graph_id: string): Promise<GraphData> {
     try {
       const response = await this.api(`/${graph_id}/data`).get();
-      return v.parse(GraphDataDto, response);
+      const data = v.safeParse(GraphDataDto, response);
+      if (!data.success) {
+        console.error("Validation errors:", data.issues);
+        throw new Error("Failed to parse graph data");
+      }
+      return data.output;
     } catch (error) {
       console.error("Failed to get graph data:", error);
       throw error;
@@ -97,7 +100,12 @@ export class ApiGraphService implements GraphService {
   async createGraph(request: CreateGraph): Promise<GraphMetadata> {
     try {
       const response = await this.api("").post(request);
-      return v.parse(GraphMetadataDto, response);
+      const metadata = v.safeParse(GraphMetadataDto, response);
+      if (!metadata.success) {
+        console.error("Validation errors:", metadata.issues);
+        throw new Error("Failed to parse graph metadata");
+      }
+      return metadata.output;
     } catch (error) {
       console.error("Failed to create graph:", error);
       throw error;
@@ -118,179 +126,11 @@ export class ApiGraphService implements GraphService {
       } else {
         formData.append("file_type", "txt");
       }
-      // const response = await this.api(`/${graph_id}/schema/generate`).post(formData);
-      const response = {
-        "nodes": [
-          {
-            "label": "Person",
-            "color": "#28B463",
-            "properties": [
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Name",
-                "property_type": "String",
-                "metadata": {
-                  "options": null
-                }
-              },
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Location",
-                "property_type": "String",
-                "metadata": {
-                  "options": null
-                }
-              },
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Years of Experience",
-                "property_type": "Number",
-                "metadata": {
-                  "options": null
-                }
-              },
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Role",
-                "property_type": "Select",
-                "metadata": {
-                  "options": [
-                    "Keeper",
-                    "Witness"
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "label": "Element",
-            "color": "#FFC300",
-            "properties": [
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Type",
-                "property_type": "Select",
-                "metadata": {
-                  "options": [
-                    "Fog",
-                    "Sea",
-                    "Light",
-                    "Gannet"
-                  ]
-                }
-              },
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Color",
-                "property_type": "String",
-                "metadata": {
-                  "options": null
-                }
-              },
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Behavior",
-                "property_type": "Select",
-                "metadata": {
-                  "options": [
-                    "Indifferent",
-                    "Responsive"
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "label": "Object",
-            "color": "#C70039",
-            "properties": [
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Name",
-                "property_type": "String",
-                "metadata": {
-                  "options": null
-                }
-              },
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Type",
-                "property_type": "Select",
-                "metadata": {
-                  "options": [
-                    "Lighthouse",
-                    "Logbook"
-                  ]
-                }
-              }
-            ]
-          }
-        ],
-        "edges": [
-          {
-            "label": "Records",
-            "color": "#FF5733",
-            "properties": [
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Type",
-                "property_type": "Select",
-                "metadata": {
-                  "options": [
-                    "Routine",
-                    "Observation"
-                  ]
-                }
-              },
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Frequency",
-                "property_type": "Select",
-                "metadata": {
-                  "options": [
-                    "Daily",
-                    "Weekly",
-                    "Monthly"
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "label": "Communicates With",
-            "color": "#3355FF",
-            "properties": [
-              {
-                "node_schema_id": null,
-                "edge_schema_id": null,
-                "label": "Connection Type",
-                "property_type": "Select",
-                "metadata": {
-                  "options": [
-                    "Parent-Child",
-                    "Profession"
-                  ]
-                }
-              }
-            ]
-          }
-        ]
-      };
+      const response = await this.api(`/${graph_id}/schema/generate`).post(formData);
       const schema = v.safeParse(CreateGraphSchemaDto, response);
       if (!schema.success) {
         console.error("Validation errors:", schema.issues);
-        throw new Error("Invalid response format");
+        throw new Error("Failed to parse create graph schema");
       }
       return schema.output;
     } catch (error) {
@@ -299,52 +139,59 @@ export class ApiGraphService implements GraphService {
     }
   }
 
+  async generateData(
+    graph_id: string,
+    file_content: File,
+    file_type: string
+  ): Promise<CreateGraphData> {
+    try {
+      const formData = new FormData();
+      // TODO: shouldn't it be inside metadata ?
+      formData.append("file", file_content);
+      if (file_type === "text/csv") {
+        formData.append("file_type", "csv");
+      } else {
+        formData.append("file_type", "txt");
+      }
+      const response = await this.api(`/${graph_id}/data/generate`).post(formData);
+      const data = v.safeParse(CreateGraphDataDto, response);
+      if (!data.success) {
+        console.error("Validation errors:", data.issues);
+        throw new Error("Failed to parse create graph data");
+      }
+      return data.output;
+    } catch (error) {
+      console.error("Failed to generate graph data:", error);
+      throw error;
+    }
+  }
+
   async createSchema(graph_id: string, body: CreateGraphSchema): Promise<GraphSchema> {
     try {
       const response = await this.api(`/${graph_id}/schema`).post(body);
-      return v.parse(GraphSchemaDto, response);
+      const schema = v.safeParse(GraphSchemaDto, response);
+      if (!schema.success) {
+        console.error("Validation errors:", schema.issues);
+        throw new Error("Failed to parse graph schema");
+      }
+      return schema.output;
     } catch (error) {
       console.error("Failed to create graph schema:", error);
       throw error;
     }
   }
 
-  async createNodeSchema(graph_id: string, body: CreateNodeSchema): Promise<NodeSchema> {
+  async createData(graph_id: string, body: CreateGraphData): Promise<GraphData> {
     try {
-      const response = await this.api(`/${graph_id}/schema/nodes`).post(body);
-      return v.parse(NodeSchemaDto, response);
+      const response = await this.api(`/${graph_id}/data`).post(body);
+      const data = v.safeParse(GraphDataDto, response);
+      if (!data.success) {
+        console.error("Validation errors:", data.issues);
+        throw new Error("Failed to parse create graph data");
+      }
+      return data.output;
     } catch (error) {
-      console.error("Failed to create node schema:", error);
-      throw error;
-    }
-  }
-
-  async createEdgeSchema(graph_id: string, body: CreateEdgeSchema): Promise<EdgeSchema> {
-    try {
-      const response = await this.api(`/${graph_id}/schema/edges`).post(body);
-      return v.parse(EdgeSchemaDto, response);
-    } catch (error) {
-      console.error("Failed to create edge schema:", error);
-      throw error;
-    }
-  }
-
-  async createNodeData(graph_id: string, body: CreateNodeData): Promise<NodeData> {
-    try {
-      const response = await this.api(`/${graph_id}/data/nodes`).post(body);
-      return v.parse(NodeDataDto, response);
-    } catch (error) {
-      console.error("Failed to create node data:", error);
-      throw error;
-    }
-  }
-
-  async createEdgeData(graph_id: string, body: CreateEdgeData): Promise<EdgeData> {
-    try {
-      const response = await this.api(`/${graph_id}/data/edges`).post(body);
-      return v.parse(EdgeDataDto, response);
-    } catch (error) {
-      console.error("Failed to create edge data:", error);
+      console.error("Failed to create graph data:", error);
       throw error;
     }
   }

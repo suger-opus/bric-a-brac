@@ -1,12 +1,10 @@
 use crate::{infrastructure::config::KnowledgeServerConfig, presentation::errors::GrpcClientError};
 use axum::http::Uri;
-use bric_a_brac_dtos::{
-    CreateEdgeDataDto, CreateNodeDataDto, EdgeDataDto, GraphDataDto, GraphIdDto, NodeDataDto,
-};
+use bric_a_brac_dtos::{CreateGraphDataDto, GraphDataDto, GraphIdDto};
 use bric_a_brac_protos::{
     knowledge::{
-        knowledge_client::KnowledgeClient as KnowledgeGrpcClient, InsertEdgeRequest,
-        InsertNodeRequest, LoadGraphRequest,
+        knowledge_client::KnowledgeClient as KnowledgeGrpcClient, InsertGraphRequest,
+        LoadGraphRequest,
     },
     BaseGrpcClientError, GrpcClient, GrpcServiceKind,
 };
@@ -48,21 +46,25 @@ impl KnowledgeClient {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip(self, graph_id, node_data))]
-    pub async fn insert_node(
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.insert_graph",
+        skip(self, graph_id, graph_data)
+    )]
+    pub async fn insert_graph(
         &self,
         graph_id: GraphIdDto,
-        node_data: CreateNodeDataDto,
-    ) -> Result<NodeDataDto, GrpcClientError> {
-        tracing::debug!(graph_id = ?graph_id, key = ?node_data.key);
+        graph_data: CreateGraphDataDto,
+    ) -> Result<GraphDataDto, GrpcClientError> {
+        tracing::debug!(graph_id = ?graph_id, nodes_len = graph_data.nodes.len(), edges_len = graph_data.edges.len());
 
-        match self.try_insert_node(graph_id, node_data.clone()).await {
+        match self.try_insert_graph(graph_id, graph_data.clone()).await {
             Ok(node) => Ok(node),
             Err(err) => {
                 if err.is_connection_error() {
                     tracing::warn!("Connection error detected, reconnecting: {}", err);
                     self.reset_connection();
-                    self.try_insert_node(graph_id, node_data).await
+                    self.try_insert_graph(graph_id, graph_data).await
                 } else {
                     Err(err)
                 }
@@ -70,29 +72,11 @@ impl KnowledgeClient {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip(self, graph_id, edge_data))]
-    pub async fn insert_edge(
-        &self,
-        graph_id: GraphIdDto,
-        edge_data: CreateEdgeDataDto,
-    ) -> Result<EdgeDataDto, GrpcClientError> {
-        tracing::debug!(graph_id = ?graph_id, key = ?edge_data.key, from_node_data_id = ?edge_data.from_node_data_id, to_node_data_id = ?edge_data.to_node_data_id);
-
-        match self.try_insert_edge(graph_id, edge_data.clone()).await {
-            Ok(edge) => Ok(edge),
-            Err(err) => {
-                if err.is_connection_error() {
-                    tracing::warn!("Connection error detected, reconnecting: {}", err);
-                    self.reset_connection();
-                    self.try_insert_edge(graph_id, edge_data).await
-                } else {
-                    Err(err)
-                }
-            }
-        }
-    }
-
-    #[tracing::instrument(level = "debug", skip(self, graph_id))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.load_graph",
+        skip(self, graph_id)
+    )]
     pub async fn load_graph(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, GrpcClientError> {
         tracing::debug!(graph_id = ?graph_id);
 
@@ -110,61 +94,42 @@ impl KnowledgeClient {
         }
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, node_data))]
-    async fn try_insert_node(
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_client.try_insert_graph",
+        skip(self, graph_id, graph_data)
+    )]
+    async fn try_insert_graph(
         &self,
         graph_id: GraphIdDto,
-        node_data: CreateNodeDataDto,
-    ) -> Result<NodeDataDto, GrpcClientError> {
+        graph_data: CreateGraphDataDto,
+    ) -> Result<GraphDataDto, GrpcClientError> {
         self.ensure_connection().await?;
         let mut client = self.clone_client()?;
 
-        let request = Request::new(InsertNodeRequest {
+        let request = Request::new(InsertGraphRequest {
             graph_id: graph_id.to_string(),
-            node_data: Some(node_data.into()),
+            graph_data: Some(graph_data.into()),
         });
 
         let response =
             client
-                .insert_node(request)
+                .insert_graph(request)
                 .await
                 .map_err(|err| BaseGrpcClientError::Request {
                     service: GrpcServiceKind::Knowledge,
-                    message: "Failed to insert node in Knowledge service".to_string(),
+                    message: "Failed to insert graph in Knowledge service".to_string(),
                     source: err,
                 })?;
 
         Ok(response.into_inner().try_into()?)
     }
 
-    #[tracing::instrument(level = "trace", skip(self, graph_id, edge_data))]
-    async fn try_insert_edge(
-        &self,
-        graph_id: GraphIdDto,
-        edge_data: CreateEdgeDataDto,
-    ) -> Result<EdgeDataDto, GrpcClientError> {
-        self.ensure_connection().await?;
-        let mut client = self.clone_client()?;
-
-        let request = Request::new(InsertEdgeRequest {
-            graph_id: graph_id.to_string(),
-            edge_data: Some(edge_data.into()),
-        });
-
-        let response =
-            client
-                .insert_edge(request)
-                .await
-                .map_err(|err| BaseGrpcClientError::Request {
-                    service: GrpcServiceKind::Knowledge,
-                    message: "Failed to insert edge in Knowledge service".to_string(),
-                    source: err,
-                })?;
-
-        Ok(response.into_inner().try_into()?)
-    }
-
-    #[tracing::instrument(level = "trace", skip(self, graph_id))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_client.try_load_graph",
+        skip(self, graph_id)
+    )]
     async fn try_load_graph(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, GrpcClientError> {
         self.ensure_connection().await?;
         let mut client = self.clone_client()?;

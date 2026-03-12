@@ -1,6 +1,9 @@
 use crate::{infrastructure::clients::OpenRouterClient, presentation::errors::AppError};
-use bric_a_brac_dtos::{CreateGraphDataDto, GraphSchemaDto};
-use std::collections::BTreeMap;
+use bric_a_brac_dtos::{
+    CreateEdgeDataDto, CreateGraphDataDto, CreateNodeDataDto, GraphSchemaDto, NodeDataIdDto,
+    PropertiesDataDto, PropertyTypeDto,
+};
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write;
 
 pub struct DataService {
@@ -28,7 +31,7 @@ impl DataService {
                 source: err,
             })?;
 
-        let (legend, csv) = schema_to_template_csv(schema).map_err(|_| AppError::Internal {
+        let (legend, csv) = schema_to_template_csv(schema.clone()).map_err(|_| AppError::Internal {
             context: "Failed to build template CSV".to_string(),
         })?;
         let system_prompt = build_system_prompt(&legend, &csv);
@@ -39,28 +42,38 @@ impl DataService {
             .chat(&system_prompt, &user_prompt, None, None)
             .await?;
 
-        match &generated_data {
-            serde_json::Value::String(s) => {
-                tracing::debug!("Generated graph data:\n{}", s);
-            }
-            _ => {
-                tracing::debug!(
-                    "Generated graph data:\n{}",
-                    serde_json::to_string_pretty(&generated_data).unwrap_or_default()
-                );
-            }
-        }
+        let csv_data = generated_data.as_str().ok_or_else(|| AppError::Internal {
+            context: "Expected generated data to be a string".to_string(),
+        })?;
+        // tracing::debug!("Generated graph data:\n{}", csv_data);
 
-        Ok(CreateGraphDataDto {
-            nodes: vec![],
-            edges: vec![],
-        })
+        let property_types: HashMap<String, PropertyTypeDto> = schema
+            .nodes
+            .iter()
+            .flat_map(|n| n.properties.iter())
+            .chain(schema.edges.iter().flat_map(|e| e.properties.iter()))
+            .map(|p| (p.key.clone(), p.property_type.clone()))
+            .collect();
+
+        let graph_data = csv_to_graph_data(csv_data, &property_types).map_err(|err| AppError::Internal {
+            context: format!("Failed to convert CSV to graph data: {}", err),
+        })?;
+
+        // !! TODO: validation CreateGraphDataDto
+        // !! TODO: verify data is conform to schema
+
+        Ok(graph_data)
     }
 }
 
 fn build_system_prompt(legend: &str, csv: &str) -> String {
     format!(
-        r##"You are a graph data extractor assistant. Your task is to extract data from a document and populate a graph — not define a schema.
+        r##"You are a graph data extractor assistant. Your task is to extract data from a document and populate a graph.
+
+A graph schema defines the TYPES of entities and relationships:
+- Nodes represent ENTITY TYPES (e.g., 'Person', 'Location', 'Company') — not specific people or places
+- Edges represent RELATIONSHIP TYPES between node types (e.g., 'Friend Of', 'Born In') — not specific relationships
+- Attributes define the PROPERTIES that instances of a node/edge type can have (e.g., 'Name', 'Eye Color', 'Birth Year') — not the actual values
 
 You will be given a graph schema and a document. Extract all relevant entities and relationships from the document and return them as structured data that conforms to the schema.
 
@@ -69,6 +82,7 @@ Rules:
 - Only use properties that are defined in the schema for each node/relationship type
 - Assign a unique string ID to every node (e.g., 'n1', 'n2', ...) — IDs must be consistent across all tables
 - Every relationship must reference valid node IDs via 'from' and 'to'
+- Every relationship must reference different node IDs via 'from' and 'to' (no self-loops)
 - Do not invent data that is not present or strongly implied by the document
 
 Formatting and Output Instructions:
@@ -197,6 +211,116 @@ fn schema_to_template_csv(schema: GraphSchemaDto) -> Result<(String, String), ()
     }
 
     Ok((legend.trim().to_string(), csv.trim().to_string()))
+}
+
+fn coerce_value(raw: &str, property_type: Option<&PropertyTypeDto>) -> serde_json::Value {
+    match property_type {
+        Some(PropertyTypeDto::Number) => raw
+            .parse::<serde_json::Number>()
+            .map(serde_json::Value::Number)
+            .unwrap_or_else(|_| serde_json::Value::String(raw.to_string())),
+        Some(PropertyTypeDto::Boolean) => match raw.to_lowercase().as_str() {
+            "true" => serde_json::Value::Bool(true),
+            "false" => serde_json::Value::Bool(false),
+            _ => serde_json::Value::String(raw.to_string()),
+        },
+        _ => serde_json::Value::String(raw.to_string()),
+    }
+}
+
+fn csv_to_graph_data(
+    csv: &str,
+    property_types: &HashMap<String, PropertyTypeDto>,
+) -> Result<CreateGraphDataDto, String> {
+    let csv = csv.trim();
+    let mut lines = csv.lines().peekable();
+    let mut nodes: Vec<CreateNodeDataDto> = vec![];
+    let mut edges: Vec<CreateEdgeDataDto> = vec![];
+    let mut node_id_map: HashMap<String, NodeDataIdDto> = HashMap::new();
+
+    while let Some(line) = lines.next() {
+        let line = line.trim();
+
+        if line.is_empty() {
+            continue;
+        }
+
+        if let Some(key) = line.strip_prefix("## Node-") {
+            let key = key.trim().to_string();
+            let headers_line = lines.next().ok_or_else(|| format!("Expected headers after '## Node-{}'" , key))?;
+            let headers: Vec<&str> = headers_line.trim().split(',').map(str::trim).collect();
+
+            loop {
+                match lines.peek() {
+                    None => break,
+                    Some(next) if next.trim().starts_with("## ") => break,
+                    _ => {}
+                }
+                let row = lines.next().ok_or_else(|| "Unexpected end of input while reading node row".to_string())?;
+                let row = row.trim();
+                if row.is_empty() {
+                    continue;
+                }
+                let cols: Vec<&str> = row.split(',').map(str::trim).collect();
+                if cols.len() != headers.len() {
+                    return Err(format!("Node row has {} columns but headers has {}", cols.len(), headers.len()));
+                }
+                let ai_id = cols[0].to_string();
+                let node_id = NodeDataIdDto::new();
+                node_id_map.insert(ai_id, node_id);
+
+                let mut values = HashMap::new();
+                for i in 1..headers.len() {
+                    let value = coerce_value(cols[i], property_types.get(headers[i]));
+                    values.insert(headers[i].to_string(), value);
+                }
+                nodes.push(CreateNodeDataDto {
+                    node_data_id: node_id,
+                    key: key.clone(),
+                    properties: PropertiesDataDto { values },
+                });
+            }
+        } else if let Some(key) = line.strip_prefix("## Edge-") {
+            let key = key.trim().to_string();
+            let headers_line = lines.next().ok_or_else(|| format!("Expected headers after '## Edge-{}'" , key))?;
+            let headers: Vec<&str> = headers_line.trim().split(',').map(str::trim).collect();
+
+            loop {
+                match lines.peek() {
+                    None => break,
+                    Some(next) if next.trim().starts_with("## ") => break,
+                    _ => {}
+                }
+                let row = lines.next().ok_or_else(|| "Unexpected end of input while reading edge row".to_string())?;
+                let row = row.trim();
+                if row.is_empty() {
+                    continue;
+                }
+                let cols: Vec<&str> = row.split(',').map(str::trim).collect();
+                if cols.len() != headers.len() {
+                    return Err(format!("Edge row has {} columns but headers has {}", cols.len(), headers.len()));
+                }
+                let from_id = node_id_map.get(cols[0]).copied().ok_or_else(|| format!("Unknown node ID '{}' in edge 'from'", cols[0]))?;
+                let to_id = node_id_map.get(cols[1]).copied().ok_or_else(|| format!("Unknown node ID '{}' in edge 'to'", cols[1]))?;
+
+                let mut values = HashMap::new();
+                for i in 2..headers.len() {
+                    let value = coerce_value(cols[i], property_types.get(headers[i]));
+                    values.insert(headers[i].to_string(), value);
+                }
+                edges.push(CreateEdgeDataDto {
+                    key: key.clone(),
+                    from_node_data_id: from_id,
+                    to_node_data_id: to_id,
+                    properties: PropertiesDataDto { values },
+                });
+            }
+        } else {
+            return Err(format!("Unexpected line: '{}'", line));
+        }
+    }
+
+    Ok(CreateGraphDataDto { nodes, edges })
 }
 
 #[cfg(test)]
@@ -446,9 +570,10 @@ mod tests {
                     ]
                 }
             ]
-        }));
+        }))
+        .unwrap();
 
-        let (legend, csv) = schema_to_template_csv(schema.unwrap()).unwrap();
+        let (legend, csv) = schema_to_template_csv(schema).unwrap();
         let expected_legend = r#"
 ## Node-ESVhRs9k
 label: "Object"
@@ -529,5 +654,132 @@ from,to,MDHY1uVN
 
         assert_eq!(legend, expected_legend);
         assert_eq!(csv, expected_csv);
+    }
+
+    #[test]
+    fn test_csv_to_graph_data() {
+        let csv = r#"
+## Node-JparY0E3
+ id,ft5ybMXL,k7xdQhvx
+ n1,Logbook,Lighthouse
+ ## Node-di8zqvue
+ id,INa4ejnu,VCQ8T4SG,X4u4YW94,fmwi38Kd
+ n1,Point,Keeper,30,Marcus
+ n2,Edinburgh,Witness,0,Daughter
+ ## Node-wZlDcFRT
+ id,DeJx3xiU,WAJyLvmA,WPv9aBad
+ n1,Responsive,white,Fog
+ n2,Responsive,dark green,Sea
+ n3,Indifferent,white,Gannet
+ ## Edge-EPLXEEpm
+ from,to,I3HCHgGr,gWp6NrlG
+ n1,n1,Daily,Observation
+ n2,n2,Weekly,Routine
+ ## Edge-z41HW1jw
+ from,to,pgD0HOWK
+ n1,n2,Profession
+"#
+        .trim();
+
+        let graph_data = csv_to_graph_data(
+            csv,
+            &HashMap::from([("X4u4YW94".to_string(), PropertyTypeDto::Number)]),
+        )
+        .unwrap();
+
+        let id_to_idx: HashMap<NodeDataIdDto, usize> = graph_data
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(i, n)| (n.node_data_id, i))
+            .collect();
+
+        // All node_data_ids must be unique
+        assert_eq!(
+            id_to_idx.len(),
+            graph_data.nodes.len(),
+            "node_data_ids must be unique"
+        );
+
+        // All edge references must point to existing nodes
+        for edge in &graph_data.edges {
+            assert!(id_to_idx.contains_key(&edge.from_node_data_id));
+            assert!(id_to_idx.contains_key(&edge.to_node_data_id));
+        }
+
+        // Verify nodes: key + properties (order-preserved, ignoring node_data_id)
+        let actual_nodes: Vec<(String, serde_json::Value)> = graph_data
+            .nodes
+            .iter()
+            .map(|n| (n.key.clone(), serde_json::to_value(&n.properties).unwrap()))
+            .collect();
+        assert_eq!(
+            actual_nodes,
+            vec![
+                (
+                    "JparY0E3".to_string(),
+                    json!({"ft5ybMXL": "Logbook", "k7xdQhvx": "Lighthouse"})
+                ),
+                (
+                    "di8zqvue".to_string(),
+                    json!({"INa4ejnu": "Point", "VCQ8T4SG": "Keeper", "X4u4YW94": 30, "fmwi38Kd": "Marcus"})
+                ),
+                (
+                    "di8zqvue".to_string(),
+                    json!({"INa4ejnu": "Edinburgh", "VCQ8T4SG": "Witness", "X4u4YW94": 0, "fmwi38Kd": "Daughter"})
+                ),
+                (
+                    "wZlDcFRT".to_string(),
+                    json!({"DeJx3xiU": "Responsive", "WAJyLvmA": "white", "WPv9aBad": "Fog"})
+                ),
+                (
+                    "wZlDcFRT".to_string(),
+                    json!({"DeJx3xiU": "Responsive", "WAJyLvmA": "dark green", "WPv9aBad": "Sea"})
+                ),
+                (
+                    "wZlDcFRT".to_string(),
+                    json!({"DeJx3xiU": "Indifferent", "WAJyLvmA": "white", "WPv9aBad": "Gannet"})
+                ),
+            ]
+        );
+
+        // Verify edges: key + from/to node indices + properties
+        // (n1, n2, n3 in the edge sections resolve to wZlDcFRT nodes at indices 3, 4, 5,
+        //  because JparY0E3's n1 and di8zqvue's n1/n2 are overwritten in the id map)
+        let actual_edges: Vec<(String, usize, usize, serde_json::Value)> = graph_data
+            .edges
+            .iter()
+            .map(|e| {
+                (
+                    e.key.clone(),
+                    id_to_idx[&e.from_node_data_id],
+                    id_to_idx[&e.to_node_data_id],
+                    serde_json::to_value(&e.properties).unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            actual_edges,
+            vec![
+                (
+                    "EPLXEEpm".to_string(),
+                    3,
+                    3,
+                    json!({"I3HCHgGr": "Daily", "gWp6NrlG": "Observation"})
+                ),
+                (
+                    "EPLXEEpm".to_string(),
+                    4,
+                    4,
+                    json!({"I3HCHgGr": "Weekly", "gWp6NrlG": "Routine"})
+                ),
+                (
+                    "z41HW1jw".to_string(),
+                    3,
+                    4,
+                    json!({"pgD0HOWK": "Profession"})
+                ),
+            ]
+        );
     }
 }

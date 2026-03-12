@@ -56,6 +56,7 @@ impl TryFrom<Option<GraphSchemaProto>> for GraphSchemaDto {
 pub struct CreateGraphSchemaDto {
     #[validate(nested)]
     pub nodes: Vec<CreateNodeSchemaDto>,
+
     #[validate(nested)]
     pub edges: Vec<CreateEdgeSchemaDto>,
 }

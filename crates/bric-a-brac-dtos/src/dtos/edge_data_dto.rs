@@ -5,6 +5,7 @@ use bric_a_brac_protos::common::{CreateEdgeDataProto, EdgeDataProto};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use utoipa::ToSchema;
+use validator::Validate;
 
 id!(EdgeDataIdDto);
 
@@ -51,12 +52,23 @@ impl From<EdgeDataDto> for EdgeDataProto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+#[validate(schema(function = "validate_no_self_loop"))]
 pub struct CreateEdgeDataDto {
     pub key: String,
     pub from_node_data_id: NodeDataIdDto,
     pub to_node_data_id: NodeDataIdDto,
     pub properties: PropertiesDataDto,
+}
+
+fn validate_no_self_loop(dto: &CreateEdgeDataDto) -> Result<(), validator::ValidationError> {
+    if dto.from_node_data_id == dto.to_node_data_id {
+        Err(validator::ValidationError::new(
+            "from_node_data_id and to_node_data_id must be different (no self-loops)",
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 impl TryFrom<CreateEdgeDataProto> for CreateEdgeDataDto {
@@ -72,17 +84,6 @@ impl TryFrom<CreateEdgeDataProto> for CreateEdgeDataDto {
     }
 }
 
-impl From<CreateEdgeDataDto> for CreateEdgeDataProto {
-    fn from(dto: CreateEdgeDataDto) -> Self {
-        Self {
-            key: dto.key,
-            from_node_data_id: dto.from_node_data_id.to_string(),
-            to_node_data_id: dto.to_node_data_id.to_string(),
-            properties: dto.properties.into(),
-        }
-    }
-}
-
 impl TryFrom<Option<CreateEdgeDataProto>> for CreateEdgeDataDto {
     type Error = DtosConversionError;
 
@@ -92,6 +93,17 @@ impl TryFrom<Option<CreateEdgeDataProto>> for CreateEdgeDataDto {
             None => Err(DtosConversionError::NoField {
                 field_name: "CreateEdgeDataProto".to_string(),
             }),
+        }
+    }
+}
+
+impl From<CreateEdgeDataDto> for CreateEdgeDataProto {
+    fn from(dto: CreateEdgeDataDto) -> Self {
+        Self {
+            key: dto.key,
+            from_node_data_id: dto.from_node_data_id.to_string(),
+            to_node_data_id: dto.to_node_data_id.to_string(),
+            properties: dto.properties.into(),
         }
     }
 }

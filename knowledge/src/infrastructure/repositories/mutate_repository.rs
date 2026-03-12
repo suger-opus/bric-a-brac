@@ -1,11 +1,12 @@
 use crate::{
     domain::models::{
-        CreateEdgeDataModel, CreateNodeDataModel, EdgeDataModel, GraphIdModel, NodeDataModel,
+        CreateEdgeDataModel, CreateGraphDataModel, CreateNodeDataModel, EdgeDataModel,
+        GraphDataModel, GraphIdModel, NodeDataIdModel, NodeDataModel,
     },
     presentation::errors::DatabaseError,
 };
-use neo4rs::{query, BoltString, BoltType};
-use std::collections::HashMap;
+use neo4rs::{query, BoltList, BoltMap, BoltString, BoltType};
+use std::{collections::HashMap, str::FromStr};
 
 pub struct MutateRepository;
 
@@ -16,117 +17,137 @@ impl MutateRepository {
 
     #[tracing::instrument(
         level = "debug",
-        name = "mutate_repository.insert_node",
-        skip(self, connection, graph_id, create_node_data)
+        name = "mutate_repository.insert_graph",
+        skip(self, connection, graph_id, create_graph_data)
     )]
-    pub async fn insert_node(
+    pub async fn insert_graph(
         &self,
         connection: &mut neo4rs::Txn,
         graph_id: GraphIdModel,
-        create_node_data: CreateNodeDataModel,
-    ) -> Result<NodeDataModel, DatabaseError> {
-        tracing::debug!(graph_id = ?graph_id, node_data_id = ?create_node_data.node_data_id);
+        create_graph_data: CreateGraphDataModel,
+    ) -> Result<GraphDataModel, DatabaseError> {
+        tracing::debug!(graph_id = ?graph_id, nodes_len = create_graph_data.nodes.len(), edges_len = create_graph_data.edges.len());
 
-        let mut properties: HashMap<BoltString, BoltType> =
-            create_node_data.properties.try_into()?;
-        properties.insert("graph_id".to_string().into(), graph_id.to_string().into());
-        properties.insert(
-            "node_data_id".to_string().into(),
-            create_node_data.node_data_id.to_string().into(),
-        );
-        let prop_keys: Vec<String> = properties
-            .keys()
-            .enumerate()
-            .map(|(i, key)| format!("{}: $p{}", key, i))
-            .collect();
+        let nodes = self
+            .insert_graph_nodes(connection, graph_id, create_graph_data.nodes)
+            .await?;
+        let edges = self
+            .insert_graph_edges(connection, graph_id, create_graph_data.edges)
+            .await?;
 
-        let cypher = format!(
-            r#"
-CREATE (n:{} {{ {} }})
-RETURN n
-        "#,
-            create_node_data.key,
-            prop_keys.join(", ")
-        );
-        let q = properties
-            .iter()
-            .enumerate()
-            .fold(query(&cypher), |q, (i, (_key, value))| {
-                q.param(&format!("p{}", i), value.clone())
-            });
-        let mut result = connection.execute(q).await?;
-        let row = result
-            .next(connection)
-            .await?
-            .ok_or_else(|| DatabaseError::NoneRow())?;
-        let neo_node: neo4rs::Node = row.get("n")?;
-
-        Ok(NodeDataModel::try_from(neo_node)?)
+        Ok(GraphDataModel { nodes, edges })
     }
 
     #[tracing::instrument(
-        level = "debug",
-        name = "mutate_repository.insert_edge",
-        skip(self, connection, _graph_id, create_edge_data)
+        level = "trace",
+        name = "mutate_repository.insert_graph_nodes",
+        skip(self, connection, graph_id, create_nodes_data)
     )]
-    pub async fn insert_edge(
+    async fn insert_graph_nodes(
+        &self,
+        connection: &mut neo4rs::Txn,
+        graph_id: GraphIdModel,
+        create_nodes_data: Vec<CreateNodeDataModel>,
+    ) -> Result<Vec<NodeDataModel>, DatabaseError> {
+        let mut nodes_by_label: HashMap<String, Vec<CreateNodeDataModel>> = HashMap::new();
+        for node in create_nodes_data {
+            nodes_by_label
+                .entry(node.key.clone())
+                .or_default()
+                .push(node);
+        }
+
+        let mut nodes: Vec<NodeDataModel> = Vec::new();
+        for (label, label_nodes) in nodes_by_label {
+            let nodes_bolt = label_nodes
+                .into_iter()
+                .map(|n| {
+                    let mut props: HashMap<BoltString, BoltType> = n.properties.try_into()?;
+                    props.insert("graph_id".into(), graph_id.to_string().into());
+                    props.insert("node_data_id".into(), n.node_data_id.to_string().into());
+                    Ok(BoltType::Map(BoltMap { value: props }))
+                })
+                .collect::<Result<Vec<BoltType>, DatabaseError>>()?;
+
+            let cypher = format!(
+                "UNWIND $nodes AS props CREATE (n:{}) SET n = props RETURN n",
+                label
+            );
+            let mut result = connection
+                .execute(
+                    query(&cypher).param("nodes", BoltType::List(BoltList { value: nodes_bolt })),
+                )
+                .await?;
+            while let Some(row) = result.next(&mut *connection).await? {
+                let neo_node: neo4rs::Node = row.get("n")?;
+                nodes.push(NodeDataModel::try_from(neo_node)?);
+            }
+        }
+
+        Ok(nodes)
+    }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "mutate_repository.insert_graph_edges",
+        skip(self, connection, _graph_id, create_edges_data)
+    )]
+    async fn insert_graph_edges(
         &self,
         connection: &mut neo4rs::Txn,
         _graph_id: GraphIdModel,
-        create_edge_data: CreateEdgeDataModel,
-    ) -> Result<EdgeDataModel, DatabaseError> {
-        tracing::debug!(graph_id = ?_graph_id, edge_data_id = ?create_edge_data.edge_data_id);
+        create_edges_data: Vec<CreateEdgeDataModel>,
+    ) -> Result<Vec<EdgeDataModel>, DatabaseError> {
+        let mut edges_by_type: HashMap<String, Vec<CreateEdgeDataModel>> = HashMap::new();
+        for edge in create_edges_data {
+            edges_by_type
+                .entry(edge.key.clone())
+                .or_default()
+                .push(edge);
+        }
 
-        let mut properties: HashMap<BoltString, BoltType> =
-            create_edge_data.properties.try_into()?;
-        properties.insert(
-            "edge_data_id".to_string().into(),
-            create_edge_data.edge_data_id.to_string().into(),
-        );
-        let prop_keys: Vec<String> = properties
-            .keys()
-            .enumerate()
-            .map(|(i, key)| format!("{}: $p{}", key, i))
-            .collect();
-        let edge_props = format!(" {{ {} }}", prop_keys.join(", "));
-        let cypher = format!(
-            r#"
-MATCH
-    (a {{ node_data_id: $from_node_data_id }}),
-    (b {{ node_data_id: $to_node_data_id }})
-CREATE (a)-[e:{}{}]->(b)
-RETURN
-    e,
-    a.node_data_id AS from_node_data_id,
-    b.node_data_id AS to_node_data_id
-        "#,
-            create_edge_data.key, edge_props
-        );
+        let mut edges: Vec<EdgeDataModel> = Vec::new();
+        for (edge_type, type_edges) in edges_by_type {
+            let edges_bolt = type_edges
+                .into_iter()
+                .map(|e| {
+                    let mut edge_props: HashMap<BoltString, BoltType> = e.properties.try_into()?;
+                    edge_props.insert("edge_data_id".into(), e.edge_data_id.to_string().into());
+                    let edge_map: HashMap<BoltString, BoltType> = [
+                        ("from".into(), e.from_node_data_id.to_string().into()),
+                        ("to".into(), e.to_node_data_id.to_string().into()),
+                        ("props".into(), BoltType::Map(BoltMap { value: edge_props })),
+                    ]
+                    .into_iter()
+                    .collect();
+                    Ok(BoltType::Map(BoltMap { value: edge_map }))
+                })
+                .collect::<Result<Vec<BoltType>, DatabaseError>>()?;
 
-        let q = properties.iter().enumerate().fold(
-            query(&cypher)
-                .param(
-                    "from_node_data_id",
-                    create_edge_data.from_node_data_id.to_string(),
+            let cypher = format!(
+                r#"UNWIND $edges AS e
+MATCH (a {{node_data_id: e.from}}), (b {{node_data_id: e.to}})
+CREATE (a)-[r:{}]->(b)
+SET r = e.props
+RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id"#,
+                edge_type
+            );
+            let mut result = connection
+                .execute(
+                    query(&cypher).param("edges", BoltType::List(BoltList { value: edges_bolt })),
                 )
-                .param(
-                    "to_node_data_id",
-                    create_edge_data.to_node_data_id.to_string(),
-                ),
-            |q, (i, (_key, value))| q.param(&format!("p{}", i), value.clone()),
-        );
-        let mut result = connection.execute(q).await?;
-        let row = result
-            .next(connection)
-            .await?
-            .ok_or_else(|| DatabaseError::NoneRow())?;
-        let neo_edge: neo4rs::Relation = row.get("e")?;
-        let from_node_data_id = row.get("from_node_data_id")?;
-        let to_node_data_id = row.get("to_node_data_id")?;
-        let mut edge_data = EdgeDataModel::try_from(neo_edge)?;
-        edge_data.from_node_data_id = from_node_data_id;
-        edge_data.to_node_data_id = to_node_data_id;
+                .await?;
+            while let Some(row) = result.next(&mut *connection).await? {
+                let neo_edge: neo4rs::Relation = row.get("r")?;
+                let from_node_data_id = NodeDataIdModel::from_str(row.get("from_node_data_id")?)?;
+                let to_node_data_id = NodeDataIdModel::from_str(row.get("to_node_data_id")?)?;
+                let mut edge_data = EdgeDataModel::try_from(neo_edge)?;
+                edge_data.from_node_data_id = from_node_data_id;
+                edge_data.to_node_data_id = to_node_data_id;
+                edges.push(edge_data);
+            }
+        }
 
-        Ok(edge_data)
+        Ok(edges)
     }
 }

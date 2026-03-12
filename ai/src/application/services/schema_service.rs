@@ -15,7 +15,6 @@ impl SchemaService {
         Self { openrouter_client }
     }
 
-    // TODO: loop & tools
     #[tracing::instrument(
         level = "trace",
         name = "schema_service.generate_schema",
@@ -36,19 +35,33 @@ impl SchemaService {
         let system_prompt = build_system_prompt();
         let user_prompt = build_user_prompt(&parsed_content);
 
-        let generated_schema = self
-            .openrouter_client
-            .chat(
-                &system_prompt,
-                &user_prompt,
-                Some(schema_spec.clone()),
-                None,
-            )
-            .await?;
-        let generated_schema = rename_attributes_to_properties(generated_schema);
-        let generated_schema = self.validate_schema(&generated_schema)?;
+        const MAX_ATTEMPTS: u8 = 3;
+        let mut previous_error: Option<String> = None;
+        let mut attempt: u8 = 0;
 
-        Ok(generated_schema)
+        loop {
+            attempt += 1;
+
+            let generated_schema = self
+                .openrouter_client
+                .chat(
+                    &system_prompt,
+                    &user_prompt,
+                    Some(schema_spec.clone()),
+                    previous_error.as_deref(),
+                )
+                .await?;
+            let generated_schema = rename_attributes_to_properties(generated_schema);
+
+            match self.validate_schema(&generated_schema) {
+                Ok(schema) => break Ok(schema),
+                Err(err) if attempt < MAX_ATTEMPTS => {
+                    tracing::warn!(attempt, error = %err, "Schema validation failed, retrying");
+                    previous_error = Some(err.to_string());
+                }
+                Err(err) => break Err(err),
+            }
+        }
     }
 
     #[tracing::instrument(
@@ -81,7 +94,7 @@ impl SchemaService {
 
 fn build_system_prompt() -> String {
     r##"You are a graph schema generator assistant. Your task is to analyze data and generate a graph SCHEMA — not the data itself.
-    
+
 A graph schema defines the TYPES of entities and relationships, not specific instances.
 
 Rules:
@@ -124,18 +137,14 @@ pub fn openai_to_structured_output_schema(openapi_spec: &serde_json::Value) -> s
     }
 
     // Root schema is the one not referenced by any other schema
-    let root_name = schemas
-        .keys()
-        .find(|name| !referenced.contains(name.as_str()))
-        .cloned();
-
-    let root_name = match root_name {
-        Some(name) => name,
-        None => return serde_json::Value::Object(serde_json::Map::new()),
+    let Some((_, root_schema)) = schemas
+        .iter()
+        .find(|(name, _)| !referenced.contains(name.as_str()))
+    else {
+        return serde_json::Value::Object(serde_json::Map::new());
     };
 
-    let root_schema = schemas.get(&root_name).cloned().unwrap();
-    resolve_schema(&root_schema, &schemas)
+    resolve_schema(root_schema, &schemas)
 }
 
 fn collect_schema_refs(value: &serde_json::Value, refs: &mut HashSet<String>) {

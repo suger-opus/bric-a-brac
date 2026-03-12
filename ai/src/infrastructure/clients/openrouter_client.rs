@@ -131,11 +131,10 @@ impl OpenRouterClient {
             response_format,
             plugins,
         };
-
-        tracing::debug!(
-            "Sending request to OpenRouter API: {}",
-            serde_json::to_string_pretty(&request).unwrap_or_default()
-        );
+        // tracing::debug!(
+        //     "Sending request to OpenRouter API: {}",
+        //     serde_json::to_string_pretty(&request).unwrap_or_default()
+        // );
 
         let response = self
             .client
@@ -162,7 +161,6 @@ impl OpenRouterClient {
                     message: "Failed to read OpenRouter API response".to_string(),
                     source: err,
                 })?;
-
         // tracing::debug!(
         //     "Received response from OpenRouter API: {}",
         //     serde_json::to_string_pretty(

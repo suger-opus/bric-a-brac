@@ -1,9 +1,14 @@
+use std::collections::HashMap;
+
 use crate::{
-    domain::models::{PropertySchemaModel, PropertyTypeModel},
+    domain::models::{EdgeSchemaModel, NodeSchemaModel, PropertySchemaModel, PropertyTypeModel},
     infrastructure::repositories::GraphRepository,
     presentation::errors::{AppError, RequestError},
 };
-use bric_a_brac_dtos::{CreateEdgeDataDto, CreateNodeDataDto, PropertiesDataDto};
+use bric_a_brac_dtos::{
+    CreateEdgeDataDto, CreateGraphDataDto, CreateNodeDataDto, GraphIdDto, NodeDataIdDto,
+    PropertiesDataDto,
+};
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -19,42 +24,111 @@ impl ValidationService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "validation_service.validate_create_node_data",
-        skip(self, create_node_data)
+        name = "validation_service.validate_create_graph_data",
+        skip(self, create_graph_data)
     )]
-    pub async fn validate_create_node_data(
+    pub async fn validate_create_graph_data(
         &self,
-        create_node_data: &CreateNodeDataDto,
+        graph_id: GraphIdDto,
+        create_graph_data: &mut CreateGraphDataDto,
     ) -> Result<(), AppError> {
         let mut txn = self.pool.begin().await?;
-        let node_schema = self
+        let graph_schema = self
             .repository
-            .get_node_schema_by_key(&mut txn, create_node_data.key.clone())
+            .get_schema(&mut txn, graph_id.into())
             .await?;
-        txn.commit().await?;
 
-        self.validate_properties(&create_node_data.properties, &node_schema.properties)?;
+        let id_map: HashMap<NodeDataIdDto, NodeDataIdDto> = create_graph_data
+            .nodes
+            .iter()
+            .map(|n| (n.node_data_id, NodeDataIdDto::new()))
+            .collect();
+
+        create_graph_data
+            .nodes
+            .iter_mut()
+            .try_for_each(|node_data| {
+                self.validate_create_node_data(node_data, &graph_schema.nodes, &id_map)
+            })?;
+
+        create_graph_data
+            .edges
+            .iter_mut()
+            .try_for_each(|edge_data| {
+                self.validate_create_edge_data(edge_data, &graph_schema.edges, &id_map)
+            })?;
+
         Ok(())
     }
 
     #[tracing::instrument(
         level = "trace",
-        name = "validation_service.validate_create_edge_data",
-        skip(self, create_edge_data)
+        name = "validation_service.validate_create_node_data",
+        skip(self, node_data, node_schemas, id_map)
     )]
-    pub async fn validate_create_edge_data(
+    fn validate_create_node_data(
         &self,
-        create_edge_data: &CreateEdgeDataDto,
+        node_data: &mut CreateNodeDataDto,
+        node_schemas: &[NodeSchemaModel],
+        id_map: &HashMap<NodeDataIdDto, NodeDataIdDto>,
     ) -> Result<(), AppError> {
-        let mut txn = self.pool.begin().await?;
-        let edge_schema = self
-            .repository
-            .get_edge_schema_by_key(&mut txn, create_edge_data.key.clone())
-            .await?;
-        txn.commit().await?;
+        let schema = node_schemas
+            .iter()
+            .find(|s| s.key == node_data.key)
+            .ok_or_else(|| RequestError::InvalidInput {
+                field: format!("Node key '{}'", node_data.key),
+                issue: "Node type is not defined in schema".to_string(),
+            })?;
 
-        self.validate_properties(&create_edge_data.properties, &edge_schema.properties)?;
-        Ok(())
+        let id = id_map
+            .get(&node_data.node_data_id)
+            .ok_or_else(|| RequestError::InvalidInput {
+                field: format!("Node data ID '{}'", node_data.node_data_id),
+                issue: "Node data ID is not defined in nodes list".to_string(),
+            })?;
+        node_data.node_data_id = *id;
+
+        self.validate_properties(&node_data.properties, &schema.properties)
+    }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "validation_service.validate_create_edge_data",
+        skip(self, edge_data, edge_schemas, id_map)
+    )]
+    fn validate_create_edge_data(
+        &self,
+        edge_data: &mut CreateEdgeDataDto,
+        edge_schemas: &[EdgeSchemaModel],
+        id_map: &HashMap<NodeDataIdDto, NodeDataIdDto>,
+    ) -> Result<(), AppError> {
+        let schema = edge_schemas
+            .iter()
+            .find(|s| s.key == edge_data.key)
+            .ok_or_else(|| RequestError::InvalidInput {
+                field: format!("Edge key '{}'", edge_data.key),
+                issue: "Edge type is not defined in schema".to_string(),
+            })?;
+
+        let from_id =
+            id_map
+                .get(&edge_data.from_node_data_id)
+                .ok_or_else(|| RequestError::InvalidInput {
+                    field: format!("From node data ID '{}'", edge_data.from_node_data_id),
+                    issue: "From node data ID is not defined in nodes list".to_string(),
+                })?;
+        edge_data.from_node_data_id = *from_id;
+
+        let to_id =
+            id_map
+                .get(&edge_data.to_node_data_id)
+                .ok_or_else(|| RequestError::InvalidInput {
+                    field: format!("To node data ID '{}'", edge_data.to_node_data_id),
+                    issue: "To node data ID is not defined in nodes list".to_string(),
+                })?;
+        edge_data.to_node_data_id = *to_id;
+
+        self.validate_properties(&edge_data.properties, &schema.properties)
     }
 
     #[tracing::instrument(

@@ -45,7 +45,11 @@ impl AiClient {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip(self, file_content, file_type))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "ai_client.generate_schema",
+        skip(self, file_content, file_type)
+    )]
     pub async fn generate_schema(
         &self,
         file_content: Vec<u8>,
@@ -72,7 +76,11 @@ impl AiClient {
         Ok(schema)
     }
 
-    #[tracing::instrument(level = "trace", skip(self, schema, file_content, file_type))]
+    #[tracing::instrument(
+        level = "debug",
+        name = "ai_client.generate_data",
+        skip(self, schema, file_content, file_type)
+    )]
     pub async fn generate_data(
         &self,
         schema: GraphSchemaDto,
@@ -101,7 +109,11 @@ impl AiClient {
         Ok(schema)
     }
 
-    #[tracing::instrument(level = "trace", skip(self, file_content, file_type))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "ai_client.try_generate_schema",
+        skip(self, file_content, file_type)
+    )]
     async fn try_generate_schema(
         &self,
         file_content: Vec<u8>,
@@ -132,7 +144,11 @@ impl AiClient {
         Ok(response.into_inner().try_into()?)
     }
 
-    #[tracing::instrument(level = "trace", skip(self, schema, file_content, file_type))]
+    #[tracing::instrument(
+        level = "trace",
+        name = "ai_client.try_generate_data",
+        skip(self, schema, file_content, file_type)
+    )]
     async fn try_generate_data(
         &self,
         schema: GraphSchemaDto,

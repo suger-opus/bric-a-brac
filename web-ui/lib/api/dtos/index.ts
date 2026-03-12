@@ -1,14 +1,9 @@
 import { Role } from "./access-dto";
 import { CreateEdgeDataDto, EdgeDataDto } from "./edge-data-dto";
 import { CreateEdgeSchemaDto, EdgeSchemaDto } from "./edge-schema-dto";
-import {
-  CreateGraphDto,
-  CreateGraphSchemaDto,
-  GraphDataDto,
-  GraphMetadataDto,
-  GraphSchemaDto,
-  SearchGraphDto
-} from "./graph-dto";
+import { CreateGraphDataDto, GraphDataDto } from "./graph-data-dto";
+import { CreateGraphDto, GraphMetadataDto, SearchGraphDto } from "./graph-dto";
+import { CreateGraphSchemaDto, GraphSchemaDto } from "./graph-schema-dto";
 import { CreateNodeDataDto, NodeDataDto } from "./node-data-dto";
 import { CreateNodeSchemaDto, NodeSchemaDto } from "./node-schema-dto";
 import { PropertiesDataDto, PropertyValueDto } from "./property-data-dto";
@@ -24,6 +19,7 @@ import { SendColorDto, SendLabelDto } from "./utils-dto";
 export {
   CreateEdgeDataDto,
   CreateEdgeSchemaDto,
+  CreateGraphDataDto,
   CreateGraphDto,
   CreateGraphSchemaDto,
   CreateNodeDataDto,

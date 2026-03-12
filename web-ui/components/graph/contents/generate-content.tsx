@@ -1,17 +1,17 @@
 "use client";
 
+import DraftElementDataItem from "@/components/graph/items/draft-element-data";
 import DraftElementSchemaItem from "@/components/graph/items/draft-element-schema";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGraph } from "@/contexts/graph-context";
 import { useGraphSchemaForm } from "@/hooks/use-graph-schema-form";
-import { ApiProvider } from "@/lib/api/provider";
 import { CheckIcon, ChevronRightIcon } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { useDropzone } from "react-dropzone";
 
-const steps = ["1. Select File", "2. Generate Schema", "3. Insert Data"];
+const steps = ["1. Select File", "2. Generate Schema", "3. Generate Data"];
 
 const checkFileSize = (file: File) => {
   const maxSizeInBytes = 100 * 1024; // 100KB
@@ -24,11 +24,27 @@ const checkFileSize = (file: File) => {
   return null;
 };
 
-const GenerateSchemaContent = () => {
-  const { graphService } = ApiProvider;
+type GenerateContentProps = {
+  onClose: () => void;
+};
+
+const GenerateContent = ({ onClose }: GenerateContentProps) => {
   const { metadata } = useGraph();
+  const {
+    graphSchema,
+    savedGraphSchema,
+    graphData,
+    validateGraphSchema,
+    validateGraphData,
+    graphSchemaErrors,
+    graphDataErrors,
+    generateGraphSchema,
+    generateGraphData,
+    submitGraphSchema,
+    submitGraphData
+  } = useGraphSchemaForm(metadata!.graph_id);
   const [currentStep, setCurrentStep] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { acceptedFiles, getRootProps, getInputProps, isFocused, isDragAccept, isDragReject } =
     useDropzone({
       maxFiles: 1,
@@ -38,14 +54,6 @@ const GenerateSchemaContent = () => {
       },
       validator: checkFileSize
     });
-  const {
-    nodesSchemas,
-    edgesSchemas,
-    loadGraphSchema,
-    validateGraphSchema,
-    graphSchemaErrors,
-    submitGraphSchema
-  } = useGraphSchemaForm();
 
   const dropzoneStyle = useMemo(() => ({
     flex: 1,
@@ -87,15 +95,59 @@ const GenerateSchemaContent = () => {
       const file = acceptedFiles[0];
       const fileType = file.type;
       try {
-        setIsGenerating(true);
-        const res = await graphService.generateSchema(metadata!.graph_id, file, fileType);
-        loadGraphSchema(res);
+        setIsLoading(true);
+        await generateGraphSchema(file, fileType);
+        return true;
       } catch (error) {
         console.error("Error generating schema:", error);
       } finally {
-        setIsGenerating(false);
+        setIsLoading(false);
       }
     }
+    return false;
+  };
+
+  const submitSchema = async () => {
+    try {
+      setIsLoading(true);
+      await submitGraphSchema();
+      return true;
+    } catch (error) {
+      console.error("Error submitting schema:", error);
+    } finally {
+      setIsLoading(false);
+    }
+    return false;
+  };
+
+  const generateData = async () => {
+    if (acceptedFiles.length === 1) {
+      const file = acceptedFiles[0];
+      const fileType = file.type;
+      try {
+        setIsLoading(true);
+        await generateGraphData(file, fileType);
+        return true;
+      } catch (error) {
+        console.error("Error generating data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    return false;
+  };
+
+  const submitData = async () => {
+    try {
+      setIsLoading(true);
+      await submitGraphData();
+      return true;
+    } catch (error) {
+      console.error("Error submitting data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+    return false;
   };
 
   const handlePreviousPage = () => {
@@ -109,16 +161,13 @@ const GenerateSchemaContent = () => {
         await generateSchema();
       }
     } else if (currentStep === 1) {
-      if (validateGraphSchema()) {
+      if (validateGraphSchema() && await submitSchema()) {
         setCurrentStep(2);
-        await submitGraphSchema();
+        await generateData();
       }
     } else if (currentStep === 2) {
-      if (true) {
-        try {
-        } catch (error) {
-          console.error(error);
-        }
+      if (validateGraphData() && await submitData()) {
+        onClose();
       }
     }
   };
@@ -166,11 +215,10 @@ const GenerateSchemaContent = () => {
           </TabsContent>
           <TabsContent value={steps[1]}>
             <FieldGroup>
-              {isGenerating && <p>Generating schema...</p>}
-              {!isGenerating && (
+              {isLoading ? <p>Generating schema...</p> : (
                 <Field>
                   <FieldLabel>Nodes</FieldLabel>
-                  {nodesSchemas.map((node, index) => (
+                  {graphSchema.nodes.map((node, index) => (
                     <div key={index} className="space-y-1">
                       <DraftElementSchemaItem
                         kind="node"
@@ -182,7 +230,7 @@ const GenerateSchemaContent = () => {
                     </div>
                   ))}
                   <FieldLabel>Edges</FieldLabel>
-                  {edgesSchemas.map((edge, index) => (
+                  {graphSchema.edges.map((edge, index) => (
                     <div key={index} className="space-y-1">
                       <DraftElementSchemaItem
                         kind="edge"
@@ -193,12 +241,58 @@ const GenerateSchemaContent = () => {
                       <FieldError>{graphSchemaErrors[edge.id]}</FieldError>
                     </div>
                   ))}
+                  <Button variant="secondary" onClick={generateSchema}>
+                    Re-generate Schema
+                  </Button>
                 </Field>
               )}
             </FieldGroup>
           </TabsContent>
           <TabsContent value={steps[2]}>
             <FieldGroup>
+              {isLoading ? <p>Generating data...</p> : (
+                <Field>
+                  <FieldLabel>Nodes</FieldLabel>
+                  {graphData.nodes.map((node, index) => {
+                    const savedNode = savedGraphSchema.nodes.find((n) => n.key === node.value.key);
+                    return (savedNode
+                      ? (
+                        <div key={index} className="space-y-1">
+                          <DraftElementDataItem
+                            kind="node"
+                            label={savedNode.label}
+                            color={savedNode.color}
+                            propertiesSchemas={savedNode.properties}
+                            propertiesData={node.value.properties}
+                          />
+                          <FieldError>{graphDataErrors[node.id]}</FieldError>
+                        </div>
+                      )
+                      : <></>);
+                  })}
+                  <FieldLabel>Edges</FieldLabel>
+                  {graphData.edges.map((edge, index) => {
+                    const savedEdge = savedGraphSchema.edges.find((e) => e.key === edge.value.key);
+                    return (savedEdge
+                      ? (
+                        <div key={index} className="space-y-1">
+                          <DraftElementDataItem
+                            kind="edge"
+                            label={savedEdge.label}
+                            color={savedEdge.color}
+                            propertiesSchemas={savedEdge.properties}
+                            propertiesData={edge.value.properties}
+                          />
+                          <FieldError>{graphDataErrors[edge.id]}</FieldError>
+                        </div>
+                      )
+                      : <></>);
+                  })}
+                  <Button variant="outline" onClick={generateSchema}>
+                    Re-generate Data
+                  </Button>
+                </Field>
+              )}
             </FieldGroup>
           </TabsContent>
         </div>
@@ -217,7 +311,11 @@ const GenerateSchemaContent = () => {
               </Button>
             )}
           <Button onClick={handleNextPage}>
-            {currentStep === steps.length - 1 ? "Submit" : "Next"}
+            {currentStep === 0
+              ? "Generate Schema"
+              : currentStep === 1
+              ? "Save Schema & Generate Data"
+              : "Save Data & Close"}
           </Button>
         </div>
       </div>
@@ -225,4 +323,4 @@ const GenerateSchemaContent = () => {
   );
 };
 
-export default GenerateSchemaContent;
+export default GenerateContent;

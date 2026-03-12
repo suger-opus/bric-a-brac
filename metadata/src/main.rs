@@ -2,6 +2,8 @@ use metadata::{
     infrastructure::config::Config, presentation::tracing::setup as setup_tracing, run,
 };
 
+// TODO: check for sql injection ?
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     setup_tracing();
