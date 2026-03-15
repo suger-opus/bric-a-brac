@@ -5,6 +5,7 @@ mod graph_dto;
 mod graph_schema_dto;
 mod node_data_dto;
 mod node_schema_dto;
+mod primitives;
 mod property_data_dto;
 mod property_schema_dto;
 
@@ -15,6 +16,7 @@ pub use graph_dto::GraphIdDto;
 pub use graph_schema_dto::{CreateGraphSchemaDto, GraphSchemaDto};
 pub use node_data_dto::{CreateNodeDataDto, NodeDataDto, NodeDataIdDto};
 pub use node_schema_dto::{CreateNodeSchemaDto, NodeSchemaDto, NodeSchemaIdDto};
+pub use primitives::{ColorDto, KeyDto, LabelDto};
 pub use property_data_dto::PropertiesDataDto;
 pub use property_schema_dto::{
     CreatePropertySchemaDto, PropertyMetadataDto, PropertySchemaDto, PropertySchemaIdDto,

@@ -52,7 +52,7 @@ impl DataService {
             .iter()
             .flat_map(|n| n.properties.iter())
             .chain(schema.edges.iter().flat_map(|e| e.properties.iter()))
-            .map(|p| (p.key.clone(), p.property_type.clone()))
+            .map(|p| (p.key.to_string(), p.property_type.clone()))
             .collect();
 
         let graph_data = csv_to_graph_data(csv_data, &property_types).map_err(|err| AppError::Internal {
@@ -130,7 +130,7 @@ fn schema_to_template_csv(schema: GraphSchemaDto) -> Result<(String, String), ()
 
     for (key, node) in &node_map {
         let mut required_keys: Vec<String> =
-            node.properties.iter().map(|p| p.key.clone()).collect();
+            node.properties.iter().map(|p| p.key.to_string()).collect();
         required_keys.sort();
         writeln!(
             legend,
@@ -143,7 +143,7 @@ fn schema_to_template_csv(schema: GraphSchemaDto) -> Result<(String, String), ()
     }
     for (key, edge) in &edge_map {
         let mut required_keys: Vec<String> =
-            edge.properties.iter().map(|p| p.key.clone()).collect();
+            edge.properties.iter().map(|p| p.key.to_string()).collect();
         required_keys.sort();
         writeln!(
             legend,
@@ -197,17 +197,17 @@ fn schema_to_template_csv(schema: GraphSchemaDto) -> Result<(String, String), ()
 
     for (key, node) in &node_map {
         let mut headers = vec!["id".to_string()];
-        let mut prop_keys: Vec<String> = node.properties.iter().map(|p| p.key.clone()).collect();
+        let mut prop_keys: Vec<String> = node.properties.iter().map(|p| p.key.to_string()).collect();
         prop_keys.sort();
         headers.extend(prop_keys);
-        writeln!(csv, "## Node-{}\n{}", key, headers.join(",")).map_err(|_| ())?;
+        writeln!(csv, "## Node-{}\n{}", key, headers.join(",")).map_err(|_| ())?
     }
     for (key, edge) in &edge_map {
         let mut headers = vec!["from".to_string(), "to".to_string()];
-        let mut prop_keys: Vec<String> = edge.properties.iter().map(|p| p.key.clone()).collect();
+        let mut prop_keys: Vec<String> = edge.properties.iter().map(|p| p.key.to_string()).collect();
         prop_keys.sort();
         headers.extend(prop_keys);
-        writeln!(csv, "## Edge-{}\n{}", key, headers.join(",")).map_err(|_| ())?;
+        writeln!(csv, "## Edge-{}\n{}", key, headers.join(",")).map_err(|_| ())?
     }
 
     Ok((legend.trim().to_string(), csv.trim().to_string()))
@@ -276,7 +276,7 @@ fn csv_to_graph_data(
                 }
                 nodes.push(CreateNodeDataDto {
                     node_data_id: node_id,
-                    key: key.clone(),
+                    key: key.clone().into(),
                     properties: PropertiesDataDto { values },
                 });
             }
@@ -309,7 +309,7 @@ fn csv_to_graph_data(
                     values.insert(headers[i].to_string(), value);
                 }
                 edges.push(CreateEdgeDataDto {
-                    key: key.clone(),
+                    key: key.clone().into(),
                     from_node_data_id: from_id,
                     to_node_data_id: to_id,
                     properties: PropertiesDataDto { values },
@@ -711,7 +711,7 @@ from,to,MDHY1uVN
         let actual_nodes: Vec<(String, serde_json::Value)> = graph_data
             .nodes
             .iter()
-            .map(|n| (n.key.clone(), serde_json::to_value(&n.properties).unwrap()))
+            .map(|n| (n.key.to_string(), serde_json::to_value(&n.properties).unwrap()))
             .collect();
         assert_eq!(
             actual_nodes,
@@ -751,7 +751,7 @@ from,to,MDHY1uVN
             .iter()
             .map(|e| {
                 (
-                    e.key.clone(),
+                    e.key.to_string(),
                     id_to_idx[&e.from_node_data_id],
                     id_to_idx[&e.to_node_data_id],
                     serde_json::to_value(&e.properties).unwrap(),

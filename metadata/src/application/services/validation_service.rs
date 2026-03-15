@@ -74,7 +74,7 @@ impl ValidationService {
     ) -> Result<(), AppError> {
         let schema = node_schemas
             .iter()
-            .find(|s| s.key == node_data.key)
+            .find(|s| s.key == node_data.key.as_str())
             .ok_or_else(|| RequestError::InvalidInput {
                 field: format!("Node key '{}'", node_data.key),
                 issue: "Node type is not defined in schema".to_string(),
@@ -104,7 +104,7 @@ impl ValidationService {
     ) -> Result<(), AppError> {
         let schema = edge_schemas
             .iter()
-            .find(|s| s.key == edge_data.key)
+            .find(|s| s.key == edge_data.key.as_str())
             .ok_or_else(|| RequestError::InvalidInput {
                 field: format!("Edge key '{}'", edge_data.key),
                 issue: "Edge type is not defined in schema".to_string(),

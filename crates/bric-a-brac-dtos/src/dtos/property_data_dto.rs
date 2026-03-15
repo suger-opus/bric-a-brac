@@ -1,9 +1,8 @@
+use crate::DtosConversionError;
 use bric_a_brac_protos::common::{property_value_proto, PropertyValueProto};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use utoipa::{PartialSchema, ToSchema};
-
-use crate::DtosConversionError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]

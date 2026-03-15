@@ -1,4 +1,4 @@
-use super::{NodeDataIdDto, PropertiesDataDto};
+use super::{KeyDto, NodeDataIdDto, PropertiesDataDto};
 use crate::DtosConversionError;
 use bric_a_brac_id::id;
 use bric_a_brac_protos::common::{CreateEdgeDataProto, EdgeDataProto};
@@ -20,7 +20,7 @@ impl TryFrom<String> for EdgeDataIdDto {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct EdgeDataDto {
     pub edge_data_id: EdgeDataIdDto,
-    pub key: String,
+    pub key: KeyDto,
     pub from_node_data_id: NodeDataIdDto,
     pub to_node_data_id: NodeDataIdDto,
     pub properties: PropertiesDataDto,
@@ -32,7 +32,7 @@ impl TryFrom<EdgeDataProto> for EdgeDataDto {
     fn try_from(proto: EdgeDataProto) -> Result<Self, Self::Error> {
         Ok(Self {
             edge_data_id: proto.edge_data_id.try_into()?,
-            key: proto.key,
+            key: proto.key.into(),
             from_node_data_id: proto.from_node_data_id.try_into()?,
             to_node_data_id: proto.to_node_data_id.try_into()?,
             properties: proto.properties.try_into()?,
@@ -44,7 +44,7 @@ impl From<EdgeDataDto> for EdgeDataProto {
     fn from(dto: EdgeDataDto) -> Self {
         Self {
             edge_data_id: dto.edge_data_id.to_string(),
-            key: dto.key,
+            key: dto.key.into(),
             from_node_data_id: dto.from_node_data_id.to_string(),
             to_node_data_id: dto.to_node_data_id.to_string(),
             properties: dto.properties.into(),
@@ -55,7 +55,7 @@ impl From<EdgeDataDto> for EdgeDataProto {
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 #[validate(schema(function = "validate_no_self_loop"))]
 pub struct CreateEdgeDataDto {
-    pub key: String,
+    pub key: KeyDto,
     pub from_node_data_id: NodeDataIdDto,
     pub to_node_data_id: NodeDataIdDto,
     pub properties: PropertiesDataDto,
@@ -76,7 +76,7 @@ impl TryFrom<CreateEdgeDataProto> for CreateEdgeDataDto {
 
     fn try_from(proto: CreateEdgeDataProto) -> Result<Self, Self::Error> {
         Ok(Self {
-            key: proto.key,
+            key: proto.key.into(),
             from_node_data_id: proto.from_node_data_id.try_into()?,
             to_node_data_id: proto.to_node_data_id.try_into()?,
             properties: proto.properties.try_into()?,
@@ -100,7 +100,7 @@ impl TryFrom<Option<CreateEdgeDataProto>> for CreateEdgeDataDto {
 impl From<CreateEdgeDataDto> for CreateEdgeDataProto {
     fn from(dto: CreateEdgeDataDto) -> Self {
         Self {
-            key: dto.key,
+            key: dto.key.into(),
             from_node_data_id: dto.from_node_data_id.to_string(),
             to_node_data_id: dto.to_node_data_id.to_string(),
             properties: dto.properties.into(),

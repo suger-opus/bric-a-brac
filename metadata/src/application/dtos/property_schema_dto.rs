@@ -1,12 +1,9 @@
-use crate::domain::{
-    models::{
-        CreatePropertySchemaModel, EdgeSchemaIdModel, NodeSchemaIdModel, PropertyMetadataModel,
-        PropertySchemaIdModel, PropertySchemaModel, PropertyTypeModel,
-    },
-    utils::generate_key,
+use crate::domain::models::{
+    CreatePropertySchemaModel, EdgeSchemaIdModel, NodeSchemaIdModel, PropertyMetadataModel,
+    PropertySchemaIdModel, PropertySchemaModel, PropertyTypeModel,
 };
 use bric_a_brac_dtos::{
-    CreatePropertySchemaDto, PropertyMetadataDto, PropertySchemaDto, PropertySchemaIdDto,
+    CreatePropertySchemaDto, KeyDto, PropertyMetadataDto, PropertySchemaDto, PropertySchemaIdDto,
     PropertyTypeDto,
 };
 
@@ -28,8 +25,8 @@ impl From<PropertySchemaModel> for PropertySchemaDto {
             property_schema_id: model.property_schema_id.into(),
             node_schema_id: model.node_schema_id.map(From::from),
             edge_schema_id: model.edge_schema_id.map(From::from),
-            label: model.label,
-            key: model.key,
+            label: model.label.into(),
+            key: model.key.into(),
             property_type: model.property_type.into(),
             metadata: model.metadata.into(),
             created_at: model.created_at,
@@ -98,8 +95,8 @@ impl CreatePropertySchemaIntoDomain for CreatePropertySchemaDto {
             property_schema_id: PropertySchemaIdModel::new(),
             node_schema_id,
             edge_schema_id,
-            label: self.label,
-            key: generate_key(),
+            label: self.label.into(),
+            key: KeyDto::new().into(),
             property_type: self.property_type.into(),
             metadata: self.metadata.into(),
         }

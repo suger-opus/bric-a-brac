@@ -1,19 +1,13 @@
-use super::{CreatePropertySchemaDto, GraphIdDto, PropertySchemaDto};
+use super::{ColorDto, CreatePropertySchemaDto, GraphIdDto, KeyDto, LabelDto, PropertySchemaDto};
 use crate::{utils::ProtoTimestampExt, DtosConversionError};
 use bric_a_brac_id::id;
 use bric_a_brac_protos::common::{CreateEdgeSchemaProto, EdgeSchemaProto};
 use chrono::{DateTime, Utc};
-use lazy_static::lazy_static;
 use prost_types::Timestamp;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use utoipa::ToSchema;
 use validator::Validate;
-
-lazy_static! {
-    static ref COLOR_REGEX: Regex = Regex::new(r"^#[0-9A-Fa-f]{6}$").unwrap();
-}
 
 id!(EdgeSchemaIdDto);
 
@@ -29,9 +23,9 @@ impl TryFrom<String> for EdgeSchemaIdDto {
 pub struct EdgeSchemaDto {
     pub edge_schema_id: EdgeSchemaIdDto,
     pub graph_id: GraphIdDto,
-    pub label: String,
-    pub key: String,
-    pub color: String,
+    pub label: LabelDto,
+    pub key: KeyDto,
+    pub color: ColorDto,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub properties: Vec<PropertySchemaDto>,
@@ -44,9 +38,9 @@ impl TryFrom<EdgeSchemaProto> for EdgeSchemaDto {
         Ok(Self {
             edge_schema_id: proto.edge_schema_id.try_into()?,
             graph_id: proto.graph_id.try_into()?,
-            label: proto.label,
-            key: proto.key,
-            color: proto.color,
+            label: proto.label.into(),
+            key: proto.key.into(),
+            color: proto.color.into(),
             created_at: proto.created_at.to_chrono()?,
             updated_at: proto.updated_at.to_chrono()?,
             properties: proto
@@ -63,9 +57,9 @@ impl From<EdgeSchemaDto> for EdgeSchemaProto {
         Self {
             edge_schema_id: dto.edge_schema_id.to_string(),
             graph_id: dto.graph_id.to_string(),
-            label: dto.label,
-            key: dto.key,
-            color: dto.color,
+            label: dto.label.into(),
+            key: dto.key.into(),
+            color: dto.color.into(),
             created_at: Option::<Timestamp>::from_chrono(dto.created_at),
             updated_at: Option::<Timestamp>::from_chrono(dto.updated_at),
             properties: dto.properties.into_iter().map(From::from).collect(),
@@ -75,13 +69,11 @@ impl From<EdgeSchemaDto> for EdgeSchemaProto {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateEdgeSchemaDto {
-    #[validate(length(min = 1, max = 25))]
-    #[schema(min_length = 1, max_length = 25)]
-    pub label: String,
+    #[validate(nested)]
+    pub label: LabelDto,
 
-    #[validate(regex(path = "*COLOR_REGEX"))]
-    #[schema(pattern = "^#[0-9A-Fa-f]{6}$")]
-    pub color: String,
+    #[validate(nested)]
+    pub color: ColorDto,
 
     #[validate(nested)]
     pub properties: Vec<CreatePropertySchemaDto>,
@@ -92,8 +84,8 @@ impl TryFrom<CreateEdgeSchemaProto> for CreateEdgeSchemaDto {
 
     fn try_from(proto: CreateEdgeSchemaProto) -> Result<Self, Self::Error> {
         Ok(Self {
-            label: proto.label,
-            color: proto.color,
+            label: proto.label.into(),
+            color: proto.color.into(),
             properties: proto
                 .properties
                 .into_iter()
@@ -106,8 +98,8 @@ impl TryFrom<CreateEdgeSchemaProto> for CreateEdgeSchemaDto {
 impl From<CreateEdgeSchemaDto> for CreateEdgeSchemaProto {
     fn from(dto: CreateEdgeSchemaDto) -> Self {
         Self {
-            label: dto.label,
-            color: dto.color,
+            label: dto.label.into(),
+            color: dto.color.into(),
             properties: dto.properties.into_iter().map(From::from).collect(),
         }
     }

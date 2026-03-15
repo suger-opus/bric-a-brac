@@ -17,7 +17,7 @@ impl From<EdgeDataModel> for EdgeDataDto {
     fn from(model: EdgeDataModel) -> Self {
         EdgeDataDto {
             edge_data_id: model.edge_data_id.into(),
-            key: model.key,
+            key: model.key.into(),
             from_node_data_id: model.from_node_data_id.into(),
             to_node_data_id: model.to_node_data_id.into(),
             properties: model.properties.into(),
@@ -31,7 +31,7 @@ impl From<CreateEdgeDataDto> for CreateEdgeDataModel {
             edge_data_id: EdgeDataIdModel::new(),
             from_node_data_id: dto.from_node_data_id.into(),
             to_node_data_id: dto.to_node_data_id.into(),
-            key: dto.key,
+            key: dto.key.into(),
             properties: dto.properties.into(),
         }
     }

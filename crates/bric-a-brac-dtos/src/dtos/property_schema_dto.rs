@@ -1,4 +1,4 @@
-use super::{EdgeSchemaIdDto, NodeSchemaIdDto};
+use super::{EdgeSchemaIdDto, KeyDto, LabelDto, NodeSchemaIdDto};
 use crate::{error::DtosConversionError, utils::ProtoTimestampExt};
 use bric_a_brac_id::id;
 use bric_a_brac_protos::common::{
@@ -26,8 +26,8 @@ pub struct PropertySchemaDto {
     pub property_schema_id: PropertySchemaIdDto,
     pub node_schema_id: Option<NodeSchemaIdDto>,
     pub edge_schema_id: Option<EdgeSchemaIdDto>,
-    pub label: String,
-    pub key: String,
+    pub label: LabelDto,
+    pub key: KeyDto,
     pub property_type: PropertyTypeDto,
     pub metadata: PropertyMetadataDto,
     pub created_at: DateTime<Utc>,
@@ -42,8 +42,8 @@ impl TryFrom<PropertySchemaProto> for PropertySchemaDto {
             property_schema_id: proto.property_schema_id.try_into()?,
             node_schema_id: proto.node_schema_id.map(|id| id.try_into()).transpose()?,
             edge_schema_id: proto.edge_schema_id.map(|id| id.try_into()).transpose()?,
-            label: proto.label,
-            key: proto.key,
+            label: proto.label.into(),
+            key: proto.key.into(),
             property_type: proto.property_type.try_into()?,
             metadata: proto.metadata.into(),
             created_at: proto.created_at.to_chrono()?,
@@ -58,8 +58,8 @@ impl From<PropertySchemaDto> for PropertySchemaProto {
             property_schema_id: dto.property_schema_id.to_string(),
             node_schema_id: dto.node_schema_id.map(|id| id.to_string()),
             edge_schema_id: dto.edge_schema_id.map(|id| id.to_string()),
-            label: dto.label,
-            key: dto.key,
+            label: dto.label.into(),
+            key: dto.key.into(),
             property_type: dto.property_type.into(),
             metadata: dto.metadata.into(),
             created_at: Option::<Timestamp>::from_chrono(dto.created_at),
@@ -97,11 +97,11 @@ impl From<PropertyMetadataDto> for Option<PropertyMetadataProto> {
     Clone,
     Serialize,
     Deserialize,
-    Validate,
     PartialEq,
     Eq,
     PartialOrd,
     Ord,
+    Validate,
     derive_more::Display,
 )]
 #[display("{value}")]
@@ -145,9 +145,8 @@ impl From<MetadataOptionString> for String {
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 #[validate(schema(function = "validate_metadata_from_type"))]
 pub struct CreatePropertySchemaDto {
-    #[validate(length(min = 1, max = 25))]
-    #[schema(min_length = 1, max_length = 25)]
-    pub label: String,
+    #[validate(nested)]
+    pub label: LabelDto,
 
     pub property_type: PropertyTypeDto,
 
@@ -185,7 +184,7 @@ impl TryFrom<CreatePropertySchemaProto> for CreatePropertySchemaDto {
 
     fn try_from(proto: CreatePropertySchemaProto) -> Result<Self, Self::Error> {
         Ok(Self {
-            label: proto.label,
+            label: proto.label.into(),
             property_type: proto.property_type.try_into()?,
             metadata: proto.metadata.into(),
         })
@@ -195,7 +194,7 @@ impl TryFrom<CreatePropertySchemaProto> for CreatePropertySchemaDto {
 impl From<CreatePropertySchemaDto> for CreatePropertySchemaProto {
     fn from(dto: CreatePropertySchemaDto) -> Self {
         Self {
-            label: dto.label,
+            label: dto.label.into(),
             property_type: dto.property_type.into(),
             metadata: dto.metadata.into(),
         }
