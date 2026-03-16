@@ -131,10 +131,10 @@ impl OpenRouterClient {
             response_format,
             plugins,
         };
-        // tracing::debug!(
-        //     "Sending request to OpenRouter API: {}",
-        //     serde_json::to_string_pretty(&request).unwrap_or_default()
-        // );
+        tracing::debug!(
+            "Sending request to OpenRouter API: {}",
+            serde_json::to_string_pretty(&request).unwrap_or_default()
+        );
 
         let response = self
             .client
@@ -178,7 +178,7 @@ impl OpenRouterClient {
 
         let chat_response: ChatResponse = serde_json::from_str(&response_text).map_err(|err| {
             OpenRouterClientError::Deserialization {
-                context: "Failed to deserialize ChatResponse from OpenRouter response_text"
+                message: "Failed to deserialize ChatResponse from OpenRouter response_text"
                     .to_string(),
                 source: err,
             }
@@ -188,7 +188,7 @@ impl OpenRouterClient {
             .choices
             .first()
             .ok_or_else(|| OpenRouterClientError::ResponseFormat {
-                reason: "No choices in OpenRouter response".to_string(),
+                message: "No choices in OpenRouter response".to_string(),
             })?
             .message
             .content
@@ -197,7 +197,7 @@ impl OpenRouterClient {
         match is_structured_output_needed {
             true => serde_json::from_str(&content).map_err(|err| {
                 OpenRouterClientError::Deserialization {
-                    context: "Failed to deserialize content field as JSON value".to_string(),
+                    message: "Failed to deserialize content field as JSON value".to_string(),
                     source: err,
                 }
             }),

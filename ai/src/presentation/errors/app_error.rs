@@ -29,19 +29,18 @@ pub enum OpenRouterClientError {
         source: reqwest::Error,
     },
 
-    #[error("OpenRouter API returned an invalid response format: {reason}")]
-    ResponseFormat { reason: String },
+    #[error("OpenRouter API returned an invalid response format: {message}")]
+    ResponseFormat { message: String },
 
-    #[error("Failed to convert OpenRouter API response: {context}")]
+    #[error("Failed to convert OpenRouter API response: {message}: {source}")]
     ResponseConversion {
-        context: String,
+        message: String,
         #[source]
         source: serde_json::Error,
     },
 
-    #[error("OpenRouter API response validation failed: {context}")]
+    #[error("OpenRouter API response validation failed: {source}")]
     ResponseValidation {
-        context: String,
         #[source]
         source: validator::ValidationErrors,
     },
@@ -52,12 +51,15 @@ pub enum OpenRouterClientError {
         body: String,
     },
 
-    #[error("Failed to deserialize OpenRouter API response: {context}")]
+    #[error("Failed to deserialize OpenRouter API response: {message}: {source}")]
     Deserialization {
-        context: String,
+        message: String,
         #[source]
         source: serde_json::Error,
     },
+
+    #[error("AI failed to generate valid data after multiple attempts: {message}")]
+    DataGeneration { message: String },
 }
 
 impl GrpcClientError {
@@ -83,9 +85,6 @@ pub enum AppError {
         #[source]
         source: Utf8Error,
     },
-
-    #[error("Internal error: {context}")]
-    Internal { context: String },
 }
 
 impl From<AppError> for Status {

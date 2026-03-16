@@ -1,4 +1,4 @@
-use super::AppError;
+use super::{AppError, OpenRouterClientError};
 use tonic::{Code, Status};
 
 pub struct TonicError {
@@ -25,8 +25,15 @@ impl From<AppError> for TonicError {
     fn from(err: AppError) -> Self {
         tracing::error!(error = ?err);
         match &err {
-            // gRPC client errors
-            _ => TonicError::new(Code::Internal, format!("Application error: {}", err)),
+            AppError::FileParsing { .. } => {
+                TonicError::new(Code::InvalidArgument, format!("{}", err))
+            }
+            AppError::OpenRouterClient(
+                OpenRouterClientError::Request { .. }
+                | OpenRouterClientError::ReadResponse { .. }
+                | OpenRouterClientError::NoSuccessResponse { .. },
+            ) => TonicError::new(Code::Unavailable, format!("{}", err)),
+            _ => TonicError::new(Code::Internal, format!("{}", err)),
         }
     }
 }

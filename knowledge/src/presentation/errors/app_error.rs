@@ -61,6 +61,13 @@ pub enum DatabaseError {
 
     #[error("Database: no row returned")]
     NoneRow(),
+
+    #[error("Database: partial insert — expected {expected} '{kind}' row(s) but only {actual} were created")]
+    PartialInsert {
+        kind: String,
+        expected: usize,
+        actual: usize,
+    },
 }
 
 impl From<uuid::Error> for DatabaseError {

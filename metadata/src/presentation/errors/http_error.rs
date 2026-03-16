@@ -22,12 +22,22 @@ impl HttpError {
         }
     }
 
-    // 400 - { field, issue, value }
+    // 400 - { field, issue }
     fn bad_request(field: &str, issue: &str) -> Self {
         Self::new(
             StatusCode::BAD_REQUEST,
             "Invalid request",
             json!({ "field": field, "issue": issue }),
+        )
+    }
+
+    // 400 - { field, errors: [...] }
+    fn bad_request_violations(field: &str, errors: &[bric_a_brac_dtos::SchemaComplianceError]) -> Self {
+        let messages: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
+        Self::new(
+            StatusCode::BAD_REQUEST,
+            "Invalid request",
+            json!({ "field": field, "errors": messages }),
         )
     }
 
@@ -204,8 +214,12 @@ impl From<AppError> for HttpError {
                 HttpError::bad_request("Body file", issue)
             }
             AppError::Request(RequestError::InvalidInput { field, issue }) => {
-                tracing::warn!(error = ?err, "Request failed: (gRPC) Invalid Input");
+                tracing::warn!(error = ?err, "Request failed: (Domain) Invalid Input");
                 HttpError::bad_request(field, issue)
+            }
+            AppError::Request(RequestError::SchemaCompliance(errors)) => {
+                tracing::warn!(error = ?err, "Request failed: (Domain) Schema Compliance");
+                HttpError::bad_request_violations("graph_data", errors)
             }
         }
     }

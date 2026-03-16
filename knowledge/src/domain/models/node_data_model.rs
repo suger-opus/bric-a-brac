@@ -39,6 +39,7 @@ impl TryFrom<neo4rs::Node> for NodeDataModel {
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct CreateNodeDataModel {
     pub node_data_id: NodeDataIdModel,
     pub key: String,

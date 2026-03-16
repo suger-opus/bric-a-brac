@@ -6,7 +6,7 @@ use utoipa::{PartialSchema, ToSchema};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
-// !! TODO: validation (length of string, ...)
+// TODO: validation (length of string, ...)
 pub struct PropertiesDataDto {
     pub values: HashMap<String, serde_json::Value>,
 }

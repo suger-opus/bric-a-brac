@@ -45,7 +45,7 @@ impl From<NodeDataDto> for NodeDataProto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, validator::Validate)]
 pub struct CreateNodeDataDto {
     pub node_data_id: NodeDataIdDto,
     pub key: KeyDto,

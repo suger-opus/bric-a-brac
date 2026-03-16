@@ -34,6 +34,7 @@ impl TryFrom<neo4rs::Relation> for EdgeDataModel {
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct CreateEdgeDataModel {
     pub edge_data_id: EdgeDataIdModel,
     pub from_node_data_id: NodeDataIdModel,

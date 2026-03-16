@@ -2,6 +2,7 @@ use crate::presentation::errors::DatabaseError;
 use neo4rs::{BoltBoolean, BoltString, BoltType};
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct PropertiesDataModel {
     pub values: HashMap<String, serde_json::Value>,
 }

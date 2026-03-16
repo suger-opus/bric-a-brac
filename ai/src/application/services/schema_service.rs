@@ -76,17 +76,14 @@ impl SchemaService {
         let schema =
             serde_json::from_str::<CreateGraphSchemaDto>(&schema.to_string()).map_err(|err| {
                 OpenRouterClientError::ResponseConversion {
-                    context: "Failed to parse generated schema".to_string(),
+                    message: "Failed to parse generated schema".to_string(),
                     source: err,
                 }
             })?;
 
         schema
             .validate()
-            .map_err(|err| OpenRouterClientError::ResponseValidation {
-                context: format!("Generated schema is invalid: {}", err),
-                source: err,
-            })?;
+            .map_err(|err| OpenRouterClientError::ResponseValidation { source: err })?;
 
         Ok(schema)
     }

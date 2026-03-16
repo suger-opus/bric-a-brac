@@ -26,7 +26,7 @@ impl From<NodeDataModel> for NodeDataDto {
 impl From<CreateNodeDataDto> for CreateNodeDataModel {
     fn from(dto: CreateNodeDataDto) -> Self {
         CreateNodeDataModel {
-            node_data_id: NodeDataIdModel::new(),
+            node_data_id: dto.node_data_id.into(),
             key: dto.key.into(),
             properties: dto.properties.into(),
         }

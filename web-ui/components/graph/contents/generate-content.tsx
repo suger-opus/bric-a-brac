@@ -288,7 +288,7 @@ const GenerateContent = ({ onClose }: GenerateContentProps) => {
                       )
                       : <></>);
                   })}
-                  <Button variant="outline" onClick={generateSchema}>
+                  <Button variant="outline" onClick={generateData}>
                     Re-generate Data
                   </Button>
                 </Field>

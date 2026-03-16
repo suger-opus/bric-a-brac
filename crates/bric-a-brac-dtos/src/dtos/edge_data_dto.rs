@@ -63,9 +63,12 @@ pub struct CreateEdgeDataDto {
 
 fn validate_no_self_loop(dto: &CreateEdgeDataDto) -> Result<(), validator::ValidationError> {
     if dto.from_node_data_id == dto.to_node_data_id {
-        Err(validator::ValidationError::new(
-            "from_node_data_id and to_node_data_id must be different (no self-loops)",
-        ))
+        let mut err = validator::ValidationError::new("self_loop");
+        err.message = Some(format!(
+            "Edge of type '{}' has the same node '{}' as both source and target — self-loops are not allowed.",
+            dto.key, dto.from_node_data_id
+        ).into());
+        Err(err)
     } else {
         Ok(())
     }

@@ -8,6 +8,7 @@ mod node_schema_dto;
 mod primitives;
 mod property_data_dto;
 mod property_schema_dto;
+mod schema_compliance;
 
 pub use edge_data_dto::{CreateEdgeDataDto, EdgeDataDto, EdgeDataIdDto};
 pub use edge_schema_dto::{CreateEdgeSchemaDto, EdgeSchemaDto, EdgeSchemaIdDto};
@@ -22,3 +23,4 @@ pub use property_schema_dto::{
     CreatePropertySchemaDto, PropertyMetadataDto, PropertySchemaDto, PropertySchemaIdDto,
     PropertyTypeDto,
 };
+pub use schema_compliance::SchemaComplianceError;

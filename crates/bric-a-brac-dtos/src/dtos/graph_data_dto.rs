@@ -3,6 +3,7 @@ use crate::DtosConversionError;
 use bric_a_brac_protos::common::{CreateGraphDataProto, GraphDataProto};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use validator::Validate;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct GraphDataDto {
@@ -38,9 +39,12 @@ impl TryFrom<GraphDataProto> for GraphDataDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateGraphDataDto {
+    #[validate(nested)]
     pub nodes: Vec<CreateNodeDataDto>,
+
+    #[validate(nested)]
     pub edges: Vec<CreateEdgeDataDto>,
 }
 

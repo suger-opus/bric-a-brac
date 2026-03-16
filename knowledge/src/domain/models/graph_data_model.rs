@@ -8,6 +8,7 @@ pub struct GraphDataModel {
     pub edges: Vec<EdgeDataModel>,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct CreateGraphDataModel {
     pub nodes: Vec<CreateNodeDataModel>,
     pub edges: Vec<CreateEdgeDataModel>,
