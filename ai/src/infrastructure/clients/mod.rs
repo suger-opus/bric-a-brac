@@ -1,3 +1,3 @@
 mod openrouter_client;
 
-pub use openrouter_client::OpenRouterClient;
+pub use openrouter_client::{ChatResult, Message, OpenRouterClient};

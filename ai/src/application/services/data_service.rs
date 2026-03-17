@@ -1,12 +1,13 @@
 use crate::{
-    infrastructure::clients::OpenRouterClient,
+    infrastructure::clients::{Message, OpenRouterClient},
     presentation::errors::{AppError, OpenRouterClientError},
 };
 use bric_a_brac_dtos::{
-    CreateEdgeDataDto, CreateGraphDataDto, CreateNodeDataDto, GraphSchemaDto, NodeDataIdDto,
-    PropertiesDataDto, PropertyTypeDto,
+    CreateEdgeDataDto, CreateGraphDataDto, CreateNodeDataDto, GraphSchemaDto,
+    MetadataOptionString, NodeDataIdDto, PropertiesDataDto, PropertyTypeDto,
 };
-use std::collections::{BTreeMap, HashMap};
+use serde_json::json;
+use std::collections::HashMap;
 
 pub struct DataService {
     openrouter_client: OpenRouterClient,
@@ -33,43 +34,35 @@ impl DataService {
                 source: err,
             })?;
 
-        let (legend, csv) = schema_to_template_csv(schema.clone());
-        let system_prompt = build_system_prompt(&legend, &csv);
-        let user_prompt = build_user_prompt(&parsed_content);
-
-        let property_types: HashMap<String, PropertyTypeDto> = schema
-            .nodes
-            .iter()
-            .flat_map(|n| n.properties.iter())
-            .chain(schema.edges.iter().flat_map(|e| e.properties.iter()))
-            .map(|p| (p.key.to_string(), p.property_type.clone()))
-            .collect();
+        let data_schema = schema_to_data_json_schema(&schema);
+        let system_prompt = build_system_prompt();
+        let user_prompt = build_user_prompt(parsed_content, &schema);
 
         const MAX_ATTEMPTS: u8 = 3;
-        let mut previous_error: Option<String> = None;
         let mut attempt: u8 = 0;
+        let mut messages = vec![
+            Message {
+                role: "system".to_string(),
+                content: system_prompt,
+            },
+            Message {
+                role: "user".to_string(),
+                content: user_prompt,
+            },
+        ];
 
         loop {
             attempt += 1;
 
-            let generated_data = self
+            let result = self
                 .openrouter_client
-                .chat(
-                    &system_prompt,
-                    &user_prompt,
-                    None,
-                    previous_error.as_deref(),
-                )
+                .chat(messages.clone(), Some(data_schema.clone()))
                 .await?;
+            let raw_json = result.raw_content.clone();
 
-            let parse_result = generated_data
-                .as_str()
-                .ok_or_else(|| {
-                    "Expected AI response to be a string, got a non-string JSON value".to_string()
-                })
-                .and_then(|csv_data| csv_to_graph_data(csv_data, &property_types))
-                .and_then(
-                    |graph_data| match graph_data.validate_against_schema(&schema) {
+            let parse_result =
+                json_to_graph_data(result.value, &schema).and_then(|graph_data| {
+                    match graph_data.validate_against_schema(&schema) {
                         Ok(()) => Ok(graph_data),
                         Err(errors) => {
                             let items: Vec<String> = errors
@@ -78,19 +71,26 @@ impl DataService {
                                 .map(|(i, e)| format!("  {}. {}", i + 1, e))
                                 .collect();
                             Err(format!(
-                            "The generated data does not conform to the schema ({} error(s)):\n{}",
-                            errors.len(),
-                            items.join("\n")
-                        ))
+                                "The generated data does not conform to the schema ({} error(s)):\n{}",
+                                errors.len(),
+                                items.join("\n")
+                            ))
                         }
-                    },
-                );
+                    }
+                });
 
             match parse_result {
                 Ok(graph_data) => break Ok(graph_data),
                 Err(err) if attempt < MAX_ATTEMPTS => {
                     tracing::warn!(attempt, error = %err, "Data generation failed, retrying");
-                    previous_error = Some(err);
+                    messages.push(Message {
+                        role: "assistant".to_string(),
+                        content: raw_json,
+                    });
+                    messages.push(Message {
+                        role: "user".to_string(),
+                        content: build_correction_prompt(&err),
+                    });
                 }
                 Err(err) => {
                     break Err(AppError::OpenRouterClient(
@@ -102,317 +102,310 @@ impl DataService {
     }
 }
 
-fn build_system_prompt(legend: &str, csv: &str) -> String {
-    format!(
-        r##"You are a graph data extractor assistant. Your task is to extract data from a document and populate a graph.
+fn build_system_prompt() -> String {
+    r##"You are a graph data extractor assistant. Extract entities and relationships from a document and return compact JSON.
 
-A graph schema defines the TYPES of entities and relationships:
-- Nodes represent ENTITY TYPES (e.g., 'Person', 'Location', 'Company') — not specific people or places
-- Edges represent RELATIONSHIP TYPES between node types (e.g., 'Friend Of', 'Born In') — not specific relationships
-- Attributes define the PROPERTIES that instances of a node/edge type can have (e.g., 'Name', 'Eye Color', 'Birth Year') — not the actual values
-
-You will be given a graph schema and a document. Extract all relevant entities and relationships from the document and return them as structured data that conforms to the schema.
+Output format: for each node and edge type, output a "columns" array (the exact column names) and a "rows" array of arrays, where each row contains values in the same order as "columns".
 
 Rules:
-- Only create node and relationship types that exist in the schema
-- Only use properties that are defined in the schema for each node/relationship type
-- Assign a unique string ID to every node (e.g., 'n1', 'n2', ...) — IDs must be consistent across all tables
-- Every relationship must reference valid node IDs via 'from' and 'to'
-- Every relationship must reference different node IDs via 'from' and 'to' (no self-loops)
-- Do not invent data that is not present or strongly implied by the document
-
-Formatting and Output Instructions:
-- Strictly follow the template below for your response.
-- Output only the CSV tables, no extra text, explanations, or comments.
-- Use only the property values and options defined in the schema.
-- For select-type properties, use only the allowed options.
-- Do not output anything except the CSV tables as shown in the template.
-
-Here is the schema of the graph, which defines the node and relationship types, their properties, and the allowed values for those properties.
-Use this as a reference to understand how to structure your output:
-
-{}
-
-Here is the template for how to format your response based on the provided schema:
-
-{}
-
-Think of it like inserting rows into a database, not defining the schema."##,
-        legend, csv
-    )
+- Output ONLY the types listed in the schema
+- For nodes: the first column is always "id" — assign unique string IDs like "n1", "n2", ...
+- For edges: the first two columns are always "from" and "to" — they must reference node IDs you defined in the "id" column
+- No self-loops: "from" and "to" must be different node IDs
+- Do not invent data not present or strongly implied by the document
+- If a value is unknown or absent: use "" for strings, 0 for numbers, false for booleans
+- If a type has no instances, return an empty "rows" array
+- Use the EXACT column names specified in the schema description"##
+        .to_string()
 }
 
-fn build_user_prompt(document: &str) -> String {
+fn build_user_prompt(document: &str, schema: &GraphSchemaDto) -> String {
+    let mut lines = vec![
+        "Schema column definitions (use these EXACT column names and order):".to_string(),
+        String::new(),
+    ];
+
+    for node in &schema.nodes {
+        let type_key = node.key.to_string();
+        let label = node.label.to_string();
+        let mut col_specs = vec![r#""id" (unique string node ID)"#.to_string()];
+        let mut sorted_props: Vec<_> = node.properties.iter().collect();
+        sorted_props.sort_by_key(|p| p.key.to_string());
+        for prop in &sorted_props {
+            let type_str = prop_type_display(&prop.property_type, &prop.metadata.options);
+            col_specs.push(format!(r#""{}" ({}, label: {})"#, prop.key, type_str, prop.label));
+        }
+        lines.push(format!("Node \"{}\" ({}): {}", type_key, label, col_specs.join(" | ")));
+    }
+
+    lines.push(String::new());
+
+    for edge in &schema.edges {
+        let type_key = edge.key.to_string();
+        let label = edge.label.to_string();
+        let mut col_specs = vec![
+            r#""from" (node ID)"#.to_string(),
+            r#""to" (node ID)"#.to_string(),
+        ];
+        let mut sorted_props: Vec<_> = edge.properties.iter().collect();
+        sorted_props.sort_by_key(|p| p.key.to_string());
+        for prop in &sorted_props {
+            let type_str = prop_type_display(&prop.property_type, &prop.metadata.options);
+            col_specs.push(format!(r#""{}" ({}, label: {})"#, prop.key, type_str, prop.label));
+        }
+        lines.push(format!("Edge \"{}\" ({}): {}", type_key, label, col_specs.join(" | ")));
+    }
+
+    lines.push(String::new());
+    lines.push("Document:".to_string());
+    lines.push(String::new());
+    lines.push(document.to_string());
+
+    lines.join("\n")
+}
+
+fn build_correction_prompt(errors: &str) -> String {
     format!(
-        r##"Extract all entities and relationships from the following document and populate the graph according to the schema:
+        r##"Your previous response contained errors that must be fixed:
 
-{}"##,
-        document
+{}
+
+Return the corrected JSON. Make sure every "from" and "to" in edges references a valid node ID from the "id" column in the nodes section."##,
+        errors
     )
 }
 
-fn schema_to_template_csv(schema: GraphSchemaDto) -> (String, String) {
-    let mut legend = String::new();
-    let mut csv = String::new();
-
-    let mut node_map = BTreeMap::new();
-    for node in &schema.nodes {
-        node_map.insert(node.key.clone(), node);
+fn prop_type_display(prop_type: &PropertyTypeDto, options: &Option<Vec<MetadataOptionString>>) -> String {
+    match prop_type {
+        PropertyTypeDto::Number => "Number".to_string(),
+        PropertyTypeDto::Boolean => "Boolean".to_string(),
+        PropertyTypeDto::String => "String".to_string(),
+        PropertyTypeDto::Select => match options {
+            Some(opts) => format!("Select: {}", opts.iter().map(|o| o.to_string()).collect::<Vec<_>>().join(", ")),
+            None => "Select".to_string(),
+        },
     }
-    let mut edge_map = BTreeMap::new();
-    for edge in &schema.edges {
-        edge_map.insert(edge.key.clone(), edge);
-    }
-
-    for (key, node) in &node_map {
-        let mut required_keys: Vec<String> =
-            node.properties.iter().map(|p| p.key.to_string()).collect();
-        required_keys.sort();
-        legend.push_str(&format!(
-            "## Node-{}\nlabel: \"{}\"\nrequired_properties: [{}]\n",
-            key,
-            node.label,
-            required_keys.join(", ")
-        ));
-    }
-    for (key, edge) in &edge_map {
-        let mut required_keys: Vec<String> =
-            edge.properties.iter().map(|p| p.key.to_string()).collect();
-        required_keys.sort();
-        legend.push_str(&format!(
-            "## Edge-{}\nlabel: \"{}\"\nrequired_properties: [{}]\n",
-            key,
-            edge.label,
-            required_keys.join(", ")
-        ));
-    }
-
-    let mut property_map = BTreeMap::new();
-    for node in &schema.nodes {
-        for prop in &node.properties {
-            property_map.insert(
-                prop.key.clone(),
-                (
-                    prop.label.clone(),
-                    prop.property_type.clone(),
-                    prop.metadata.options.clone(),
-                ),
-            );
-        }
-    }
-    for edge in &schema.edges {
-        for prop in &edge.properties {
-            property_map.insert(
-                prop.key.clone(),
-                (
-                    prop.label.clone(),
-                    prop.property_type.clone(),
-                    prop.metadata.options.clone(),
-                ),
-            );
-        }
-    }
-    for (key, (label, property_type, options)) in &property_map {
-        legend.push_str(&format!("## Property-{}\nlabel: \"{}\"\n", key, label));
-        legend.push_str(&format!("type: {}\n", property_type));
-        if let Some(opts) = options {
-            let mut opts_vec = opts.clone();
-            opts_vec.sort();
-            let opts_str = opts_vec
-                .iter()
-                .map(|o| format!("\"{}\"", o))
-                .collect::<Vec<_>>()
-                .join(", ");
-            legend.push_str(&format!("options: [{}]\n", opts_str));
-        }
-    }
-
-    for (key, node) in &node_map {
-        let mut headers = vec!["id".to_string()];
-        let mut prop_keys: Vec<String> =
-            node.properties.iter().map(|p| p.key.to_string()).collect();
-        prop_keys.sort();
-        headers.extend(prop_keys);
-        csv.push_str(&format!("## Node-{}\n{}\n", key, headers.join(",")));
-    }
-    for (key, edge) in &edge_map {
-        let mut headers = vec!["from".to_string(), "to".to_string()];
-        let mut prop_keys: Vec<String> =
-            edge.properties.iter().map(|p| p.key.to_string()).collect();
-        prop_keys.sort();
-        headers.extend(prop_keys);
-        csv.push_str(&format!("## Edge-{}\n{}\n", key, headers.join(",")));
-    }
-
-    (legend.trim().to_string(), csv.trim().to_string())
 }
 
-fn parse_csv_row(row: &str) -> Vec<String> {
-    let mut fields = Vec::new();
-    let mut current = String::new();
-    let mut in_quotes = false;
-    let mut chars = row.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        match ch {
-            '"' if !in_quotes => in_quotes = true,
-            '"' if in_quotes => {
-                if chars.peek() == Some(&'"') {
-                    chars.next();
-                    current.push('"');
-                } else {
-                    in_quotes = false;
+fn schema_to_data_json_schema(schema: &GraphSchemaDto) -> serde_json::Value {
+    let type_schema = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["columns", "rows"],
+        "properties": {
+            "columns": {
+                "type": "array",
+                "items": {"type": "string"}
+            },
+            "rows": {
+                "type": "array",
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {"type": "string"},
+                            {"type": "number"},
+                            {"type": "boolean"}
+                        ]
+                    }
                 }
             }
-            ',' if !in_quotes => {
-                fields.push(current.trim().to_string());
-                current = String::new();
-            }
-            c => current.push(c),
         }
+    });
+
+    let mut node_type_schemas = serde_json::Map::new();
+    let mut node_required: Vec<serde_json::Value> = Vec::new();
+    for node in &schema.nodes {
+        let type_key = node.key.to_string();
+        node_required.push(json!(type_key));
+        node_type_schemas.insert(type_key, type_schema.clone());
     }
-    fields.push(current.trim().to_string());
-    fields
+
+    let mut edge_type_schemas = serde_json::Map::new();
+    let mut edge_required: Vec<serde_json::Value> = Vec::new();
+    for edge in &schema.edges {
+        let type_key = edge.key.to_string();
+        edge_required.push(json!(type_key));
+        edge_type_schemas.insert(type_key, type_schema.clone());
+    }
+
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nodes", "edges"],
+        "properties": {
+            "nodes": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": node_required,
+                "properties": node_type_schemas
+            },
+            "edges": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": edge_required,
+                "properties": edge_type_schemas
+            }
+        }
+    })
 }
 
-fn coerce_value(raw: &str, property_type: Option<&PropertyTypeDto>) -> serde_json::Value {
-    match property_type {
-        Some(PropertyTypeDto::Number) => raw
-            .parse::<serde_json::Number>()
-            .map(serde_json::Value::Number)
-            .unwrap_or_else(|_| serde_json::Value::String(raw.to_string())),
-        Some(PropertyTypeDto::Boolean) => match raw.to_lowercase().as_str() {
-            "true" => serde_json::Value::Bool(true),
-            "false" => serde_json::Value::Bool(false),
-            _ => serde_json::Value::String(raw.to_string()),
-        },
-        _ => serde_json::Value::String(raw.to_string()),
-    }
-}
-
-fn csv_to_graph_data(
-    csv: &str,
-    property_types: &HashMap<String, PropertyTypeDto>,
+fn json_to_graph_data(
+    json: serde_json::Value,
+    schema: &GraphSchemaDto,
 ) -> Result<CreateGraphDataDto, String> {
-    tracing::debug!(csv = %csv);
+    // tracing::debug!(json = %json);
 
-    let csv = csv.trim();
-    let mut lines = csv.lines().peekable();
-    let mut nodes: Vec<CreateNodeDataDto> = vec![];
-    let mut edges: Vec<CreateEdgeDataDto> = vec![];
+    let nodes_obj = json
+        .get("nodes")
+        .and_then(|v| v.as_object())
+        .ok_or("Missing 'nodes' object in response")?;
+
+    let edges_obj = json
+        .get("edges")
+        .and_then(|v| v.as_object())
+        .ok_or("Missing 'edges' object in response")?;
+
+    let mut nodes: Vec<CreateNodeDataDto> = Vec::new();
+    let mut edges: Vec<CreateEdgeDataDto> = Vec::new();
     let mut node_id_map: HashMap<String, NodeDataIdDto> = HashMap::new();
 
-    while let Some(line) = lines.next() {
-        let line = line.trim();
+    // Helper: parse the "columns" array from a type value
+    let parse_columns = |type_val: &serde_json::Value, label: &str| -> Result<Vec<String>, String> {
+        type_val
+            .get("columns")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| format!("Type '{}' missing 'columns' array", label))?
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| format!("Column name in '{}' is not a string", label))
+                    .map(|s| s.to_string())
+            })
+            .collect()
+    };
 
-        if line.is_empty() {
-            continue;
+    // Process nodes in schema order so edge ID lookups are stable
+    for node_schema in &schema.nodes {
+        let type_key = node_schema.key.to_string();
+        let type_val = match nodes_obj.get(&type_key) {
+            Some(v) => v,
+            None => continue,
+        };
+
+        let columns = parse_columns(type_val, &type_key)?;
+        let id_idx = columns
+            .iter()
+            .position(|c| c == "id")
+            .ok_or_else(|| format!("Node type '{}' columns missing 'id'", type_key))?;
+        let rows = type_val
+            .get("rows")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| format!("Node type '{}' missing 'rows' array", type_key))?;
+
+        for row in rows {
+            let row_arr = row
+                .as_array()
+                .ok_or_else(|| format!("Row in node type '{}' is not an array", type_key))?;
+
+            let ai_id = row_arr
+                .get(id_idx)
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("Node of type '{}' missing 'id' at column index {}", type_key, id_idx))?
+                .to_string();
+
+            let node_id = NodeDataIdDto::new();
+            node_id_map.insert(ai_id, node_id);
+
+            let mut values = HashMap::new();
+            for (idx, col) in columns.iter().enumerate() {
+                if col == "id" {
+                    continue;
+                }
+                if let Some(v) = row_arr.get(idx) {
+                    values.insert(col.clone(), v.clone());
+                }
+            }
+
+            nodes.push(CreateNodeDataDto {
+                node_data_id: node_id,
+                key: type_key.clone().into(),
+                properties: PropertiesDataDto { values },
+            });
         }
+    }
 
-        if let Some(key) = line.strip_prefix("## Node-") {
-            let key = key.trim().to_string();
-            let headers_line = lines
-                .next()
-                .ok_or_else(|| format!("Expected headers after '## Node-{}'", key))?;
-            let headers: Vec<&str> = headers_line.trim().split(',').map(str::trim).collect();
+    // Process edges
+    for edge_schema in &schema.edges {
+        let type_key = edge_schema.key.to_string();
+        let type_val = match edges_obj.get(&type_key) {
+            Some(v) => v,
+            None => continue,
+        };
 
-            loop {
-                match lines.peek() {
-                    None => break,
-                    Some(next) if next.trim().starts_with("## ") => break,
-                    _ => {}
-                }
-                let row = lines
-                    .next()
-                    .ok_or_else(|| "Unexpected end of input while reading node row".to_string())?;
-                let row = row.trim();
-                if row.is_empty() {
+        let columns = parse_columns(type_val, &type_key)?;
+        let from_idx = columns
+            .iter()
+            .position(|c| c == "from")
+            .ok_or_else(|| format!("Edge type '{}' columns missing 'from'", type_key))?;
+        let to_idx = columns
+            .iter()
+            .position(|c| c == "to")
+            .ok_or_else(|| format!("Edge type '{}' columns missing 'to'", type_key))?;
+        let rows = type_val
+            .get("rows")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| format!("Edge type '{}' missing 'rows' array", type_key))?;
+
+        for row in rows {
+            let row_arr = row
+                .as_array()
+                .ok_or_else(|| format!("Row in edge type '{}' is not an array", type_key))?;
+
+            let from_ai_id = row_arr
+                .get(from_idx)
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("Edge of type '{}' missing 'from' at column index {}", type_key, from_idx))?;
+            let to_ai_id = row_arr
+                .get(to_idx)
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("Edge of type '{}' missing 'to' at column index {}", type_key, to_idx))?;
+
+            let valid_ids: Vec<&str> = node_id_map.keys().map(|s| s.as_str()).collect();
+
+            let from_id = *node_id_map.get(from_ai_id).ok_or_else(|| {
+                format!(
+                    "Edge type '{}': 'from' references unknown node ID '{}'. Valid IDs: [{}]",
+                    type_key,
+                    from_ai_id,
+                    valid_ids.join(", ")
+                )
+            })?;
+            let to_id = *node_id_map.get(to_ai_id).ok_or_else(|| {
+                format!(
+                    "Edge type '{}': 'to' references unknown node ID '{}'. Valid IDs: [{}]",
+                    type_key,
+                    to_ai_id,
+                    valid_ids.join(", ")
+                )
+            })?;
+
+            let mut values = HashMap::new();
+            for (idx, col) in columns.iter().enumerate() {
+                if col == "from" || col == "to" {
                     continue;
                 }
-                let cols = parse_csv_row(row);
-                if cols.len() != headers.len() {
-                    let id = cols.first().map(|s| s.as_str()).unwrap_or("<empty>");
-                    return Err(format!(
-                        "Node '{}': row for '{}' has {} columns but expected {} (row: '{}')",
-                        key,
-                        id,
-                        cols.len(),
-                        headers.len(),
-                        row
-                    ));
+                if let Some(v) = row_arr.get(idx) {
+                    values.insert(col.clone(), v.clone());
                 }
-                let ai_id = cols[0].clone();
-                let node_id = NodeDataIdDto::new();
-                node_id_map.insert(ai_id, node_id);
-
-                let mut values = HashMap::new();
-                for i in 1..headers.len() {
-                    let value = coerce_value(&cols[i], property_types.get(headers[i]));
-                    values.insert(headers[i].to_string(), value);
-                }
-                nodes.push(CreateNodeDataDto {
-                    node_data_id: node_id,
-                    key: key.clone().into(),
-                    properties: PropertiesDataDto { values },
-                });
             }
-        } else if let Some(key) = line.strip_prefix("## Edge-") {
-            let key = key.trim().to_string();
-            let headers_line = lines
-                .next()
-                .ok_or_else(|| format!("Expected headers after '## Edge-{}'", key))?;
-            let headers: Vec<&str> = headers_line.trim().split(',').map(str::trim).collect();
 
-            loop {
-                match lines.peek() {
-                    None => break,
-                    Some(next) if next.trim().starts_with("## ") => break,
-                    _ => {}
-                }
-                let row = lines
-                    .next()
-                    .ok_or_else(|| "Unexpected end of input while reading edge row".to_string())?;
-                let row = row.trim();
-                if row.is_empty() {
-                    continue;
-                }
-                let cols = parse_csv_row(row);
-                if cols.len() != headers.len() {
-                    let from = cols.first().map(|s| s.as_str()).unwrap_or("<empty>");
-                    let to = cols.get(1).map(|s| s.as_str()).unwrap_or("<empty>");
-                    return Err(format!(
-                        "Edge '{}': row from '{}' to '{}' has {} columns but expected {} (row: '{}')",
-                        key,
-                        from,
-                        to,
-                        cols.len(),
-                        headers.len(),
-                        row
-                    ));
-                }
-                let from_id = node_id_map
-                    .get(&cols[0])
-                    .copied()
-                    .ok_or_else(|| format!("Unknown node ID '{}' in edge 'from'", cols[0]))?;
-                let to_id = node_id_map
-                    .get(&cols[1])
-                    .copied()
-                    .ok_or_else(|| format!("Unknown node ID '{}' in edge 'to'", cols[1]))?;
-
-                let mut values = HashMap::new();
-                for i in 2..headers.len() {
-                    let value = coerce_value(&cols[i], property_types.get(headers[i]));
-                    values.insert(headers[i].to_string(), value);
-                }
-                edges.push(CreateEdgeDataDto {
-                    key: key.clone().into(),
-                    from_node_data_id: from_id,
-                    to_node_data_id: to_id,
-                    properties: PropertiesDataDto { values },
-                });
-            }
-        } else {
-            return Err(format!("Unexpected line: '{}'", line));
+            edges.push(CreateEdgeDataDto {
+                key: type_key.clone().into(),
+                from_node_data_id: from_id,
+                to_node_data_id: to_id,
+                properties: PropertiesDataDto { values },
+            });
         }
     }
 
@@ -424,9 +417,11 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    #[test]
-    fn test_schema_to_template_csv() {
-        let schema = serde_json::from_value::<GraphSchemaDto>(json!({
+    // Minimal GraphSchemaDto fixture shared across tests.
+    // Nodes (in schema order): ESVhRs9k (Object), dudFcexv (Person)
+    // Edges (in schema order): Oq9afK3f (Records)
+    fn make_schema() -> GraphSchemaDto {
+        serde_json::from_value(json!({
             "nodes": [
                 {
                     "node_schema_id": "019c9503-34c7-71a0-aee8-f5025ebb9e27",
@@ -444,9 +439,7 @@ mod tests {
                             "label": "Name",
                             "key": "po86zGND",
                             "property_type": "String",
-                            "metadata": {
-                                "options": null
-                            },
+                            "metadata": { "options": null },
                             "created_at": "2026-02-25T13:35:41.255685Z",
                             "updated_at": "2026-02-25T13:35:41.255685Z"
                         },
@@ -457,12 +450,7 @@ mod tests {
                             "label": "Type",
                             "key": "JboctBKk",
                             "property_type": "Select",
-                            "metadata": {
-                                "options": [
-                                    "Lighthouse",
-                                    "Logbook"
-                                ]
-                            },
+                            "metadata": { "options": ["Lighthouse", "Logbook"] },
                             "created_at": "2026-02-25T13:35:41.255685Z",
                             "updated_at": "2026-02-25T13:35:41.255685Z"
                         }
@@ -478,44 +466,13 @@ mod tests {
                     "updated_at": "2026-02-25T13:35:41.255685Z",
                     "properties": [
                         {
-                            "property_schema_id": "019c9503-34ca-7610-b62f-f5a8ed5de18a",
-                            "node_schema_id": "019c9503-34c7-71a0-aee8-f4ea514266e0",
-                            "edge_schema_id": null,
-                            "label": "Role",
-                            "key": "dDlyhiOg",
-                            "property_type": "Select",
-                            "metadata": {
-                                "options": [
-                                    "Keeper",
-                                    "Witness"
-                                ]
-                            },
-                            "created_at": "2026-02-25T13:35:41.255685Z",
-                            "updated_at": "2026-02-25T13:35:41.255685Z"
-                        },
-                        {
                             "property_schema_id": "019c9503-34ca-7610-b62f-f579dd147c29",
                             "node_schema_id": "019c9503-34c7-71a0-aee8-f4ea514266e0",
                             "edge_schema_id": null,
                             "label": "Name",
                             "key": "B1ixXXAx",
                             "property_type": "String",
-                            "metadata": {
-                                "options": null
-                            },
-                            "created_at": "2026-02-25T13:35:41.255685Z",
-                            "updated_at": "2026-02-25T13:35:41.255685Z"
-                        },
-                        {
-                            "property_schema_id": "019c9503-34ca-7610-b62f-f58b646e309d",
-                            "node_schema_id": "019c9503-34c7-71a0-aee8-f4ea514266e0",
-                            "edge_schema_id": null,
-                            "label": "Location",
-                            "key": "m0NrB2sm",
-                            "property_type": "String",
-                            "metadata": {
-                                "options": null
-                            },
+                            "metadata": { "options": null },
                             "created_at": "2026-02-25T13:35:41.255685Z",
                             "updated_at": "2026-02-25T13:35:41.255685Z"
                         },
@@ -526,67 +483,7 @@ mod tests {
                             "label": "Years of Experience",
                             "key": "h2GIMoa9",
                             "property_type": "Number",
-                            "metadata": {
-                                "options": null
-                            },
-                            "created_at": "2026-02-25T13:35:41.255685Z",
-                            "updated_at": "2026-02-25T13:35:41.255685Z"
-                        }
-                    ]
-                },
-                {
-                    "node_schema_id": "019c9503-34c7-71a0-aee8-f4ff2d6290c2",
-                    "graph_id": "019c9503-0dda-7553-b3c2-dc516f490a1a",
-                    "label": "Element",
-                    "key": "nFbOTJ9C",
-                    "color": "#FFC300",
-                    "created_at": "2026-02-25T13:35:41.255685Z",
-                    "updated_at": "2026-02-25T13:35:41.255685Z",
-                    "properties": [
-                        {
-                            "property_schema_id": "019c9503-34ca-7610-b62f-f5bf12c9eb42",
-                            "node_schema_id": "019c9503-34c7-71a0-aee8-f4ff2d6290c2",
-                            "edge_schema_id": null,
-                            "label": "Type",
-                            "key": "K1FOhEqB",
-                            "property_type": "Select",
-                            "metadata": {
-                                "options": [
-                                    "Fog",
-                                    "Sea",
-                                    "Light",
-                                    "Gannet"
-                                ]
-                            },
-                            "created_at": "2026-02-25T13:35:41.255685Z",
-                            "updated_at": "2026-02-25T13:35:41.255685Z"
-                        },
-                        {
-                            "property_schema_id": "019c9503-34ca-7610-b62f-f5cf8d5f85ca",
-                            "node_schema_id": "019c9503-34c7-71a0-aee8-f4ff2d6290c2",
-                            "edge_schema_id": null,
-                            "label": "Color",
-                            "key": "XcrvXgOd",
-                            "property_type": "String",
-                            "metadata": {
-                                "options": null
-                            },
-                            "created_at": "2026-02-25T13:35:41.255685Z",
-                            "updated_at": "2026-02-25T13:35:41.255685Z"
-                        },
-                        {
-                            "property_schema_id": "019c9503-34ca-7610-b62f-f5dcb48d3a33",
-                            "node_schema_id": "019c9503-34c7-71a0-aee8-f4ff2d6290c2",
-                            "edge_schema_id": null,
-                            "label": "Behavior",
-                            "key": "jZ6GspWq",
-                            "property_type": "Select",
-                            "metadata": {
-                                "options": [
-                                    "Indifferent",
-                                    "Responsive"
-                                ]
-                            },
+                            "metadata": { "options": null },
                             "created_at": "2026-02-25T13:35:41.255685Z",
                             "updated_at": "2026-02-25T13:35:41.255685Z"
                         }
@@ -594,33 +491,6 @@ mod tests {
                 }
             ],
             "edges": [
-                {
-                    "edge_schema_id": "019c9503-34c7-71a0-aee8-f52911dc6692",
-                    "graph_id": "019c9503-0dda-7553-b3c2-dc516f490a1a",
-                    "label": "Communicates With",
-                    "key": "eELB9Bwe",
-                    "color": "#3355FF",
-                    "created_at": "2026-02-25T13:35:41.255685Z",
-                    "updated_at": "2026-02-25T13:35:41.255685Z",
-                    "properties": [
-                        {
-                            "property_schema_id": "019c9503-34ca-7610-b62f-f625c649630c",
-                            "node_schema_id": null,
-                            "edge_schema_id": "019c9503-34c7-71a0-aee8-f52911dc6692",
-                            "label": "Connection Type",
-                            "key": "MDHY1uVN",
-                            "property_type": "Select",
-                            "metadata": {
-                                "options": [
-                                    "Parent-Child",
-                                    "Profession"
-                                ]
-                            },
-                            "created_at": "2026-02-25T13:35:41.255685Z",
-                            "updated_at": "2026-02-25T13:35:41.255685Z"
-                        }
-                    ]
-                },
                 {
                     "edge_schema_id": "019c9503-34c7-71a0-aee8-f51dcfde6050",
                     "graph_id": "019c9503-0dda-7553-b3c2-dc516f490a1a",
@@ -631,35 +501,13 @@ mod tests {
                     "updated_at": "2026-02-25T13:35:41.255685Z",
                     "properties": [
                         {
-                            "property_schema_id": "019c9503-34ca-7610-b62f-f60ac4ae8e56",
-                            "node_schema_id": null,
-                            "edge_schema_id": "019c9503-34c7-71a0-aee8-f51dcfde6050",
-                            "label": "Type",
-                            "key": "rZYz1jYr",
-                            "property_type": "Select",
-                            "metadata": {
-                                "options": [
-                                    "Routine",
-                                    "Observation"
-                                ]
-                            },
-                            "created_at": "2026-02-25T13:35:41.255685Z",
-                            "updated_at": "2026-02-25T13:35:41.255685Z"
-                        },
-                        {
                             "property_schema_id": "019c9503-34ca-7610-b62f-f6178554dfdd",
                             "node_schema_id": null,
                             "edge_schema_id": "019c9503-34c7-71a0-aee8-f51dcfde6050",
                             "label": "Frequency",
                             "key": "QVL3enQS",
                             "property_type": "Select",
-                            "metadata": {
-                                "options": [
-                                    "Daily",
-                                    "Weekly",
-                                    "Monthly"
-                                ]
-                            },
+                            "metadata": { "options": ["Daily", "Weekly", "Monthly"] },
                             "created_at": "2026-02-25T13:35:41.255685Z",
                             "updated_at": "2026-02-25T13:35:41.255685Z"
                         }
@@ -667,122 +515,118 @@ mod tests {
                 }
             ]
         }))
-        .unwrap();
-
-        let (legend, csv) = schema_to_template_csv(schema);
-        let expected_legend = r#"
-## Node-ESVhRs9k
-label: "Object"
-required_properties: [JboctBKk, po86zGND]
-## Node-dudFcexv
-label: "Person"
-required_properties: [B1ixXXAx, dDlyhiOg, h2GIMoa9, m0NrB2sm]
-## Node-nFbOTJ9C
-label: "Element"
-required_properties: [K1FOhEqB, XcrvXgOd, jZ6GspWq]
-## Edge-Oq9afK3f
-label: "Records"
-required_properties: [QVL3enQS, rZYz1jYr]
-## Edge-eELB9Bwe
-label: "Communicates With"
-required_properties: [MDHY1uVN]
-## Property-B1ixXXAx
-label: "Name"
-type: String
-## Property-JboctBKk
-label: "Type"
-type: Select
-options: ["Lighthouse", "Logbook"]
-## Property-K1FOhEqB
-label: "Type"
-type: Select
-options: ["Fog", "Gannet", "Light", "Sea"]
-## Property-MDHY1uVN
-label: "Connection Type"
-type: Select
-options: ["Parent-Child", "Profession"]
-## Property-QVL3enQS
-label: "Frequency"
-type: Select
-options: ["Daily", "Monthly", "Weekly"]
-## Property-XcrvXgOd
-label: "Color"
-type: String
-## Property-dDlyhiOg
-label: "Role"
-type: Select
-options: ["Keeper", "Witness"]
-## Property-h2GIMoa9
-label: "Years of Experience"
-type: Number
-## Property-jZ6GspWq
-label: "Behavior"
-type: Select
-options: ["Indifferent", "Responsive"]
-## Property-m0NrB2sm
-label: "Location"
-type: String
-## Property-po86zGND
-label: "Name"
-type: String
-## Property-rZYz1jYr
-label: "Type"
-type: Select
-options: ["Observation", "Routine"]
-"#
-        .trim()
-        .to_string();
-
-        let expected_csv = r#"
-## Node-ESVhRs9k
-id,JboctBKk,po86zGND
-## Node-dudFcexv
-id,B1ixXXAx,dDlyhiOg,h2GIMoa9,m0NrB2sm
-## Node-nFbOTJ9C
-id,K1FOhEqB,XcrvXgOd,jZ6GspWq
-## Edge-Oq9afK3f
-from,to,QVL3enQS,rZYz1jYr
-## Edge-eELB9Bwe
-from,to,MDHY1uVN
-"#
-        .trim()
-        .to_string();
-
-        assert_eq!(legend, expected_legend);
-        assert_eq!(csv, expected_csv);
+        .unwrap()
     }
 
     #[test]
-    fn test_csv_to_graph_data_1() {
-        let csv = r#"
-## Node-JparY0E3
-id,ft5ybMXL,k7xdQhvx
-n1,Logbook,Lighthouse
-## Node-di8zqvue
-id,INa4ejnu,VCQ8T4SG,X4u4YW94,fmwi38Kd
-n1,Point,Keeper,30,Marcus
-n2,Edinburgh,Witness,0,Daughter
-## Node-wZlDcFRT
-id,DeJx3xiU,WAJyLvmA,WPv9aBad
-n1,Responsive,white,Fog
-n2,Responsive,dark green,Sea
-n3,Indifferent,white,Gannet
-## Edge-EPLXEEpm
-from,to,I3HCHgGr,gWp6NrlG
-n1,n1,Daily,Observation
-n2,n2,Weekly,Routine
-## Edge-z41HW1jw
-from,to,pgD0HOWK
-n1,n2,Profession
-"#
-        .trim();
+    fn test_schema_to_data_json_schema() {
+        let schema = make_schema();
+        let result = schema_to_data_json_schema(&schema);
 
-        let graph_data = csv_to_graph_data(
-            csv,
-            &HashMap::from([("X4u4YW94".to_string(), PropertyTypeDto::Number)]),
-        )
-        .unwrap();
+        let type_schema = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["columns", "rows"],
+            "properties": {
+                "columns": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "anyOf": [
+                                {"type": "string"},
+                                {"type": "number"},
+                                {"type": "boolean"}
+                            ]
+                        }
+                    }
+                }
+            }
+        });
 
+        let expected = json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["nodes", "edges"],
+            "properties": {
+                "nodes": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["ESVhRs9k", "dudFcexv"],
+                    "properties": {
+                        "ESVhRs9k": type_schema.clone(),
+                        "dudFcexv": type_schema.clone()
+                    }
+                },
+                "edges": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["Oq9afK3f"],
+                    "properties": {
+                        "Oq9afK3f": type_schema
+                    }
+                }
+            }
+        });
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_json_to_graph_data() {
+        let schema = make_schema();
+
+        let input = json!({
+            "nodes": {
+                "ESVhRs9k": {
+                    "columns": ["id", "JboctBKk", "po86zGND"],
+                    "rows": [["n1", "Lighthouse", "Bell Rock"]]
+                },
+                "dudFcexv": {
+                    "columns": ["id", "B1ixXXAx", "h2GIMoa9"],
+                    "rows": [
+                        ["n2", "Alice", 10],
+                        ["n3", "Bob", 5]
+                    ]
+                }
+            },
+            "edges": {
+                "Oq9afK3f": {
+                    "columns": ["from", "to", "QVL3enQS"],
+                    "rows": [
+                        ["n2", "n1", "Daily"],
+                        ["n3", "n1", "Weekly"]
+                    ]
+                }
+            }
+        });
+
+        let graph_data = json_to_graph_data(input, &schema).unwrap();
+
+        // Three nodes, two edges
+        assert_eq!(graph_data.nodes.len(), 3);
+        assert_eq!(graph_data.edges.len(), 2);
+
+        // All node IDs must be unique
+        let id_set: std::collections::HashSet<_> =
+            graph_data.nodes.iter().map(|n| n.node_data_id).collect();
+        assert_eq!(id_set.len(), 3);
+
+        // Verify node types and properties (order: schema order → ESVhRs9k first, then dudFcexv)
+        let actual_nodes: Vec<(String, serde_json::Value)> = graph_data
+            .nodes
+            .iter()
+            .map(|n| (n.key.to_string(), serde_json::to_value(&n.properties).unwrap()))
+            .collect();
+        assert_eq!(actual_nodes[0], ("ESVhRs9k".to_string(), json!({"JboctBKk": "Lighthouse", "po86zGND": "Bell Rock"})));
+        assert_eq!(actual_nodes[1], ("dudFcexv".to_string(), json!({"B1ixXXAx": "Alice", "h2GIMoa9": 10})));
+        assert_eq!(actual_nodes[2], ("dudFcexv".to_string(), json!({"B1ixXXAx": "Bob",   "h2GIMoa9": 5})));
+
+        // Edges must reference the correct node UUIDs
         let id_to_idx: HashMap<NodeDataIdDto, usize> = graph_data
             .nodes
             .iter()
@@ -790,63 +634,6 @@ n1,n2,Profession
             .map(|(i, n)| (n.node_data_id, i))
             .collect();
 
-        // All node_data_ids must be unique
-        assert_eq!(
-            id_to_idx.len(),
-            graph_data.nodes.len(),
-            "node_data_ids must be unique"
-        );
-
-        // All edge references must point to existing nodes
-        for edge in &graph_data.edges {
-            assert!(id_to_idx.contains_key(&edge.from_node_data_id));
-            assert!(id_to_idx.contains_key(&edge.to_node_data_id));
-        }
-
-        // Verify nodes: key + properties (order-preserved, ignoring node_data_id)
-        let actual_nodes: Vec<(String, serde_json::Value)> = graph_data
-            .nodes
-            .iter()
-            .map(|n| {
-                (
-                    n.key.to_string(),
-                    serde_json::to_value(&n.properties).unwrap(),
-                )
-            })
-            .collect();
-        assert_eq!(
-            actual_nodes,
-            vec![
-                (
-                    "JparY0E3".to_string(),
-                    json!({"ft5ybMXL": "Logbook", "k7xdQhvx": "Lighthouse"})
-                ),
-                (
-                    "di8zqvue".to_string(),
-                    json!({"INa4ejnu": "Point", "VCQ8T4SG": "Keeper", "X4u4YW94": 30, "fmwi38Kd": "Marcus"})
-                ),
-                (
-                    "di8zqvue".to_string(),
-                    json!({"INa4ejnu": "Edinburgh", "VCQ8T4SG": "Witness", "X4u4YW94": 0, "fmwi38Kd": "Daughter"})
-                ),
-                (
-                    "wZlDcFRT".to_string(),
-                    json!({"DeJx3xiU": "Responsive", "WAJyLvmA": "white", "WPv9aBad": "Fog"})
-                ),
-                (
-                    "wZlDcFRT".to_string(),
-                    json!({"DeJx3xiU": "Responsive", "WAJyLvmA": "dark green", "WPv9aBad": "Sea"})
-                ),
-                (
-                    "wZlDcFRT".to_string(),
-                    json!({"DeJx3xiU": "Indifferent", "WAJyLvmA": "white", "WPv9aBad": "Gannet"})
-                ),
-            ]
-        );
-
-        // Verify edges: key + from/to node indices + properties
-        // (n1, n2, n3 in the edge sections resolve to wZlDcFRT nodes at indices 3, 4, 5,
-        //  because JparY0E3's n1 and di8zqvue's n1/n2 are overwritten in the id map)
         let actual_edges: Vec<(String, usize, usize, serde_json::Value)> = graph_data
             .edges
             .iter()
@@ -859,58 +646,41 @@ n1,n2,Profession
                 )
             })
             .collect();
+
         assert_eq!(
             actual_edges,
             vec![
-                (
-                    "EPLXEEpm".to_string(),
-                    3,
-                    3,
-                    json!({"I3HCHgGr": "Daily", "gWp6NrlG": "Observation"})
-                ),
-                (
-                    "EPLXEEpm".to_string(),
-                    4,
-                    4,
-                    json!({"I3HCHgGr": "Weekly", "gWp6NrlG": "Routine"})
-                ),
-                (
-                    "z41HW1jw".to_string(),
-                    3,
-                    4,
-                    json!({"pgD0HOWK": "Profession"})
-                ),
+                ("Oq9afK3f".to_string(), 1, 0, json!({"QVL3enQS": "Daily"})),
+                ("Oq9afK3f".to_string(), 2, 0, json!({"QVL3enQS": "Weekly"})),
             ]
         );
     }
 
     #[test]
-    fn test_csv_to_graph_data_2() {
-        let csv = r#"
-## Node-dcvksa3I
-id,fE26cp03,fKOvqopQ,ueRxaevP
-n1,Coastal,"-10.1234, 50.5678","Point of Lighthouse"
-"#
-        .trim();
+    fn test_json_to_graph_data_unknown_node_id_error() {
+        let schema = make_schema();
 
-        let graph_data = csv_to_graph_data(csv, &HashMap::new()).unwrap();
+        let input = json!({
+            "nodes": {
+                "ESVhRs9k": {
+                    "columns": ["id", "JboctBKk", "po86zGND"],
+                    "rows": [["n1", "Lighthouse", "Bell Rock"]]
+                },
+                "dudFcexv": {
+                    "columns": ["id", "B1ixXXAx", "h2GIMoa9"],
+                    "rows": []
+                }
+            },
+            "edges": {
+                "Oq9afK3f": {
+                    "columns": ["from", "to", "QVL3enQS"],
+                    "rows": [["n99", "n1", "Daily"]]
+                }
+            }
+        });
 
-        let actual_nodes: Vec<(String, serde_json::Value)> = graph_data
-            .nodes
-            .iter()
-            .map(|n| {
-                (
-                    n.key.to_string(),
-                    serde_json::to_value(&n.properties).unwrap(),
-                )
-            })
-            .collect();
-        assert_eq!(
-            actual_nodes,
-            vec![(
-                "dcvksa3I".to_string(),
-                json!({"fE26cp03": "Coastal", "fKOvqopQ": "-10.1234, 50.5678", "ueRxaevP": "Point of Lighthouse"})
-            ),]
-        );
+        let err = json_to_graph_data(input, &schema).unwrap_err();
+        assert!(err.contains("n99"), "error should mention the bad ID: {}", err);
+        assert!(err.contains("Oq9afK3f"), "error should mention the edge type: {}", err);
     }
 }

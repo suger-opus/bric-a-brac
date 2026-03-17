@@ -17,10 +17,15 @@ struct ChatRequest {
     plugins: Vec<Plugin>,
 }
 
-#[derive(Debug, Serialize)]
-struct Message {
-    role: String,
-    content: String,
+#[derive(Debug, Clone, Serialize)]
+pub struct Message {
+    pub role: String,
+    pub content: String,
+}
+
+pub struct ChatResult {
+    pub raw_content: String,
+    pub value: serde_json::Value,
 }
 
 #[derive(Debug, Serialize)]
@@ -71,43 +76,19 @@ impl OpenRouterClient {
     #[tracing::instrument(
         level = "debug",
         name = "openrouter_client.chat",
-        skip(self, system_prompt, user_prompt, schema, previous_error)
+        skip(self, messages, schema)
     )]
     pub async fn chat(
         &self,
-        system_prompt: &str,
-        user_prompt: &str,
+        messages: Vec<Message>,
         schema: Option<serde_json::Value>,
-        previous_error: Option<&str>,
-    ) -> Result<serde_json::Value, OpenRouterClientError> {
+    ) -> Result<ChatResult, OpenRouterClientError> {
         tracing::debug!(
-            system_prompt = ?system_prompt.chars().take(10).collect::<String>(),
-            user_prompt = ?user_prompt.chars().take(10).collect::<String>(),
+            message_count = messages.len(),
             has_schema = schema.is_some(),
-            has_previous_error = previous_error.is_some()
         );
 
         let is_structured_output_needed = schema.is_some();
-
-        let user_content = if let Some(errors) = previous_error {
-            format!(
-                "{}\n\nPrevious attempt had validation errors:\n{}",
-                user_prompt, errors
-            )
-        } else {
-            user_prompt.to_string()
-        };
-
-        let messages = vec![
-            Message {
-                role: "system".to_string(),
-                content: system_prompt.to_string(),
-            },
-            Message {
-                role: "user".to_string(),
-                content: user_content,
-            },
-        ];
 
         let response_format = schema.map(|s| ResponseFormat {
             type_: "json_schema".to_string(),
@@ -131,10 +112,10 @@ impl OpenRouterClient {
             response_format,
             plugins,
         };
-        tracing::debug!(
-            "Sending request to OpenRouter API: {}",
-            serde_json::to_string_pretty(&request).unwrap_or_default()
-        );
+        // tracing::debug!(
+        //     "Sending request to OpenRouter API: {}",
+        //     serde_json::to_string_pretty(&request).unwrap_or_default()
+        // );
 
         let response = self
             .client
@@ -194,14 +175,19 @@ impl OpenRouterClient {
             .content
             .clone();
 
-        match is_structured_output_needed {
-            true => serde_json::from_str(&content).map_err(|err| {
+        let value = match is_structured_output_needed {
+            true => serde_json::from_str::<serde_json::Value>(&content).map_err(|err| {
                 OpenRouterClientError::Deserialization {
                     message: "Failed to deserialize content field as JSON value".to_string(),
                     source: err,
                 }
-            }),
-            false => Ok(serde_json::Value::String(content)),
-        }
+            })?,
+            false => serde_json::Value::String(content.clone()),
+        };
+
+        Ok(ChatResult {
+            raw_content: content,
+            value,
+        })
     }
 }

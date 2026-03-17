@@ -20,7 +20,7 @@ pub use node_schema_dto::{CreateNodeSchemaDto, NodeSchemaDto, NodeSchemaIdDto};
 pub use primitives::{ColorDto, KeyDto, LabelDto};
 pub use property_data_dto::PropertiesDataDto;
 pub use property_schema_dto::{
-    CreatePropertySchemaDto, PropertyMetadataDto, PropertySchemaDto, PropertySchemaIdDto,
-    PropertyTypeDto,
+    CreatePropertySchemaDto, MetadataOptionString, PropertyMetadataDto, PropertySchemaDto,
+    PropertySchemaIdDto, PropertyTypeDto,
 };
 pub use schema_compliance::SchemaComplianceError;

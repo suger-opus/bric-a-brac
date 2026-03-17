@@ -1,5 +1,5 @@
 use crate::{
-    infrastructure::clients::OpenRouterClient,
+    infrastructure::clients::{Message, OpenRouterClient},
     presentation::errors::{AppError, OpenRouterClientError},
 };
 use bric_a_brac_dtos::{generate_graph_schema_doc, CreateGraphSchemaDto};
@@ -36,28 +36,41 @@ impl SchemaService {
         let user_prompt = build_user_prompt(&parsed_content);
 
         const MAX_ATTEMPTS: u8 = 3;
-        let mut previous_error: Option<String> = None;
         let mut attempt: u8 = 0;
+        let mut messages = vec![
+            Message {
+                role: "system".to_string(),
+                content: system_prompt,
+            },
+            Message {
+                role: "user".to_string(),
+                content: user_prompt,
+            },
+        ];
 
         loop {
             attempt += 1;
 
-            let generated_schema = self
+            let result = self
                 .openrouter_client
-                .chat(
-                    &system_prompt,
-                    &user_prompt,
-                    Some(schema_spec.clone()),
-                    previous_error.as_deref(),
-                )
+                .chat(messages.clone(), Some(schema_spec.clone()))
                 .await?;
-            let generated_schema = rename_attributes_to_properties(generated_schema);
+            let raw_content = result.raw_content.clone();
+            let generated_schema = rename_attributes_to_properties(result.value);
 
             match self.validate_schema(&generated_schema) {
                 Ok(schema) => break Ok(schema),
                 Err(err) if attempt < MAX_ATTEMPTS => {
                     tracing::warn!(attempt, error = %err, "Schema validation failed, retrying");
-                    previous_error = Some(err.to_string());
+                    // Give the model its own previous response so it can see what to fix
+                    messages.push(Message {
+                        role: "assistant".to_string(),
+                        content: raw_content,
+                    });
+                    messages.push(Message {
+                        role: "user".to_string(),
+                        content: build_correction_prompt(&err.to_string()),
+                    });
                 }
                 Err(err) => break Err(err),
             }
@@ -99,7 +112,7 @@ Rules:
 - Edges represent RELATIONSHIP TYPES between node types (e.g., 'Friend Of', 'Born In') — not specific relationships
 - Attributes define the PROPERTIES that instances of a node/edge type can have (e.g., 'Name', 'Eye Color', 'Birth Year') — not the actual values
 - Colors must be a visually distinct hex color per node/edge type
-- If a relationship property_type is Select, then metadata.options must be a non-empty list of possible values. Otherwise, metadata.options should be null.
+- If a property_type is Select, then metadata.options must be a non-empty list of possible values. Otherwise, metadata.options must be null.
 
 Think of it like defining a database schema, not inserting rows into it."##.to_string()
 }
@@ -112,6 +125,17 @@ fn build_user_prompt(data: &str) -> String {
 
 Generate a complete graph schema with nodes, edges, and their attributes."##,
         data
+    )
+}
+
+fn build_correction_prompt(errors: &str) -> String {
+    format!(
+        r##"Your previous response contained validation errors that must be fixed:
+
+{}
+
+Please return a corrected response that resolves all of these issues."##,
+        errors
     )
 }
 
