@@ -7,14 +7,6 @@ CREATE TYPE role_type AS ENUM
     'None'
 );
 
-CREATE TYPE property_type AS ENUM
-(
-    'Number',
-    'String',
-    'Boolean',
-    'Select'
-);
-
 CREATE TABLE users
 (
     user_id             UUID PRIMARY KEY                NOT NULL,
@@ -69,6 +61,7 @@ CREATE TABLE nodes_schemas (
     label               VARCHAR(25)                     NOT NULL,
     key                 VARCHAR(8)                      UNIQUE NOT NULL,
     color               VARCHAR(7)                      NOT NULL,
+    description         TEXT                            NOT NULL DEFAULT '',
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT node_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
@@ -80,31 +73,8 @@ CREATE TABLE edges_schemas (
     label               VARCHAR(25)                     NOT NULL,
     key                 VARCHAR(8)                      UNIQUE NOT NULL,
     color               VARCHAR(7)                      NOT NULL,
+    description         TEXT                            NOT NULL DEFAULT '',
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT edge_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
-);
-
-CREATE TABLE properties_schemas (
-    property_schema_id  UUID PRIMARY KEY                NOT NULL,
-    node_schema_id      UUID                            REFERENCES nodes_schemas(node_schema_id) ON DELETE CASCADE,
-    edge_schema_id      UUID                            REFERENCES edges_schemas(edge_schema_id) ON DELETE CASCADE,
-    label               VARCHAR(25)                     NOT NULL,
-    key                 VARCHAR(8)                      UNIQUE NOT NULL,
-    property_type       property_type                   NOT NULL,
-    metadata            JSONB                           NOT NULL DEFAULT '{}'::JSONB,
-    created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT property_belongs_to_one CHECK (
-        (
-            node_schema_id IS NOT NULL
-            AND edge_schema_id IS NULL
-        )
-        OR
-        (
-            node_schema_id IS NULL
-            AND edge_schema_id IS NOT NULL
-        )
-    ),
-    CONSTRAINT property_key_pattern                     CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
 );

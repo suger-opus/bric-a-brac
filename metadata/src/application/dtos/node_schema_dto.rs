@@ -1,6 +1,5 @@
-use super::CreatePropertySchemaIntoDomain;
-use crate::domain::models::{CreateNodeSchemaModel, NodeSchemaIdModel, NodeSchemaModel};
-use bric_a_brac_dtos::{CreateNodeSchemaDto, KeyDto, NodeSchemaDto, NodeSchemaIdDto};
+use crate::domain::models::{NodeSchemaIdModel, NodeSchemaModel};
+use bric_a_brac_dtos::{NodeSchemaDto, NodeSchemaIdDto};
 
 impl From<NodeSchemaIdModel> for NodeSchemaIdDto {
     fn from(graph_id: NodeSchemaIdModel) -> Self {
@@ -22,27 +21,9 @@ impl From<NodeSchemaModel> for NodeSchemaDto {
             label: model.label.into(),
             key: model.key.into(),
             color: model.color.into(),
+            description: model.description,
             created_at: model.created_at,
             updated_at: model.updated_at,
-            properties: model.properties.into_iter().map(From::from).collect(),
-        }
-    }
-}
-
-impl From<CreateNodeSchemaDto> for CreateNodeSchemaModel {
-    fn from(dto: CreateNodeSchemaDto) -> Self {
-        let node_schema_id = NodeSchemaIdModel::new();
-
-        Self {
-            node_schema_id,
-            label: dto.label.into(),
-            key: KeyDto::new().into(),
-            color: dto.color.into(),
-            properties: dto
-                .properties
-                .into_iter()
-                .map(|prop| prop.into_domain(Some(node_schema_id), None))
-                .collect(),
         }
     }
 }

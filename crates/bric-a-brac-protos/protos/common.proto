@@ -17,7 +17,7 @@ message NodeSchemaProto {
     string color = 5;
     google.protobuf.Timestamp created_at = 6;
     google.protobuf.Timestamp updated_at = 7;
-    repeated PropertySchemaProto properties = 8;
+    string description = 8;
 }
 
 message EdgeSchemaProto {
@@ -28,42 +28,7 @@ message EdgeSchemaProto {
     string color = 5;
     google.protobuf.Timestamp created_at = 6;
     google.protobuf.Timestamp updated_at = 7;
-    repeated PropertySchemaProto properties = 8;
-}
-
-message PropertySchemaProto {
-    string property_schema_id = 1;
-    optional string node_schema_id = 2;
-    optional string edge_schema_id = 3;
-    string label = 4;
-    string key = 5;
-    PropertyTypeProto property_type = 6;
-    PropertyMetadataProto metadata = 7;
-    google.protobuf.Timestamp created_at = 8;
-    google.protobuf.Timestamp updated_at = 9;
-}
-
-message CreateGraphSchemaProto {
-    repeated CreateNodeSchemaProto nodes = 1;
-    repeated CreateEdgeSchemaProto edges = 2;
-}
-
-message CreateNodeSchemaProto {
-    string label = 1;
-    string color = 3;
-    repeated CreatePropertySchemaProto properties = 4;
-}
-
-message CreateEdgeSchemaProto {
-    string label = 1;
-    string color = 3;
-    repeated CreatePropertySchemaProto properties = 4;
-}
-
-message CreatePropertySchemaProto {
-    string label = 1;
-    PropertyTypeProto property_type = 3;
-    PropertyMetadataProto metadata = 4;
+    string description = 8;
 }
 
 message GraphDataProto {
@@ -85,24 +50,6 @@ message EdgeDataProto {
   map<string, PropertyValueProto> properties = 5;
 }
 
-message CreateGraphDataProto {
-    repeated CreateNodeDataProto nodes = 1;
-    repeated CreateEdgeDataProto edges = 2;
-}
-
-message CreateNodeDataProto {
-    string node_data_id = 1;
-    string key = 2;
-    map<string, PropertyValueProto> properties = 3;
-}
-
-message CreateEdgeDataProto {
-    string from_node_data_id = 1;
-    string to_node_data_id = 2;
-    string key = 3;
-    map<string, PropertyValueProto> properties = 4;
-}
-
 message PropertyValueProto {
     oneof value {
         string string_value = 1;
@@ -110,19 +57,6 @@ message PropertyValueProto {
         bool bool_value = 3;
     }
 }
-
-enum PropertyTypeProto {
-    NUMBER = 0;
-    STRING = 1;
-    BOOLEAN = 2;
-    SELECT = 3;
-}
-
-message PropertyMetadataProto {
-    repeated string options = 1;
-}
-
-// --- Agent / single-operation messages ---
 
 message InsertNodeDataProto {
     string node_data_id = 1;

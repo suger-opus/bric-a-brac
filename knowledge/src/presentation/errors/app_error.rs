@@ -13,6 +13,12 @@ pub enum AppError {
 
     #[error("Internal error: {context}")]
     Internal { context: String },
+
+    #[error("Not found: {entity}")]
+    NotFound { entity: String },
+
+    #[error("Invalid input: {reason}")]
+    InvalidInput { reason: String },
 }
 
 impl From<AppError> for Status {
@@ -62,12 +68,8 @@ pub enum DatabaseError {
     #[error("Database: no row returned")]
     NoneRow(),
 
-    #[error("Database: partial insert — expected {expected} '{kind}' row(s) but only {actual} were created")]
-    PartialInsert {
-        kind: String,
-        expected: usize,
-        actual: usize,
-    },
+    #[error("Database: invalid depth value: {value} (must be 1-10)")]
+    InvalidDepth { value: i32 },
 }
 
 impl From<uuid::Error> for DatabaseError {

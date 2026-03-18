@@ -67,11 +67,7 @@ Add new RPCs to the `Knowledge` service:
 
 ```protobuf
 service Knowledge {
-    // Existing
     rpc LoadGraph(LoadGraphRequest) returns (common.GraphDataProto);
-    rpc InsertGraph(InsertGraphRequest) returns (common.GraphDataProto);
-
-    // New
     rpc InitializeSchema(InitializeSchemaRequest) returns (InitializeSchemaResponse);
     rpc InsertNode(InsertNodeRequest) returns (common.NodeDataProto);
     rpc UpdateNode(UpdateNodeRequest) returns (common.NodeDataProto);
@@ -151,13 +147,11 @@ Add the `SendMessage` streaming RPC and agent event messages:
 
 ```protobuf
 service Ai {
-    // Existing
-    rpc GenerateSchema(GenerateSchemaRequest) returns (common.CreateGraphSchemaProto);
-    rpc GenerateData(GenerateDataRequest) returns (common.CreateGraphDataProto);
-
-    // New
     rpc SendMessage(SendMessageRequest) returns (stream AgentEventProto);
 }
+// NOTE: GenerateSchema has been removed — the AI creates types via agent tools.
+// Proto cleanup (removing GenerateSchema RPC, GenerateSchemaRequest, CreateGraphSchemaProto,
+// all property schema protos) will be done as part of Step 1b (see below).
 
 message SendMessageRequest {
     string session_id = 1;
@@ -228,7 +222,9 @@ Fix any compilation errors in generated code.
 
 ---
 
-## Step 2: Knowledge Service — New Handlers
+## Step 2: Knowledge Service — New Handlers ✅
+
+**Status:** COMPLETED
 
 **Goal:** Implement all 8 new RPCs in the knowledge service. These have no dependency on the
 agent — they're pure graph operations.
@@ -302,22 +298,102 @@ Implement the 8 new RPC methods on the `Knowledge` trait. Each one:
 
 ### Checklist
 
-- [ ] `mutate_repository.rs` — `insert_node`, `update_node`, `insert_edge`, `initialize_schema`
-- [ ] `query_repository.rs` — `get_node`, `search_nodes`, `get_neighbors`, `find_paths`
-- [ ] Domain models + proto conversions
-- [ ] `mutate_service.rs` — 4 new methods
-- [ ] `query_service.rs` — 4 new methods
-- [ ] `knowledge_service.rs` — 8 new RPC handlers
-- [ ] Tests passing
-- [ ] `cargo build -p knowledge` passes
+- [x] `mutate_repository.rs` — `insert_node`, `update_node`, `insert_edge`, `initialize_schema`
+- [x] `query_repository.rs` — `get_node`, `search_nodes`, `get_neighbors`, `find_paths`
+- [x] Domain models merged into existing files (no separate `agent_models.rs`) + DTO conversions follow Proto→Dto→Model pattern
+- [x] `mutate_service.rs` — 4 new methods
+- [x] `query_service.rs` — 4 new methods
+- [x] `knowledge_service.rs` — 8 new RPC handlers (replaced all `todo!()` stubs)
+- [x] All existing tests still pass
+- [x] `cargo build -p knowledge -p ai -p metadata` passes (zero warnings)
+
+**Extra changes:**
+- `extend_element.rs` — `collect_properties()` now filters `embedding` and `session_id` in addition to existing system fields
+- `edge_data_model.rs` — added `TryFrom<UnboundedRelation>` for path parsing in `find_paths`
+- `extend_element.rs` — added `ExtendElement` impl for `neo4rs::UnboundedRelation`
+- `app_error.rs` — added `AppError::NotFound`, `AppError::InvalidInput`, `DatabaseError::InvalidDepth`
+- `tonic_error.rs` — proper gRPC status code mapping (`NotFound` → `NOT_FOUND`, `InvalidInput`/`Conversion` → `INVALID_ARGUMENT`)
+- `initialize_schema` uses `graph.run()` (auto-commit) instead of transactions for DDL; index creation errors are logged but don't fail (idempotent)
+- Proto→Dto→Model conversion pattern enforced: validation happens at the Dto layer (in `bric-a-brac-dtos` crate), model conversions are infallible `From` impls
+- `InsertNodeDataDto`, `InsertEdgeDataDto`, `UpdateNodeDataDto` created in `bric-a-brac-dtos` crate with `#[validate(nested)]` on `KeyDto`
+- `validator` dependency added to knowledge crate for key validation in gRPC handlers
 
 ---
 
-## Step 3: Metadata Service — Sessions + InitializeSchema Hook
+## Step 2b: Schema Simplification — Remove Property Schemas + GenerateSchema ✅
 
-**Goal:** Add session management and the schema creation hook that initializes vector indexes.
+**Status:** COMPLETED
 
-### 3.1 — Database migration
+**Goal:** Simplify schemas to lightweight types (key + name + description + color). Remove
+property schemas, GenerateSchema RPC, SchemaService, and all schema creation endpoints.
+Only the read endpoint (`GET /graphs/:id/schema`) is kept.
+
+### What was done
+
+**Proto cleanup:**
+- `common.proto` — removed 7 messages: `PropertySchemaProto`, `CreateGraphSchemaProto`,
+  `CreateNodeSchemaProto`, `CreateEdgeSchemaProto`, `CreatePropertySchemaProto`,
+  `PropertyTypeProto` enum, `PropertyMetadataProto`. Changed `NodeSchemaProto` and
+  `EdgeSchemaProto`: replaced `repeated PropertySchemaProto properties` with `string description`.
+- `ai.proto` — removed `GenerateSchema` RPC, `GenerateSchemaRequest`, `FileTypeProto` enum.
+  Service now has only `rpc SendMessage`.
+
+**DTO cleanup:**
+- Deleted `property_schema_dto.rs` and `openapi.rs` (structured output doc for GenerateSchema).
+- Simplified `node_schema_dto.rs`, `edge_schema_dto.rs` — removed properties, removed
+  `CreateNodeSchemaDto`/`CreateEdgeSchemaDto`, added `description: String`.
+- Simplified `graph_schema_dto.rs` — removed `CreateGraphSchemaDto`.
+- Updated `mod.rs` and `lib.rs` — removed all property/create schema exports.
+
+**Migration:** Edited the existing single migration (no new migration file):
+- `setup.up.sql` — removed `property_type` enum, removed `properties_schemas` table,
+  added `description TEXT NOT NULL DEFAULT ''` to `nodes_schemas` and `edges_schemas`.
+- `setup.down.sql` — removed corresponding drops.
+
+**Metadata service:**
+- Deleted: `property_schema_model.rs`, `property_schema_dto.rs` (app layer),
+  `ai_client.rs`, `ai_server_config.rs`.
+- Domain models: removed `CreateNodeSchemaModel`, `CreateEdgeSchemaModel`,
+  `CreateGraphSchemaModel`, property references. Added `description` field.
+- Repository: rewrote `get_schema()` as two simple SELECTs (no JOIN to properties_schemas).
+  Removed `create_nodes_schemas()`, `create_edges_schemas()`, `create_properties()`,
+  `PropertySchemaRow`, `SchemaRow`, and all `TryFrom` impls. Added `description` to row structs.
+- Service: removed `create_schema()`, `generate_schema()`, `AiClient` dependency.
+- App DTOs: removed all Create*→Model conversions, property mappings. Added description mapping.
+- Handlers: removed `create_schema` and `generate_schema` handlers.
+- Router: removed POST `/schema` and POST `/schema/generate` routes.
+- OpenAPI: removed corresponding path entries.
+- State: removed `AiClient` construction.
+- Config: removed `AiServerConfig` and `ai_server` field.
+- Extractors: removed `MultipartFileUpload` (only used by generate_schema).
+
+**AI service:**
+- Deleted `schema_service.rs`.
+- Emptied `application/services/mod.rs`.
+- `ai_service.rs` — removed `SchemaService` field, `generate_schema` handler. `AiService` is
+  now a unit struct with only `SendMessage` stub.
+- `lib.rs` — removed `SchemaService` and `OpenRouterClient` wiring (will be re-added in Step 6).
+
+### Checklist
+
+- [x] Proto cleanup: removed property schema messages, GenerateSchema RPC, FileTypeProto
+- [x] DTO cleanup: deleted `property_schema_dto.rs` + `openapi.rs`, simplified node/edge/graph schema DTOs
+- [x] Migration edited in-place (single migration, dropped property_type enum + properties_schemas table, added description)
+- [x] Metadata code: removed property schema models, repos, services, handlers, routes, AiClient, AiServerConfig, MultipartFileUpload
+- [x] AI service: deleted `SchemaService`, removed `GenerateSchema` handler, simplified wiring
+- [x] Web UI: not changed (deferred — user will do it separately)
+- [x] `cargo build` passes (zero warnings)
+- [x] `cargo test` passes (13 tests)
+- [x] `cargo sqlx prepare` regenerated
+
+---
+
+## Step 3: Metadata Service — Sessions + Type Management
+
+**Goal:** Add session management, simplified type CRUD (for AI agent to create types), and
+the hook that initializes vector indexes when types are created.
+
+### 3.1 — Database migration (sessions)
 
 **File:** `metadata/migrations/YYYYMMDDHHMMSS_sessions.up.sql` (new)
 
@@ -398,27 +474,56 @@ Methods:
 | `POST /sessions/:session_id/messages` | Append messages (used by AI service) |
 | `PATCH /sessions/:session_id` | Update status (close) |
 
-### 3.6 — InitializeSchema hook
+### 3.6 — Type CRUD endpoints
 
-**File:** `metadata/src/application/services/graph_service.rs`
+The AI agent creates types mid-conversation. These endpoints let it (through the AI service's
+`MetadataClient`) create and list types per graph.
 
-In `create_schema()`, after the Postgres transaction commits, call:
+**File:** `metadata/src/application/services/graph_service.rs` (or new `type_service.rs`)
+
+Methods:
+- `create_node_type(graph_id, name, description, color) → NodeSchemaDto`
+  - Generates key (8-char alphanumeric)
+  - Inserts into `node_schemas`
+  - Calls `knowledge_client.initialize_schema(graph_id, [key])` to create vector index
+  - Returns the created type with key
+- `create_edge_type(graph_id, name, description, color) → EdgeSchemaDto`
+  - Generates key
+  - Inserts into `edge_schemas`
+  - Returns the created type with key
+- `get_types(graph_id) → GraphSchemaDto`
+  - Returns all node types + edge types for a graph (lightweight: key, name, description, color)
+
+**File:** `metadata/src/presentation/` — new type routes
+
+| Route | Handler |
+|---|---|
+| `POST /graphs/:graph_id/node-types` | Create node type (body: `{ name, description, color }`) |
+| `POST /graphs/:graph_id/edge-types` | Create edge type (body: `{ name, description, color }`) |
+| `GET /graphs/:graph_id/types` | List all types for a graph |
+
+### 3.7 — InitializeSchema hook
+
+**File:** `metadata/src/infrastructure/clients/knowledge_client.rs`
+
+Add the `initialize_schema` method. Called in two places:
+1. When `create_schema()` creates node types from the web UI
+2. When `create_node_type()` creates a single type (from AI agent tool)
+
 ```rust
-self.knowledge_client
-    .initialize_schema(graph_id, node_keys)
-    .await?;
+pub async fn initialize_schema(&self, graph_id: &str, node_keys: &[String]) -> Result<()> {
+    // calls knowledge gRPC: InitializeSchema { graph_id, node_keys }
+}
 ```
 
-Where `node_keys` is the list of `key` values from the node schemas just created.
-
-This requires adding the `initialize_schema` method to the existing `KnowledgeClient` in
-the metadata service (`metadata/src/infrastructure/clients/knowledge_client.rs`).
-
-### 3.7 — DTOs
+### 3.8 — DTOs
 
 **File:** `metadata/src/application/dtos/` — new session DTOs
 
 - `SessionDto`, `CreateSessionDto`, `SessionMessageDto`, `CreateSessionMessageDto`
+
+Type DTOs already exist (`NodeSchemaDto`, `EdgeSchemaDto`, `GraphSchemaDto`) — they will be
+simplified in Step 2b to remove property schema fields and add `description`.
 
 ### Checklist
 
@@ -428,8 +533,9 @@ the metadata service (`metadata/src/infrastructure/clients/knowledge_client.rs`)
 - [ ] `session_service.rs` with business logic
 - [ ] HTTP handlers for session CRUD + message management
 - [ ] DTOs for session data
-- [ ] `create_schema` now calls `knowledge_client.initialize_schema()`
-- [ ] `KnowledgeClient::initialize_schema()` method added
+- [ ] Type CRUD: `create_node_type`, `create_edge_type`, `get_types`
+- [ ] Type HTTP handlers: `POST /node-types`, `POST /edge-types`, `GET /types`
+- [ ] `KnowledgeClient::initialize_schema()` — called on node type creation
 - [ ] Run migration: `sqlx migrate run`
 - [ ] Tests passing
 - [ ] `cargo build -p metadata` passes
@@ -599,7 +705,9 @@ An HTTP client wrapping the metadata service REST API:
 - `get_session(session_id) → Session`
 - `get_messages(session_id) → Vec<SessionMessage>`
 - `append_messages(session_id, Vec<CreateSessionMessage>)`
-- `get_schema(graph_id) → GraphSchema`
+- `get_types(graph_id) → GraphSchemaDto` — lightweight types (key, name, description, color)
+- `create_node_type(graph_id, name, description) → NodeSchemaDto`
+- `create_edge_type(graph_id, name, description) → EdgeSchemaDto`
 - `update_session_status(session_id, status)`
 
 ### 5.2 — Tool definitions
@@ -614,7 +722,13 @@ pub fn read_tools() -> Vec<ToolDefinition> {
 }
 
 pub fn write_tools() -> Vec<ToolDefinition> {
-    vec![create_node_tool(), create_edge_tool(), update_node_tool()]
+    vec![
+        create_type_tool(),
+        create_edge_type_tool(),
+        create_node_tool(),
+        create_edge_tool(),
+        update_node_tool(),
+    ]
 }
 
 pub fn session_tools() -> Vec<ToolDefinition> {
@@ -624,18 +738,34 @@ pub fn session_tools() -> Vec<ToolDefinition> {
 
 Each tool definition includes name, description, and JSON Schema for parameters.
 
+**New tools:**
+- `create_type` — params: `name` (string), `description` (string) → creates a node type
+- `create_edge_type` — params: `name` (string), `description` (string) → creates an edge type
+
 ### 5.3 — System prompt builder
 
 **File:** `ai/src/application/services/prompt.rs` (new)
 
 ```rust
-pub fn build_system_prompt(schema: &GraphSchemaDto, user_role: &str) -> String {
+pub fn build_system_prompt(types: &GraphSchemaDto, user_role: &str) -> String {
     // Builds the dynamic system prompt as described in AI_AGENT_DESIGN.md
     // - Identity section
-    // - Schema section (human-readable, from GraphSchemaDto)
+    // - Types section: human-readable listing of node types + edge types
+    //   (name, key, description — no properties)
     // - Capabilities section (based on role)
-    // - Behavioral rules
+    // - Behavioral rules (type reuse, entity resolution awareness, normalization)
 }
+```
+
+Types are injected fresh each message (not once per session). Format:
+
+```
+Node types:
+- Person (key: ESVhRs9k): "Any human individual"
+- Company (key: dudFcexv): "Organizations, corporations"
+
+Edge types:
+- WorksAt (key: xR4kLm2p): "Employment or affiliation"
 ```
 
 ### 5.4 — Tool executor
@@ -645,6 +775,7 @@ pub fn build_system_prompt(schema: &GraphSchemaDto, user_role: &str) -> String {
 ```rust
 pub struct ToolExecutor {
     knowledge_client: KnowledgeClient,
+    metadata_client: MetadataClient,
     embedding_client: EmbeddingClient,
 }
 
@@ -655,23 +786,44 @@ impl ToolExecutor {
         graph_id: &str,
         session_id: &str,
         user_role: &str,
+        types: &GraphSchemaDto,
     ) -> ToolResult {
         match tool_call.name.as_str() {
             "search_nodes" => { /* parse args, embed query, call knowledge */ }
             "get_node" => { /* parse args, call knowledge */ }
             "get_neighbors" => { /* parse args, call knowledge */ }
             "find_paths" => { /* parse args, call knowledge */ }
+            "create_type" => {
+                if user_role != "write" { return permission_denied(); }
+                /* call metadata_client.create_node_type(graph_id, name, description) */
+                /* metadata creates type + calls knowledge.initialize_schema for vector index */
+                /* return type with key to LLM */
+            }
+            "create_edge_type" => {
+                if user_role != "write" { return permission_denied(); }
+                /* call metadata_client.create_edge_type(graph_id, name, description) */
+                /* return type with key to LLM */
+            }
             "create_node" => {
                 if user_role != "write" { return permission_denied(); }
-                /* parse args, embed node text, call knowledge.insert_node */
+                self.validate_type_exists(types, &node_type)?;
+                /* 1. serialize props → embed */
+                /* 2. search_nodes with embedding (entity resolution) */
+                /* 3. if similar nodes found: */
+                /*    - get_neighbors for each candidate */
+                /*    - create the node anyway */
+                /*    - return node + similarity warnings to LLM */
+                /*    - LLM decides: update_node to merge, or keep both */
+                /* 4. if no similar nodes: create directly */
             }
             "create_edge" => {
                 if user_role != "write" { return permission_denied(); }
+                self.validate_type_exists(types, &edge_type)?;
                 /* parse args, call knowledge.insert_edge */
             }
             "update_node" => {
                 if user_role != "write" { return permission_denied(); }
-                /* parse args, re-embed if needed, call knowledge.update_node */
+                /* parse args, re-embed from updated props, call knowledge.update_node */
             }
             "done" => { /* return done signal */ }
             _ => { /* unknown tool error */ }
@@ -679,6 +831,19 @@ impl ToolExecutor {
     }
 }
 ```
+
+**Type validation (replaces old schema validation):** The tool executor only checks that the
+`node_type` / `edge_type` key exists in the `types` (loaded from metadata). No property
+validation — properties are free-form.
+
+On failure, returns a descriptive error as the `ToolResult` (not a gRPC error):
+
+    "Unknown node type 'xInvalid'. Valid types: ESVhRs9k (Person), dudFcexv (Company)."
+
+**Entity resolution (built into `create_node`):** Automatic similarity search + neighbor
+context is **structural**, not prompt-dependent. The executor embeds, searches, fetches
+neighbors for candidates, creates the node, and returns everything to the LLM. The LLM
+then decides merge or keep. See AI_AGENT_DESIGN.md for the full flow.
 
 ### 5.5 — AgentService
 
@@ -701,8 +866,10 @@ impl AgentService {
     ) -> impl Stream<Item = AgentEvent> {
         // 1. Load session from metadata (get graph_id, user_role)
         // 2. Load messages from metadata
-        // 3. Load schema from metadata → build system prompt
+        // 3. Load types from metadata (get_types) → build system prompt
         // 4. Build tool list based on user_role
+        //    (write: read_tools + write_tools + session_tools)
+        //    (read: read_tools + session_tools)
         // 5. Append user message to history
         // 6. LOOP:
         //    a. Call openrouter_client.chat_stream(messages, tools)
@@ -712,6 +879,7 @@ impl AgentService {
         //       - If "done" tool called → yield AgentDone, break
         //       - If tool calls → for each: yield AgentToolCall, execute, yield AgentToolResult
         //       - Append assistant message + tool results to history
+        //       - If create_type/create_edge_type was called → refresh types from metadata
         //       - Check iteration count (max 50)
         //    d. Go to (a)
         // 7. Persist all new messages to metadata
@@ -719,6 +887,10 @@ impl AgentService {
     }
 }
 ```
+
+**Important:** When the AI creates a type during the loop (via `create_type` or
+`create_edge_type`), the `types` object must be refreshed from metadata before the next
+iteration so the system prompt and type validation reflect the new type.
 
 The method returns a `tokio_stream::Stream` or `futures::Stream` that the gRPC handler
 wraps into a tonic `Streaming` response.
@@ -729,26 +901,24 @@ wraps into a tonic `Streaming` response.
 
 ```rust
 mod agent_service;
-mod data_service;    // keep for now, deprecated
 mod prompt;
-mod schema_service;
 mod tool_executor;
 mod tools;
 
 pub use agent_service::AgentService;
-pub use data_service::DataService;
-pub use schema_service::SchemaService;
 ```
+
+No `SchemaService` — schema generation has been removed.
 
 ### Checklist
 
 - [ ] `knowledge_client.rs` — gRPC client for knowledge service
-- [ ] `metadata_client.rs` — HTTP client for metadata service
-- [ ] `tools.rs` — tool definitions (JSON Schema for each)
-- [ ] `prompt.rs` — system prompt builder
-- [ ] `tool_executor.rs` — dispatches tool calls to clients
-- [ ] `agent_service.rs` — core agent loop with streaming
-- [ ] Module exports updated
+- [ ] `metadata_client.rs` — HTTP client for metadata service (types + sessions)
+- [ ] `tools.rs` — tool definitions including `create_type` and `create_edge_type`
+- [ ] `prompt.rs` — system prompt builder (types, not property schemas)
+- [ ] `tool_executor.rs` — dispatches tool calls, entity resolution in `create_node`, type-only validation
+- [ ] `agent_service.rs` — core agent loop with streaming, type refresh on create
+- [ ] Module exports updated (no `SchemaService`)
 - [ ] `cargo build -p ai` passes
 
 ---
@@ -796,15 +966,15 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     let knowledge_client = KnowledgeClient::new(config.knowledge_server());
     let metadata_client = MetadataClient::new(config.metadata_server());
 
-    let schema_service = SchemaService::new(openrouter_client.clone());
-    let data_service = DataService::new(openrouter_client.clone());
-    let tool_executor = ToolExecutor::new(knowledge_client, embedding_client);
+    let tool_executor = ToolExecutor::new(knowledge_client, metadata_client.clone(), embedding_client);
     let agent_service = AgentService::new(openrouter_client, metadata_client, tool_executor);
 
-    let ai_service = AiService::new(schema_service, data_service, agent_service);
+    let ai_service = AiService::new(agent_service);
     // ...
 }
 ```
+
+No `SchemaService` — schema generation has been removed (Step 2b).
 
 ### Checklist
 
@@ -823,35 +993,39 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
 ### 7.1 — Manual test flow
 
 1. Start all services (metadata, knowledge, ai)
-2. Create a graph + schema via metadata API
-3. Verify `InitializeSchema` was called (check Memgraph for vector indexes)
-4. Create a session via `POST /graphs/:id/sessions`
-5. Send a message via `SendMessage` gRPC with a document
-6. Observe streaming events (text tokens, tool calls, tool results, done)
-7. Verify nodes + edges created in Memgraph with `session_id` and `embedding`
-8. Send a question message — verify the agent searches the graph and responds
+2. Create a graph via metadata API
+3. Create a session via `POST /graphs/:id/sessions`
+4. Send a message via `SendMessage` gRPC with a document
+5. Observe streaming events (text tokens, tool calls for type creation, more tool calls for entity extraction, done)
+6. Verify types created in metadata (`GET /graphs/:id/types`)
+7. Verify vector indexes created in Memgraph
+8. Verify nodes + edges created in Memgraph with `session_id` and `embedding`
+9. Send a question message — verify the agent searches the graph and responds
+10. Send more data — verify entity resolution detects duplicates
 
 ### 7.2 — Test scenarios
 
 | Scenario | What to verify |
 |---|---|
-| Document ingestion | Nodes + edges created, embeddings stored, session_id set |
-| Duplicate detection | Send same document twice — second run finds existing nodes via search |
+| Document ingestion | AI creates types, then nodes + edges. Embeddings stored, session_id set |
+| Type creation | AI creates types only when needed, reuses existing ones |
+| Entity resolution | AI receives duplicate warnings on similar nodes, merges correctly |
 | Question answering | Agent calls search_nodes, reasons, responds in text |
 | Read-only user | Write tools return permission denied, agent communicates it |
-| Schema mismatch | Agent reports unmapped data in done summary |
-| Empty graph | Agent handles no search results gracefully |
+| Unknown type | Agent reports error, gets valid types list, self-corrects |
+| Empty graph | Agent handles no search results gracefully, creates types from scratch |
 | 50 tool limit | Agent stops after 50 calls, streams error |
 
 ### Checklist
 
 - [ ] All services start and connect
-- [ ] Vector indexes created on schema creation
+- [ ] AI creates types on first document ingestion
+- [ ] Vector indexes created when node types are created
 - [ ] Document ingestion produces correct graph data
+- [ ] Entity resolution flags duplicates on second ingestion
 - [ ] Search finds nodes by semantic similarity
 - [ ] Question answering works
 - [ ] Read-only enforcement works
-- [ ] Schema mismatch reported in summary
 
 ---
 
@@ -891,70 +1065,105 @@ Recommended: add `tonic-web` to the AI server — minimal change, built-in suppo
 - [ ] Streaming event display
 - [ ] File attachment support
 - [ ] gRPC-Web connectivity
-- [ ] Schema generation flow still works
+- [ ] Type list displayed in sidebar/panel
 
 ---
 
 ## Dependencies Between Steps
 
 ```
-Step 1 (Protos) ─────┬──→ Step 2 (Knowledge)
+Step 1 (Protos) ✅ ───┬──→ Step 2 (Knowledge) ✅
+                      ├──→ Step 2b (Schema Simplification) ✅
                       ├──→ Step 3 (Metadata)
                       └──→ Step 4 (AI: clients)
 
-Step 2 ──┐
-Step 3 ──┼──→ Step 5 (AI: agent loop) ──→ Step 6 (AI: handler) ──→ Step 7 (Testing)
-Step 4 ──┘
+Step 2  ──┐
+Step 2b ──┤
+Step 3  ──┼──→ Step 5 (AI: agent loop) ──→ Step 6 (AI: handler) ──→ Step 7 (Testing)
+Step 4  ──┘
 
 Step 7 ──→ Step 8 (Web UI)
 ```
 
 Steps 2, 3, and 4 can be done **in parallel** after Step 1.
-Step 5 needs all three.
+Step 2b is COMPLETED (prerequisite for Step 3 — types are now simplified).
+Step 5 needs all four.
 
 ---
 
 ## Files Created (New)
 
-| File | Service |
-|---|---|
-| `metadata/migrations/YYYYMMDDHHMMSS_sessions.up.sql` | metadata |
-| `metadata/migrations/YYYYMMDDHHMMSS_sessions.down.sql` | metadata |
-| `metadata/src/domain/models/session_model.rs` | metadata |
-| `metadata/src/domain/models/session_message_model.rs` | metadata |
-| `metadata/src/infrastructure/repositories/session_repository.rs` | metadata |
-| `metadata/src/application/services/session_service.rs` | metadata |
-| `metadata/src/application/dtos/session_dto.rs` | metadata |
-| `ai/src/infrastructure/clients/embedding_client.rs` | ai |
-| `ai/src/infrastructure/clients/knowledge_client.rs` | ai |
-| `ai/src/infrastructure/clients/metadata_client.rs` | ai |
-| `ai/src/infrastructure/config/knowledge_server_config.rs` | ai |
-| `ai/src/application/services/agent_service.rs` | ai |
-| `ai/src/application/services/tools.rs` | ai |
-| `ai/src/application/services/prompt.rs` | ai |
-| `ai/src/application/services/tool_executor.rs` | ai |
+| File | Service | Step |
+|---|---|---|
+| `metadata/migrations/YYYYMMDDHHMMSS_sessions.up.sql` | metadata | 3 |
+| `metadata/migrations/YYYYMMDDHHMMSS_sessions.down.sql` | metadata | 3 |
+| `metadata/src/domain/models/session_model.rs` | metadata | 3 |
+| `metadata/src/domain/models/session_message_model.rs` | metadata | 3 |
+| `metadata/src/infrastructure/repositories/session_repository.rs` | metadata | 3 |
+| `metadata/src/application/services/session_service.rs` | metadata | 3 |
+| `metadata/src/application/dtos/session_dto.rs` | metadata | 3 |
+| `ai/src/infrastructure/clients/embedding_client.rs` | ai | 4 |
+| `ai/src/infrastructure/clients/knowledge_client.rs` | ai | 5 |
+| `ai/src/infrastructure/clients/metadata_client.rs` | ai | 5 |
+| `ai/src/infrastructure/config/knowledge_server_config.rs` | ai | 4 |
+| `ai/src/application/services/agent_service.rs` | ai | 5 |
+| `ai/src/application/services/tools.rs` | ai | 5 |
+| `ai/src/application/services/prompt.rs` | ai | 5 |
+| `ai/src/application/services/tool_executor.rs` | ai | 5 |
 
 ## Files Modified
 
-| File | Change |
-|---|---|
-| `crates/bric-a-brac-protos/protos/common.proto` | New message types |
-| `crates/bric-a-brac-protos/protos/ai.proto` | `SendMessage` RPC + event messages |
-| `crates/bric-a-brac-protos/protos/knowledge.proto` | 8 new RPCs + messages |
-| `knowledge/src/infrastructure/repositories/mutate_repository.rs` | 3 new methods |
-| `knowledge/src/infrastructure/repositories/query_repository.rs` | 4 new methods |
-| `knowledge/src/application/services/mutate_service.rs` | 4 new methods |
-| `knowledge/src/application/services/query_service.rs` | 4 new methods |
-| `knowledge/src/presentation/grpc/knowledge_service.rs` | 8 new RPC handlers |
-| `knowledge/src/domain/models/mod.rs` | New model exports |
-| `metadata/src/application/services/graph_service.rs` | `create_schema` hook |
-| `metadata/src/infrastructure/clients/knowledge_client.rs` | `initialize_schema()` |
-| `metadata/src/domain/models/mod.rs` | New model exports |
-| `ai/src/infrastructure/clients/openrouter_client.rs` | SSE streaming + tool calling + provider routing |
-| `ai/src/infrastructure/clients/mod.rs` | New client exports |
-| `ai/src/infrastructure/config/mod.rs` | Knowledge server config |
-| `ai/src/infrastructure/config/openrouter_config.rs` | Embedding model config |
-| `ai/src/application/services/mod.rs` | New service exports |
-| `ai/src/presentation/grpc/ai_service.rs` | `SendMessage` handler |
-| `ai/src/presentation/errors/` | New error variants |
-| `ai/src/lib.rs` | Wiring for new clients and services |
+| File | Change | Step |
+|---|---|---|
+| `crates/bric-a-brac-protos/protos/common.proto` | New message types; remove property schema protos, add description to type protos | 1, 2b |
+| `crates/bric-a-brac-protos/protos/ai.proto` | `SendMessage` RPC; remove `GenerateSchema` RPC | 1, 2b |
+| `crates/bric-a-brac-protos/protos/knowledge.proto` | 8 new RPCs + messages | 1 |
+| `crates/bric-a-brac-dtos/src/dtos/node_schema_dto.rs` | Remove properties + Create type, add description | 2b |
+| `crates/bric-a-brac-dtos/src/dtos/edge_schema_dto.rs` | Remove properties + Create type, add description | 2b |
+| `crates/bric-a-brac-dtos/src/dtos/graph_schema_dto.rs` | Remove CreateGraphSchemaDto | 2b |
+| `crates/bric-a-brac-dtos/src/dtos/mod.rs` | Remove property schema exports | 2b |
+| `crates/bric-a-brac-dtos/src/lib.rs` | Remove openapi module | 2b |
+| `metadata/migrations/20260130112820_setup.up.sql` | Remove property_type enum + properties_schemas, add description | 2b |
+| `metadata/migrations/20260130112820_setup.down.sql` | Remove property_schemas + property_type drops | 2b |
+| `metadata/src/domain/models/mod.rs` | Remove property_schema_model, Create* exports | 2b |
+| `metadata/src/domain/models/node_schema_model.rs` | Remove properties + CreateNodeSchemaModel, add description | 2b |
+| `metadata/src/domain/models/edge_schema_model.rs` | Remove properties + CreateEdgeSchemaModel, add description | 2b |
+| `metadata/src/domain/models/graph_schema_model.rs` | Remove CreateGraphSchemaModel | 2b |
+| `metadata/src/infrastructure/repositories/graph_repository.rs` | Rewrite get_schema (simple SELECTs), remove create_*_schemas, remove property rows/TryFrom | 2b |
+| `metadata/src/infrastructure/clients/mod.rs` | Remove AiClient export | 2b |
+| `metadata/src/infrastructure/config/mod.rs` | Remove AiServerConfig | 2b |
+| `metadata/src/application/services/graph_service.rs` | Remove create_schema, generate_schema, AiClient | 2b |
+| `metadata/src/application/dtos/mod.rs` | Remove property_schema_dto | 2b |
+| `metadata/src/application/dtos/node_schema_dto.rs` | Remove Create conversion + properties, add description | 2b |
+| `metadata/src/application/dtos/edge_schema_dto.rs` | Remove Create conversion + properties, add description | 2b |
+| `metadata/src/application/dtos/graph_schema_dto.rs` | Remove CreateGraphSchemaDto conversion | 2b |
+| `metadata/src/presentation/extractors.rs` | Remove MultipartFileUpload | 2b |
+| `knowledge/src/infrastructure/repositories/mutate_repository.rs` | 3 new methods | 2 |
+| `knowledge/src/infrastructure/repositories/query_repository.rs` | 4 new methods | 2 |
+| `knowledge/src/application/services/mutate_service.rs` | 4 new methods | 2 |
+| `knowledge/src/application/services/query_service.rs` | 4 new methods | 2 |
+| `knowledge/src/presentation/grpc/knowledge_service.rs` | 8 new RPC handlers | 2 |
+| `knowledge/src/domain/models/mod.rs` | New model exports | 2 |
+| `metadata/src/application/services/graph_service.rs` | Type CRUD methods, `initialize_schema` hook | 3 |
+| `metadata/src/infrastructure/clients/knowledge_client.rs` | `initialize_schema()` method | 3 |
+| `metadata/src/domain/models/mod.rs` | New model exports | 3 |
+| `ai/src/infrastructure/clients/openrouter_client.rs` | SSE streaming + tool calling + provider routing | 4 |
+| `ai/src/infrastructure/clients/mod.rs` | New client exports | 4 |
+| `ai/src/infrastructure/config/mod.rs` | Knowledge + metadata server config | 4 |
+| `ai/src/infrastructure/config/openrouter_config.rs` | Embedding model config | 4 |
+| `ai/src/application/services/mod.rs` | Emptied (SchemaService removed); new exports in Step 5 | 2b, 5 |
+| `ai/src/presentation/grpc/ai_service.rs` | Removed GenerateSchema + SchemaService; `SendMessage` in Step 6 | 2b, 6 |
+| `ai/src/presentation/errors/` | New error variants | 4 |
+| `ai/src/lib.rs` | Removed SchemaService wiring; new wiring in Step 6 | 2b, 6 |
+
+## Files Deleted
+
+| File | Service | Step |
+|---|---|---|
+| `crates/bric-a-brac-dtos/src/dtos/property_schema_dto.rs` | dtos | 2b |
+| `crates/bric-a-brac-dtos/src/openapi.rs` | dtos | 2b |
+| `metadata/src/domain/models/property_schema_model.rs` | metadata | 2b |
+| `metadata/src/application/dtos/property_schema_dto.rs` | metadata | 2b |
+| `metadata/src/infrastructure/clients/ai_client.rs` | metadata | 2b |
+| `metadata/src/infrastructure/config/ai_server_config.rs` | metadata | 2b |
+| `ai/src/application/services/schema_service.rs` | ai | 2b |

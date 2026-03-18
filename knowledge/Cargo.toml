@@ -23,6 +23,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tonic = { workspace = true }
 utoipa = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
+validator = { workspace = true }
 
 [lints]
 workspace = true

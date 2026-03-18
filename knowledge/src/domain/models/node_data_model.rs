@@ -39,9 +39,23 @@ impl TryFrom<neo4rs::Node> for NodeDataModel {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct CreateNodeDataModel {
+pub struct InsertNodeDataModel {
     pub node_data_id: NodeDataIdModel,
     pub key: String,
     pub properties: PropertiesDataModel,
+    pub embedding: Vec<f32>,
+    pub session_id: Option<String>,
+}
+
+pub struct UpdateNodeDataModel {
+    pub node_data_id: NodeDataIdModel,
+    pub properties: PropertiesDataModel,
+    pub embedding: Vec<f32>,
+}
+
+pub struct NodeSummaryModel {
+    pub node_data_id: NodeDataIdModel,
+    pub key: String,
+    pub properties: PropertiesDataModel,
+    pub distance: f32,
 }

@@ -33,20 +33,7 @@ pub fn build(state: ApiState) -> Router {
         .route("/graphs", post(graph_handler::create_graph))
         .route("/graphs/{graph_id}", get(graph_handler::get_metadata))
         .route("/graphs/{graph_id}/schema", get(graph_handler::get_schema))
-        .route(
-            "/graphs/{graph_id}/schema",
-            post(graph_handler::create_schema),
-        )
-        .route(
-            "/graphs/{graph_id}/schema/generate",
-            post(graph_handler::generate_schema),
-        )
         .route("/graphs/{graph_id}/data", get(graph_handler::get_data))
-        .route("/graphs/{graph_id}/data", post(graph_handler::insert_data))
-        .route(
-            "/graphs/{graph_id}/data/generate",
-            post(graph_handler::generate_data),
-        )
         .route("/accesses/graphs/{graph_id}", post(access_handler::create))
         .layer(http_tracing_layer());
     router.layer(CorsLayer::permissive()).with_state(state)

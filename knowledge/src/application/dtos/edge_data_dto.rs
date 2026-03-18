@@ -1,5 +1,7 @@
-use crate::domain::models::{CreateEdgeDataModel, EdgeDataIdModel, EdgeDataModel};
-use bric_a_brac_dtos::{CreateEdgeDataDto, EdgeDataDto, EdgeDataIdDto};
+use crate::domain::models::{
+    EdgeDataIdModel, EdgeDataModel, InsertEdgeDataModel,
+};
+use bric_a_brac_dtos::{EdgeDataDto, EdgeDataIdDto, InsertEdgeDataDto};
 
 impl From<EdgeDataIdModel> for EdgeDataIdDto {
     fn from(graph_id: EdgeDataIdModel) -> Self {
@@ -25,14 +27,15 @@ impl From<EdgeDataModel> for EdgeDataDto {
     }
 }
 
-impl From<CreateEdgeDataDto> for CreateEdgeDataModel {
-    fn from(dto: CreateEdgeDataDto) -> Self {
-        CreateEdgeDataModel {
+impl From<InsertEdgeDataDto> for InsertEdgeDataModel {
+    fn from(dto: InsertEdgeDataDto) -> Self {
+        Self {
             edge_data_id: EdgeDataIdModel::new(),
             from_node_data_id: dto.from_node_data_id.into(),
             to_node_data_id: dto.to_node_data_id.into(),
             key: dto.key.into(),
             properties: dto.properties.into(),
+            session_id: dto.session_id,
         }
     }
 }

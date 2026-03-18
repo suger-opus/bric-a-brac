@@ -25,7 +25,12 @@ pub trait ExtendElement {
         let bolt_properties = self
             .keys()
             .into_iter()
-            .filter(|key| *key != "node_data_id" && *key != "graph_id" && *key != "edge_data_id")
+            .filter(|key| {
+                !matches!(
+                    *key,
+                    "node_data_id" | "graph_id" | "edge_data_id" | "embedding" | "session_id"
+                )
+            })
             .map(|key| {
                 let value = self
                     .get(key)
@@ -51,6 +56,16 @@ impl ExtendElement for neo4rs::Node {
 }
 
 impl ExtendElement for neo4rs::Relation {
+    fn get(&self, key: &str) -> Option<BoltType> {
+        self.get::<BoltType>(key).ok()
+    }
+
+    fn keys(&self) -> Vec<&str> {
+        self.keys()
+    }
+}
+
+impl ExtendElement for neo4rs::UnboundedRelation {
     fn get(&self, key: &str) -> Option<BoltType> {
         self.get::<BoltType>(key).ok()
     }

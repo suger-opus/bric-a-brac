@@ -1,4 +1,3 @@
-DROP TABLE IF EXISTS properties_schemas;
 DROP TABLE IF EXISTS edges_schemas; 
 DROP TABLE IF EXISTS nodes_schemas;
 DROP TABLE IF EXISTS cheers;
@@ -7,5 +6,4 @@ DROP TABLE IF EXISTS accesses;
 DROP TABLE IF EXISTS graphs;
 DROP TABLE IF EXISTS users;
 
-DROP TYPE IF EXISTS property_type;
 DROP TYPE IF EXISTS role_type;

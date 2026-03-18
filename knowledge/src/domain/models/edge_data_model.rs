@@ -34,11 +34,30 @@ impl TryFrom<neo4rs::Relation> for EdgeDataModel {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct CreateEdgeDataModel {
+impl TryFrom<neo4rs::UnboundedRelation> for EdgeDataModel {
+    type Error = DatabaseError;
+
+    fn try_from(relation: neo4rs::UnboundedRelation) -> Result<Self, Self::Error> {
+        let edge_data_id = EdgeDataIdModel::from_str(&relation.extract_id("edge_data_id")?)?;
+        let key = relation.typ().to_string();
+        let properties = relation.collect_properties()?;
+
+        Ok(EdgeDataModel {
+            edge_data_id,
+            key,
+            from_node_data_id: NodeDataIdModel::default(), // Set from path order
+            to_node_data_id: NodeDataIdModel::default(),   // Set from path order
+            properties,
+        })
+    }
+}
+
+pub struct InsertEdgeDataModel {
     pub edge_data_id: EdgeDataIdModel,
     pub from_node_data_id: NodeDataIdModel,
     pub to_node_data_id: NodeDataIdModel,
     pub key: String,
     pub properties: PropertiesDataModel,
+    pub session_id: Option<String>,
 }
+

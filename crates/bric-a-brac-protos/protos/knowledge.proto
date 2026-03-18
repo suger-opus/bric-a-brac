@@ -5,11 +5,7 @@ package knowledge;
 import "common.proto";
 
 service Knowledge {
-    // Existing
     rpc LoadGraph(LoadGraphRequest) returns (common.GraphDataProto);
-    rpc InsertGraph(InsertGraphRequest) returns (common.GraphDataProto);
-
-    // Agent operations
     rpc InitializeSchema(InitializeSchemaRequest) returns (InitializeSchemaResponse);
     rpc InsertNode(InsertNodeRequest) returns (common.NodeDataProto);
     rpc UpdateNode(UpdateNodeRequest) returns (common.NodeDataProto);
@@ -20,18 +16,9 @@ service Knowledge {
     rpc FindPaths(FindPathsRequest) returns (FindPathsResponse);
 }
 
-// --- Existing messages ---
-
 message LoadGraphRequest {
   string graph_id = 1;
 }
-
-message InsertGraphRequest {
-    string graph_id = 1;
-    common.CreateGraphDataProto graph_data = 2;
-}
-
-// --- Agent messages ---
 
 message InitializeSchemaRequest {
     string graph_id = 1;

@@ -1,6 +1,6 @@
 use super::HttpError;
 use axum::response::{IntoResponse, Response};
-use bric_a_brac_dtos::{DtosConversionError, SchemaComplianceError};
+use bric_a_brac_dtos::DtosConversionError;
 use bric_a_brac_protos::BaseGrpcClientError;
 use sqlx::{error::ErrorKind, postgres::PgDatabaseError};
 
@@ -82,9 +82,6 @@ pub enum RequestError {
 
     #[error("Request: invalid input {field} - {issue}")]
     InvalidInput { issue: String, field: String },
-
-    #[error("Request: graph data does not comply with schema")]
-    SchemaCompliance(Vec<SchemaComplianceError>),
 }
 
 #[derive(Debug, thiserror::Error)]

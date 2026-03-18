@@ -1,13 +1,12 @@
-use super::{ColorDto, CreatePropertySchemaDto, GraphIdDto, KeyDto, LabelDto, PropertySchemaDto};
+use super::{ColorDto, GraphIdDto, KeyDto, LabelDto};
 use crate::{utils::ProtoTimestampExt, DtosConversionError};
 use bric_a_brac_id::id;
-use bric_a_brac_protos::common::{CreateNodeSchemaProto, NodeSchemaProto};
+use bric_a_brac_protos::common::NodeSchemaProto;
 use chrono::{DateTime, Utc};
 use prost_types::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use utoipa::ToSchema;
-use validator::Validate;
 
 id!(NodeSchemaIdDto);
 
@@ -26,9 +25,9 @@ pub struct NodeSchemaDto {
     pub label: LabelDto,
     pub key: KeyDto,
     pub color: ColorDto,
+    pub description: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub properties: Vec<PropertySchemaDto>,
 }
 
 impl TryFrom<NodeSchemaProto> for NodeSchemaDto {
@@ -41,13 +40,9 @@ impl TryFrom<NodeSchemaProto> for NodeSchemaDto {
             label: proto.label.into(),
             key: proto.key.into(),
             color: proto.color.into(),
+            description: proto.description,
             created_at: proto.created_at.to_chrono()?,
             updated_at: proto.updated_at.to_chrono()?,
-            properties: proto
-                .properties
-                .into_iter()
-                .map(TryFrom::try_from)
-                .collect::<Result<_, _>>()?,
         })
     }
 }
@@ -60,47 +55,9 @@ impl From<NodeSchemaDto> for NodeSchemaProto {
             label: dto.label.into(),
             key: dto.key.into(),
             color: dto.color.into(),
+            description: dto.description,
             created_at: Option::<Timestamp>::from_chrono(dto.created_at),
             updated_at: Option::<Timestamp>::from_chrono(dto.updated_at),
-            properties: dto.properties.into_iter().map(From::from).collect(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
-pub struct CreateNodeSchemaDto {
-    #[validate(nested)]
-    pub label: LabelDto,
-
-    #[validate(nested)]
-    pub color: ColorDto,
-
-    #[validate(nested)]
-    pub properties: Vec<CreatePropertySchemaDto>,
-}
-
-impl TryFrom<CreateNodeSchemaProto> for CreateNodeSchemaDto {
-    type Error = DtosConversionError;
-
-    fn try_from(proto: CreateNodeSchemaProto) -> Result<Self, Self::Error> {
-        Ok(Self {
-            label: proto.label.into(),
-            color: proto.color.into(),
-            properties: proto
-                .properties
-                .into_iter()
-                .map(TryFrom::try_from)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-}
-
-impl From<CreateNodeSchemaDto> for CreateNodeSchemaProto {
-    fn from(dto: CreateNodeSchemaDto) -> Self {
-        Self {
-            label: dto.label.into(),
-            color: dto.color.into(),
-            properties: dto.properties.into_iter().map(From::from).collect(),
         }
     }
 }

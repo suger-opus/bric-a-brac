@@ -5,33 +5,8 @@ package ai;
 import "common.proto";
 
 service Ai {
-    // Existing
-    rpc GenerateSchema(GenerateSchemaRequest) returns (common.CreateGraphSchemaProto);
-    rpc GenerateData(GenerateDataRequest) returns (common.CreateGraphDataProto);
-
-    // Agent
     rpc SendMessage(SendMessageRequest) returns (stream AgentEventProto);
 }
-
-// --- Existing messages ---
-
-message GenerateSchemaRequest {
-    bytes file_content = 1;
-    FileTypeProto file_type = 2;
-}
-
-message GenerateDataRequest {
-    bytes file_content = 1;
-    FileTypeProto file_type = 2;
-    common.GraphSchemaProto schema = 3;
-}
-
-enum FileTypeProto {
-    TXT = 0;
-    CSV = 1;
-}
-
-// --- Agent messages ---
 
 message SendMessageRequest {
     string session_id = 1;

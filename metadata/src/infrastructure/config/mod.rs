@@ -1,9 +1,7 @@
-mod ai_server_config;
 mod knowledge_server_config;
 mod metadata_db_config;
 mod metadata_server_config;
 
-pub use ai_server_config::AiServerConfig;
 pub use knowledge_server_config::KnowledgeServerConfig;
 pub use metadata_db_config::MetadataDatabaseConfig;
 pub use metadata_server_config::MetadataServerConfig;
@@ -16,9 +14,6 @@ use clap::Parser;
 pub struct Config {
     #[clap(flatten)]
     metadata_server: MetadataServerConfig,
-
-    #[clap(flatten)]
-    ai_server: AiServerConfig,
 
     #[clap(flatten)]
     knowledge_server: KnowledgeServerConfig,
@@ -34,10 +29,6 @@ impl Config {
 
     pub fn metadata_server(&self) -> &MetadataServerConfig {
         &self.metadata_server
-    }
-
-    pub fn ai_server(&self) -> &AiServerConfig {
-        &self.ai_server
     }
 
     pub fn knowledge_server(&self) -> &KnowledgeServerConfig {
