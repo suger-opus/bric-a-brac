@@ -475,10 +475,24 @@ are validated against the schema before interpolation.
   for better entity coverage on complex documents
 - **Token truncation** — when conversation history exceeds the context window (~128K tokens),
   summarize older messages and keep recent ones in full
+- **Schema evolution cleanup** — when a node label is removed from the graph schema,
+  `InitializeSchema` currently leaves its Memgraph vector index in place (the `IF NOT EXISTS`
+  guard only handles additions). Add a reconciliation pass: compare existing vector indexes
+  against the current schema and `DROP VECTOR INDEX` for labels that no longer exist.
+  Not blocking (orphaned indexes don't break anything), but prevents slow drift.
 - **Branch/diff system** — session writes as a reviewable branch before merging into the graph
 - **Web search tools** — `web_search` + `fetch_page` for information beyond the model's
   training cutoff
 - **Multi-session concurrency** — allow multiple users to write to the same graph simultaneously
   (needs distributed locking or optimistic concurrency control)
 - **Embedding dimension reduction** — switch to 512 dims if Memgraph memory becomes a concern
+- **Chunked document ingestion (advanced RAG)** — instead of sending the full document text
+  inline in `SendMessage` and relying on the LLM's context window, pre-chunk incoming documents
+  (fixed-size or semantic splitting), store each chunk as a node (e.g. `:Chunk` with `text`,
+  `embedding`, `source`, `position`), link chunks to their source document node, and let the
+  agent retrieve relevant chunks via `search_nodes` before extraction or Q&A.
+  Benefits: handles documents far larger than the context window, enables cross-document
+  retrieval, and makes RAG quality tunable (chunk size, overlap, re-ranking) independently
+  of the agent loop. Requires a chunking + embedding pipeline outside the agent (background
+  task or dedicated endpoint).
 - **MCP exposure** — expose graph tools to external agents

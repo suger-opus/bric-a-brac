@@ -3,9 +3,13 @@ use crate::{
     presentation::errors::AppError,
 };
 use bric_a_brac_protos::{
-    ai::{ai_server::Ai, GenerateDataRequest, GenerateSchemaRequest},
+    ai::{
+        ai_server::Ai, AgentEventProto, GenerateDataRequest, GenerateSchemaRequest,
+        SendMessageRequest,
+    },
     common::{CreateGraphDataProto, CreateGraphSchemaProto},
 };
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
 pub struct AiService {
@@ -71,5 +75,14 @@ impl Ai for AiService {
             .await?;
 
         Ok(Response::new(data.into()))
+    }
+
+    type SendMessageStream = ReceiverStream<Result<AgentEventProto, Status>>;
+
+    async fn send_message(
+        &self,
+        _request: Request<SendMessageRequest>,
+    ) -> Result<Response<Self::SendMessageStream>, Status> {
+        todo!("SendMessage will be implemented in Step 6")
     }
 }

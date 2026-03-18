@@ -3,8 +3,13 @@ use crate::{
     presentation::errors::AppError,
 };
 use bric_a_brac_protos::{
-    common::GraphDataProto,
-    knowledge::{knowledge_server::Knowledge, InsertGraphRequest, LoadGraphRequest},
+    common::{EdgeDataProto, GraphDataProto, NodeDataProto},
+    knowledge::{
+        knowledge_server::Knowledge, FindPathsRequest, FindPathsResponse, GetNeighborsRequest,
+        GetNeighborsResponse, GetNodeRequest, InitializeSchemaRequest, InitializeSchemaResponse,
+        InsertEdgeRequest, InsertGraphRequest, InsertNodeRequest, LoadGraphRequest,
+        SearchNodesRequest, SearchNodesResponse, UpdateNodeRequest,
+    },
 };
 use tonic::{Request, Response, Status};
 
@@ -70,5 +75,61 @@ impl Knowledge for KnowledgeService {
             .await?;
 
         Ok(Response::new(data.into()))
+    }
+
+    async fn initialize_schema(
+        &self,
+        _request: Request<InitializeSchemaRequest>,
+    ) -> Result<Response<InitializeSchemaResponse>, Status> {
+        todo!("Will be implemented in Step 2")
+    }
+
+    async fn insert_node(
+        &self,
+        _request: Request<InsertNodeRequest>,
+    ) -> Result<Response<NodeDataProto>, Status> {
+        todo!("Will be implemented in Step 2")
+    }
+
+    async fn update_node(
+        &self,
+        _request: Request<UpdateNodeRequest>,
+    ) -> Result<Response<NodeDataProto>, Status> {
+        todo!("Will be implemented in Step 2")
+    }
+
+    async fn insert_edge(
+        &self,
+        _request: Request<InsertEdgeRequest>,
+    ) -> Result<Response<EdgeDataProto>, Status> {
+        todo!("Will be implemented in Step 2")
+    }
+
+    async fn search_nodes(
+        &self,
+        _request: Request<SearchNodesRequest>,
+    ) -> Result<Response<SearchNodesResponse>, Status> {
+        todo!("Will be implemented in Step 2")
+    }
+
+    async fn get_node(
+        &self,
+        _request: Request<GetNodeRequest>,
+    ) -> Result<Response<NodeDataProto>, Status> {
+        todo!("Will be implemented in Step 2")
+    }
+
+    async fn get_neighbors(
+        &self,
+        _request: Request<GetNeighborsRequest>,
+    ) -> Result<Response<GetNeighborsResponse>, Status> {
+        todo!("Will be implemented in Step 2")
+    }
+
+    async fn find_paths(
+        &self,
+        _request: Request<FindPathsRequest>,
+    ) -> Result<Response<FindPathsResponse>, Status> {
+        todo!("Will be implemented in Step 2")
     }
 }

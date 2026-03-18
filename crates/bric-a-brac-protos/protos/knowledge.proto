@@ -5,9 +5,22 @@ package knowledge;
 import "common.proto";
 
 service Knowledge {
+    // Existing
     rpc LoadGraph(LoadGraphRequest) returns (common.GraphDataProto);
     rpc InsertGraph(InsertGraphRequest) returns (common.GraphDataProto);
+
+    // Agent operations
+    rpc InitializeSchema(InitializeSchemaRequest) returns (InitializeSchemaResponse);
+    rpc InsertNode(InsertNodeRequest) returns (common.NodeDataProto);
+    rpc UpdateNode(UpdateNodeRequest) returns (common.NodeDataProto);
+    rpc InsertEdge(InsertEdgeRequest) returns (common.EdgeDataProto);
+    rpc SearchNodes(SearchNodesRequest) returns (SearchNodesResponse);
+    rpc GetNode(GetNodeRequest) returns (common.NodeDataProto);
+    rpc GetNeighbors(GetNeighborsRequest) returns (GetNeighborsResponse);
+    rpc FindPaths(FindPathsRequest) returns (FindPathsResponse);
 }
+
+// --- Existing messages ---
 
 message LoadGraphRequest {
   string graph_id = 1;
@@ -16,4 +29,62 @@ message LoadGraphRequest {
 message InsertGraphRequest {
     string graph_id = 1;
     common.CreateGraphDataProto graph_data = 2;
+}
+
+// --- Agent messages ---
+
+message InitializeSchemaRequest {
+    string graph_id = 1;
+    repeated string node_keys = 2;
+}
+message InitializeSchemaResponse {}
+
+message InsertNodeRequest {
+    string graph_id = 1;
+    common.InsertNodeDataProto node = 2;
+}
+
+message UpdateNodeRequest {
+    string graph_id = 1;
+    common.UpdateNodeDataProto node = 2;
+}
+
+message InsertEdgeRequest {
+    string graph_id = 1;
+    common.InsertEdgeDataProto edge = 2;
+}
+
+message SearchNodesRequest {
+    string graph_id = 1;
+    optional string node_key = 2;
+    repeated float query_embedding = 3;
+    int32 limit = 4;
+}
+message SearchNodesResponse {
+    repeated common.NodeSummaryProto nodes = 1;
+}
+
+message GetNodeRequest {
+    string graph_id = 1;
+    string node_data_id = 2;
+}
+
+message GetNeighborsRequest {
+    string graph_id = 1;
+    string node_data_id = 2;
+    optional string edge_key = 3;
+    int32 depth = 4;
+}
+message GetNeighborsResponse {
+    common.SubgraphProto subgraph = 1;
+}
+
+message FindPathsRequest {
+    string graph_id = 1;
+    string from_node_data_id = 2;
+    string to_node_data_id = 3;
+    int32 max_depth = 4;
+}
+message FindPathsResponse {
+    repeated common.PathProto paths = 1;
 }

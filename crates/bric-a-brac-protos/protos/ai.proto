@@ -5,9 +5,15 @@ package ai;
 import "common.proto";
 
 service Ai {
+    // Existing
     rpc GenerateSchema(GenerateSchemaRequest) returns (common.CreateGraphSchemaProto);
     rpc GenerateData(GenerateDataRequest) returns (common.CreateGraphDataProto);
+
+    // Agent
+    rpc SendMessage(SendMessageRequest) returns (stream AgentEventProto);
 }
+
+// --- Existing messages ---
 
 message GenerateSchemaRequest {
     bytes file_content = 1;
@@ -23,4 +29,44 @@ message GenerateDataRequest {
 enum FileTypeProto {
     TXT = 0;
     CSV = 1;
+}
+
+// --- Agent messages ---
+
+message SendMessageRequest {
+    string session_id = 1;
+    string content = 2;
+}
+
+message AgentEventProto {
+    oneof event {
+        AgentTextProto text = 1;
+        AgentToolCallProto tool_call = 2;
+        AgentToolResultProto tool_result = 3;
+        AgentDoneProto done = 4;
+        AgentErrorProto error = 5;
+    }
+}
+
+message AgentTextProto {
+    string content = 1;
+}
+
+message AgentToolCallProto {
+    string tool_call_id = 1;
+    string name = 2;
+    string arguments = 3;
+}
+
+message AgentToolResultProto {
+    string tool_call_id = 1;
+    string content = 2;
+}
+
+message AgentDoneProto {
+    string summary = 1;
+}
+
+message AgentErrorProto {
+    string message = 1;
 }

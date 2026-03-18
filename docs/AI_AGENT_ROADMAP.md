@@ -5,7 +5,9 @@ Each step lists exactly what to create, modify, or delete — with file paths an
 
 ---
 
-## Step 1: Proto Definitions
+## Step 1: Proto Definitions ✅
+
+**Status:** COMPLETED
 
 **Goal:** Define all new messages and RPCs. Once compiled, all services can start implementing
 handlers and clients independently.
@@ -212,10 +214,17 @@ Fix any compilation errors in generated code.
 
 ### Checklist
 
-- [ ] `common.proto` — new messages for single node/edge ops, search results, paths
-- [ ] `knowledge.proto` — 8 new RPCs with request/response messages
-- [ ] `ai.proto` — `SendMessage` RPC with streaming `AgentEventProto`
-- [ ] `cargo build -p bric-a-brac-protos` passes
+- [x] `common.proto` — 6 new messages: `InsertNodeDataProto`, `InsertEdgeDataProto`, `UpdateNodeDataProto`, `NodeSummaryProto`, `PathProto`, `SubgraphProto`
+- [x] `knowledge.proto` — 8 new RPCs with all request/response messages
+- [x] `ai.proto` — `SendMessage` streaming RPC with `AgentEventProto` (5 event variants)
+- [x] `cargo build -p bric-a-brac-protos` passes
+- [x] `cargo build -p knowledge -p ai -p metadata` passes (todo!() stubs added for new RPCs)
+- [x] All 6 existing tests still pass
+- [x] `tokio-stream` added to workspace + AI crate dependencies (needed for `ReceiverStream`)
+
+**Extra changes (stubs for compilation):**
+- `knowledge/src/presentation/grpc/knowledge_service.rs` — `todo!()` stubs for 8 new RPCs
+- `ai/src/presentation/grpc/ai_service.rs` — `todo!()` stub for `SendMessage`
 
 ---
 
