@@ -3,6 +3,7 @@ mod edge_schema_dto;
 mod graph_dto;
 mod graph_schema_dto;
 mod node_schema_dto;
+pub mod session_dto;
 mod user_dto;
 
 pub use access_dto::{AccessDto, CreateAccessDto, RoleDto};

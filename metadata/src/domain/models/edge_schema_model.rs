@@ -16,3 +16,12 @@ pub struct EdgeSchemaModel {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+pub struct CreateEdgeSchemaModel {
+    pub edge_schema_id: EdgeSchemaIdModel,
+    pub graph_id: GraphIdModel,
+    pub label: String,
+    pub key: String,
+    pub color: String,
+    pub description: String,
+}

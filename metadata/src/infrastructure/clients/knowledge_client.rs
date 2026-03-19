@@ -3,7 +3,7 @@ use axum::http::Uri;
 use bric_a_brac_dtos::{GraphDataDto, GraphIdDto};
 use bric_a_brac_protos::{
     knowledge::{
-        knowledge_client::KnowledgeClient as KnowledgeGrpcClient,
+        knowledge_client::KnowledgeClient as KnowledgeGrpcClient, InitializeSchemaRequest,
         LoadGraphRequest,
     },
     BaseGrpcClientError, GrpcClient, GrpcServiceKind,
@@ -91,5 +91,60 @@ impl KnowledgeClient {
                 })?;
 
         Ok(response.into_inner().try_into()?)
+    }
+
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.initialize_schema",
+        skip(self, graph_id, node_keys)
+    )]
+    pub async fn initialize_schema(
+        &self,
+        graph_id: GraphIdDto,
+        node_keys: Vec<String>,
+    ) -> Result<(), GrpcClientError> {
+        tracing::debug!(graph_id = ?graph_id, node_keys = ?node_keys);
+
+        match self.try_initialize_schema(graph_id, node_keys.clone()).await {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                if err.is_connection_error() {
+                    tracing::warn!("Connection error detected, reconnecting: {}", err);
+                    self.reset_connection();
+                    self.try_initialize_schema(graph_id, node_keys).await
+                } else {
+                    Err(err)
+                }
+            }
+        }
+    }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_client.try_initialize_schema",
+        skip(self, graph_id, node_keys)
+    )]
+    async fn try_initialize_schema(
+        &self,
+        graph_id: GraphIdDto,
+        node_keys: Vec<String>,
+    ) -> Result<(), GrpcClientError> {
+        self.ensure_connection().await?;
+        let mut client = self.clone_client()?;
+
+        let request = Request::new(InitializeSchemaRequest {
+            graph_id: graph_id.to_string(),
+            node_keys,
+        });
+        client
+            .initialize_schema(request)
+            .await
+            .map_err(|err| BaseGrpcClientError::Request {
+                service: GrpcServiceKind::Knowledge,
+                message: "Failed to initialize schema in Knowledge service".to_string(),
+                source: err,
+            })?;
+
+        Ok(())
     }
 }

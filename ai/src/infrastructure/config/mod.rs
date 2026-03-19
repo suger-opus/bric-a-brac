@@ -1,8 +1,10 @@
 mod ai_server_config;
+mod knowledge_server_config;
 mod metadata_server_config;
 mod openrouter_config;
 
 pub use ai_server_config::AiServerConfig;
+pub use knowledge_server_config::KnowledgeServerConfig;
 pub use metadata_server_config::MetadataServerConfig;
 pub use openrouter_config::OpenRouterConfig;
 
@@ -19,6 +21,9 @@ pub struct Config {
     metadata_server: MetadataServerConfig,
 
     #[clap(flatten)]
+    knowledge_server: KnowledgeServerConfig,
+
+    #[clap(flatten)]
     openrouter: OpenRouterConfig,
 }
 
@@ -33,6 +38,10 @@ impl Config {
 
     pub fn metadata_server(&self) -> &MetadataServerConfig {
         &self.metadata_server
+    }
+
+    pub fn knowledge_server(&self) -> &KnowledgeServerConfig {
+        &self.knowledge_server
     }
 
     pub fn openrouter(&self) -> &OpenRouterConfig {

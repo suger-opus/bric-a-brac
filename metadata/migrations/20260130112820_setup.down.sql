@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS session_messages;
+DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS edges_schemas; 
 DROP TABLE IF EXISTS nodes_schemas;
 DROP TABLE IF EXISTS cheers;

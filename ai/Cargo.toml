@@ -11,9 +11,10 @@ bric-a-brac-dtos = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 derive_more = { workspace = true, features = ["debug", "display"] }
+futures-util = { workspace = true }
 http = { workspace = true }
 prost = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
+reqwest = { workspace = true, features = ["json", "stream"] }
 secrecy = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

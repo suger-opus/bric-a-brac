@@ -1,13 +1,17 @@
 use crate::{
     application::dtos::{CreateGraphDto, GraphMetadataDto, UserIdDto},
-    domain::models::{CreateAccessModel, RoleModel},
+    domain::models::{
+        CreateAccessModel, CreateEdgeSchemaModel, CreateNodeSchemaModel, EdgeSchemaIdModel,
+        NodeSchemaIdModel, RoleModel,
+    },
     infrastructure::{
         clients::KnowledgeClient,
         repositories::{AccessRepository, GraphRepository},
     },
     presentation::errors::AppError,
 };
-use bric_a_brac_dtos::{GraphDataDto, GraphIdDto, GraphSchemaDto};
+use bric_a_brac_dtos::{EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto, NodeSchemaDto};
+use rand::RngExt;
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -124,4 +128,94 @@ impl GraphService {
     pub async fn get_data(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, AppError> {
         Ok(self.knowledge_client.load_graph(graph_id).await?)
     }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.create_node_schema",
+        skip(self, graph_id, label, description)
+    )]
+    pub async fn create_node_schema(
+        &self,
+        graph_id: GraphIdDto,
+        label: String,
+        description: String,
+    ) -> Result<NodeSchemaDto, AppError> {
+        let key = generate_key();
+        let color = generate_color();
+
+        let create = CreateNodeSchemaModel {
+            node_schema_id: NodeSchemaIdModel::new(),
+            graph_id: graph_id.into(),
+            label,
+            key: key.clone(),
+            color,
+            description,
+        };
+
+        let mut txn = self.pool.begin().await?;
+        let schema = self.repository.create_node_schema(&mut txn, create).await?;
+        txn.commit().await?;
+
+        // Initialize schema in knowledge service
+        self.knowledge_client
+            .initialize_schema(graph_id, vec![key])
+            .await?;
+
+        Ok(schema.into())
+    }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.create_edge_schema",
+        skip(self, graph_id, label, description)
+    )]
+    pub async fn create_edge_schema(
+        &self,
+        graph_id: GraphIdDto,
+        label: String,
+        description: String,
+    ) -> Result<EdgeSchemaDto, AppError> {
+        let key = generate_key();
+        let color = generate_color();
+
+        let create = CreateEdgeSchemaModel {
+            edge_schema_id: EdgeSchemaIdModel::new(),
+            graph_id: graph_id.into(),
+            label,
+            key,
+            color,
+            description,
+        };
+
+        let mut txn = self.pool.begin().await?;
+        let schema = self.repository.create_edge_schema(&mut txn, create).await?;
+        txn.commit().await?;
+
+        Ok(schema.into())
+    }
+}
+
+/// Generate a random 8-character key matching pattern `^[a-zA-Z][a-zA-Z0-9]{7}$`
+fn generate_key() -> String {
+    let mut rng = rand::rng();
+    let letters = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let alphanum = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+    let mut key = String::with_capacity(8);
+    key.push(letters[rng.random_range(0..letters.len())] as char);
+    for _ in 0..7 {
+        key.push(alphanum[rng.random_range(0..alphanum.len())] as char);
+    }
+    key
+}
+
+/// Generate a random hex color like `#A1B2C3`
+fn generate_color() -> String {
+    let mut rng = rand::rng();
+    format!(
+        "#{:02X}{:02X}{:02X}",
+        rng.random_range(0..=255u8),
+        rng.random_range(0..=255u8),
+        rng.random_range(0..=255u8),
+    )
 }

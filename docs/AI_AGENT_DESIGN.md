@@ -35,21 +35,21 @@ Graph + embeddings is the right fit:
 
 ---
 
-## Lightweight Types (no property schemas)
+## Lightweight Schemas (no property schemas)
 
-Types define **what kinds of entities and relationships exist** in the graph. They are
+Schemas define **what kinds of entities and relationships exist** in the graph. They are
 lightweight — no property definitions, no type enforcement on property values.
 
-### Node type
+### Node schema
 
 | Field | Role |
 |---|---|
 | `key` | Memgraph label (immutable, 8-char alphanumeric, e.g. `ESVhRs9k`) |
 | `name` | Human-readable name (e.g. "Person") — can be renamed |
-| `description` | What this type represents — guides the AI |
+| `description` | What this schema represents — guides the AI |
 | `color` | UI rendering |
 
-### Edge type
+### Edge schema
 
 | Field | Role |
 |---|---|
@@ -63,9 +63,9 @@ lightweight — no property definitions, no type enforcement on property values.
 - **Property schemas** (`property_schemas` table, `PropertySchemaDto`, `PropertySchemaProto`,
   `PropertyTypeDto`, `PropertyMetadataDto`) — all deleted. Properties on nodes and edges
   are free-form key-value pairs. Memgraph is schema-free by design; we no longer fight it.
-- **`GenerateSchema` RPC** — deleted. The AI creates types on its own as it processes data.
+- **`GenerateSchema` RPC** — deleted. The AI creates schemas on its own as it processes data.
   No upfront schema design step.
-- **Property validation** — deleted. The tool executor only validates that types exist
+- **Property validation** — deleted. The tool executor only validates that schemas exist
   (prevents typos), not that properties conform to a schema.
 
 ### Why
@@ -77,46 +77,47 @@ With an AI as the primary data creator, this creates constant friction:
 - Users can't design property schemas before seeing the data.
 - The AI is better at deciding what properties to store than a rigid schema.
 
-Types still matter: without them, the AI creates inconsistent types ("Person" vs "person" vs
-"Individual"). Types give consistency, vector index targets, and UI structure.
+Schemas still matter: without them, the AI creates inconsistent types ("Person" vs "person" vs
+"Individual"). Schemas give consistency, vector index targets, and UI structure.
 
-### How types are created
+### How schemas are created
 
-The AI creates types as needed during conversations. No upfront step.
+The AI creates schemas as needed during conversations. No upfront step.
 
 1. AI receives a document or topic
-2. AI analyzes what types of entities and relationships exist
-3. AI checks existing types — reuses when possible
-4. AI creates new types only when no existing type fits
-5. AI proceeds with extraction using those types
+2. AI analyzes what schemas of entities and relationships exist
+3. AI checks existing schemas — reuses when possible
+4. AI creates new schemas only when no existing schema fits
+5. AI proceeds with extraction using those schemas
 
 The **system prompt** guides this behavior:
 
-> *"Before extracting entities, analyze what types of entities and relationships are present.
-> Reuse existing types. Create new types only when no existing type fits. Keep the number
-> of types manageable — prefer reusing a broader type over creating a narrow one."*
+> *"Before extracting entities, analyze what schemas of entities and relationships are present.
+> Reuse existing schemas. Create new schemas only when no existing schema fits. Keep the number
+> of schemas manageable — prefer reusing a broader schema over creating a narrow one."*
 
-### Where types are stored
+### Where schemas are stored
 
 In **metadata Postgres** (control plane). Not in Memgraph (data plane).
 
-- Types belong to a graph. Graphs are in Postgres. One transaction creates both.
-- The web UI lists/edits types via metadata HTTP API — no extra hop.
-- When the AI creates a type mid-conversation: AI service → metadata (create type) →
-  knowledge (create vector index). Clean separation.
+- Schemas belong to a graph. Graphs are in Postgres. One transaction creates both.
+- The web UI lists/edits schemas via metadata HTTP API — no extra hop.
+- When the AI creates a schema mid-conversation: AI service → metadata gRPC
+  (`CreateNodeSchema`) → knowledge gRPC (`InitializeSchema`). Clean separation.
+- AI→metadata communication uses **gRPC** via `metadata.proto` (not HTTP).
 
-### Write tools: `create_type` and `create_edge_type`
+### Write tools: `create_schema` and `create_edge_schema`
 
-The AI has tools to create new types:
+The AI has tools to create new schemas:
 
 | Tool | Parameters | Returns |
 |---|---|---|
-| `create_type` | `name` (string), `description` (string) | Type with key |
-| `create_edge_type` | `name` (string), `description` (string) | Type with key |
+| `create_schema` | `name` (string), `description` (string) | Schema with key |
+| `create_edge_schema` | `name` (string), `description` (string) | Schema with key |
 
-These call metadata to create the type, then knowledge to create the vector index (for node
-types). The key is generated server-side. The AI uses the returned key for subsequent
-`create_node` / `create_edge` calls.
+These call metadata gRPC to create the schema, then metadata calls knowledge gRPC to create
+the vector index (for node schemas). The key is generated server-side. The AI uses the
+returned key for subsequent `create_node` / `create_edge` calls.
 
 ---
 
@@ -146,7 +147,7 @@ overlap with existing ones and merge instead of duplicating.
 
 ### Flow
 
-1. AI calls `create_node(type, properties)`
+1. AI calls `create_node(node_key, properties)`
 2. Tool executor serializes properties → embeds them
 3. Executor runs `search_nodes` with that embedding
 4. **If similar nodes found:**
@@ -197,7 +198,7 @@ No hard property limits. The system prompt teaches the AI to think in graph term
 
 A single LLM tool-calling loop:
 1. Receive user message
-2. Build system prompt (identity + types + rules — see [System Prompt Design](#system-prompt-design))
+2. Build system prompt (identity + schemas + rules — see [System Prompt Design](#system-prompt-design))
 3. Load conversation history from the database
 4. Call the model with history + tools
 5. **Stream** the model's response token-by-token to the client as `AgentText` events
@@ -220,31 +221,33 @@ A session is a persistent conversation between a user and the agent on a specifi
 
 ```sql
 CREATE TABLE sessions (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    graph_id    UUID NOT NULL REFERENCES graphs(id) ON DELETE CASCADE,
-    user_id     UUID NOT NULL REFERENCES users(id),
-    user_role   TEXT NOT NULL CHECK (user_role IN ('read', 'write')),
-    status      TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'error')),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    session_id  UUID PRIMARY KEY NOT NULL,
+    graph_id    UUID NOT NULL REFERENCES graphs(graph_id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    status      VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT session_status_check CHECK (status IN ('active', 'completed', 'error'))
 );
 ```
+
+Note: no `user_role` on sessions — the user's role is already tracked in the `accesses` table.
 
 ### `session_messages` table
 
 ```sql
 CREATE TABLE session_messages (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id    UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    message_id    UUID PRIMARY KEY NOT NULL,
+    session_id    UUID NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
     position      INTEGER NOT NULL,
-    role          TEXT NOT NULL CHECK (role IN ('system', 'user', 'assistant', 'tool')),
-    content       TEXT,
-    tool_calls    JSONB,       -- assistant messages: array of {id, function: {name, arguments}}
-    tool_call_id  TEXT,        -- tool messages: which tool_call this is the result of
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    role          VARCHAR(20) NOT NULL,
+    content       TEXT NOT NULL DEFAULT '',
+    tool_calls    JSONB,
+    tool_call_id  VARCHAR,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT message_role_check CHECK (role IN ('system', 'user', 'assistant', 'tool')),
+    CONSTRAINT unique_session_position UNIQUE (session_id, position)
 );
-
-CREATE INDEX idx_session_messages_session ON session_messages(session_id, position);
 ```
 
 Each message is a row. This allows pagination, selective loading (last N messages for context
@@ -261,11 +264,11 @@ window management), and clean queries.
 ### Stateful server-side
 
 The frontend sends **only the new user message**. The server:
-1. Loads existing history from `session_messages`
-2. Loads current types from metadata
+1. Loads existing history from `session_messages` (via metadata gRPC)
+2. Loads current schemas from metadata (via metadata gRPC)
 3. Builds the system prompt
 4. Runs the agent loop
-5. Persists all new messages (user message + assistant responses + tool results)
+5. Persists all new messages (user message + assistant responses + tool results) via metadata gRPC
 6. Streams events to the client throughout
 
 ---
@@ -298,22 +301,22 @@ forwards them as `AgentText` events on the gRPC stream.
 
 | Tool | Parameters | Returns |
 |---|---|---|
-| `search_nodes` | `query` (string), `node_type?` (string), `limit?` (int, default 10) | `NodeSummary[]` — id, type, key properties |
+| `search_nodes` | `query` (string), `node_key?` (string), `limit?` (int, default 10) | `NodeSummary[]` — id, schema, key properties |
 | `get_node` | `node_id` (string) | Full node with all properties |
-| `get_neighbors` | `node_id` (string), `edge_type?` (string), `depth?` (int, default 1) | Subgraph: connected nodes + edges |
+| `get_neighbors` | `node_id` (string), `edge_key?` (string), `depth?` (int, default 1) | Subgraph: connected nodes + edges |
 | `find_paths` | `from_id` (string), `to_id` (string), `max_depth?` (int, default 5) | `Path[]` — sequences of nodes and edges |
 
-`search_nodes` uses **vector search** (embeddings). When `node_type` is omitted, it searches
-across all node types in the graph and merges results by distance.
+`search_nodes` uses **vector search** (embeddings). When `node_key` is omitted, it searches
+across all node schemas in the graph and merges results by distance.
 
 ### Write tools (write-role users only)
 
 | Tool | Parameters | Returns |
 |---|---|---|
-| `create_type` | `name` (string), `description` (string) | Type with generated key |
-| `create_edge_type` | `name` (string), `description` (string) | Type with generated key |
-| `create_node` | `node_type` (string), `properties` (object) | Node (+ entity resolution warnings) |
-| `create_edge` | `edge_type` (string), `from_id` (string), `to_id` (string), `properties?` (object) | Edge |
+| `create_schema` | `name` (string), `description` (string) | Schema with generated key |
+| `create_edge_schema` | `name` (string), `description` (string) | Schema with generated key |
+| `create_node` | `node_key` (string), `properties` (object) | Node (+ entity resolution warnings) |
+| `create_edge` | `edge_key` (string), `from_id` (string), `to_id` (string), `properties?` (object) | Edge |
 | `update_node` | `node_id` (string), `properties` (object) | Updated node |
 
 ### Session tools (all users)
@@ -329,18 +332,18 @@ The agent loop ends when:
 2. The agent responds with **text only, no tool calls** — for question answering
 3. **50 tool calls** reached — hard safety limit
 
-### Type validation
+### Schema validation
 
-The tool executor validates that the `node_type` / `edge_type` key exists in metadata
+The tool executor validates that the `node_key` / `edge_key` exists in metadata
 before forwarding `create_node` or `create_edge` to the knowledge service. On failure,
 it returns a descriptive error as the tool result so the LLM can self-correct:
 
-    "Unknown node type 'xInvalid'. Valid types: ESVhRs9k (Person), dudFcexv (Company)."
+    "Unknown node schema 'xInvalid'. Valid schemas: ESVhRs9k (Person), dudFcexv (Company)."
 
 No property validation — properties are free-form.
 
 Why validate in the AI service:
-- Types live in metadata Postgres — knowledge has no access.
+- Schemas live in metadata Postgres — knowledge has no access.
 - Validation errors are conversational: the LLM retries, not crashes.
 
 ### Rights enforcement
@@ -355,7 +358,7 @@ The LLM **never** writes Cypher or SQL. Every tool maps to a **predefined query 
 with parameterized inputs. The LLM provides parameter values, the server plugs them into
 hardcoded queries. Injection is impossible by construction.
 
-The node type label is validated against types before being interpolated into Cypher (it's a
+The node schema key is validated against schemas before being interpolated into Cypher (it's a
 label, not a parameter — Cypher doesn't support parameterized labels).
 
 ---
@@ -364,8 +367,8 @@ label, not a parameter — Cypher doesn't support parameterized labels).
 
 | Mode | How it works |
 |---|---|
-| **From a document** | User sends document text in `SendMessage` → agent analyzes types needed → creates types if missing → extracts entities and relationships → creates nodes and edges |
-| **From model knowledge** | User asks "add what you know about Albert Einstein" → agent uses parametric knowledge → creates types + nodes + edges |
+| **From a document** | User sends document text in `SendMessage` → agent analyzes schemas needed → creates schemas if missing → extracts entities and relationships → creates nodes and edges |
+| **From model knowledge** | User asks "add what you know about Albert Einstein" → agent uses parametric knowledge → creates schemas + nodes + edges |
 | **Question answering** | Agent calls `search_nodes`, `get_neighbors`, `find_paths` → reasons over results → responds in text |
 
 Document text is sent **inline in the gRPC request**. No file upload, no object storage.
@@ -415,8 +418,8 @@ OPTIONS { dimension: 1536, capacity: 10000, metric: "cos" }
 IF NOT EXISTS;
 ```
 
-Created via `InitializeSchema` RPC — one index per node type. Called when a new node type
-is created.
+Created via `InitializeSchema` RPC — one index per node schema. Called when a new node
+schema is created (via `create_node_schema` in metadata service).
 
 Edges do **not** get vector indexes. Edge deduplication is structural.
 
@@ -451,38 +454,39 @@ It is **built dynamically** at the start of each message processing.
 You are a knowledge graph assistant. You help users build and query their knowledge graph
 by reading documents, extracting information, and answering questions.
 
-[Types — injected fresh each message]
-The graph has the following types:
+[Schemas — injected fresh each message]
+The graph has the following schemas:
 
-Node types:
+Node schemas:
 - Person (key: ESVhRs9k): "Any human individual mentioned, including indirect references"
 - Company (key: dudFcexv): "Organizations, corporations, and businesses"
 
-Edge types:
+Edge schemas:
 - WorksAt (key: xR4kLm2p): "Employment, contract work, or affiliation"
 
 [Capabilities — depends on user role]
 You can search the graph, inspect nodes, and find paths.
-{write_role → "You can also create types, create and update nodes, and create edges."}
+{write_role → "You can also create schemas, create and update nodes, and create edges."}
 {read_role → "You cannot modify the graph."}
 
 [Rules]
-- Before extracting from a document, analyze what types of entities and relationships exist.
-  Reuse existing types. Create new types only when no existing type fits.
-- Keep the number of types manageable. Prefer a broader type over a narrow one.
+- Before extracting from a document, analyze what schemas of entities and relationships exist.
+  Reuse existing schemas. Create new schemas only when no existing schema fits.
+- Keep the number of schemas manageable. Prefer a broader schema over a narrow one.
 - Entity resolution is automatic: when you create a node, the system will search for similar
   existing nodes and show them to you. If a match is found, use update_node to merge.
-- Use type keys (like ESVhRs9k) in tool calls, not human-readable names.
+- Use schema keys (like ESVhRs9k) in tool calls, not human-readable names.
 - Process the ENTIRE document before finishing.
 - Keep nodes focused on one concept. If a node has many properties, consider splitting it.
   If an edge needs many properties, promote it to a node.
 - For questions, search the graph first, then reason. Do not fabricate information.
 ```
 
-### Type injection
+### Schema injection
 
-Types are loaded from the metadata service at the **start of each message** (not once per
-session). If the AI created a new type in the previous message, it sees it immediately.
+Schemas are loaded from the metadata service (via gRPC `GetSchema`) at the **start of each
+message** (not once per session). If the AI created a new schema in the previous message, it
+sees it immediately.
 
 Format: **human-readable text**, not JSON.
 
@@ -533,11 +537,15 @@ All queries use **predefined Cypher templates** with parameterized values.
 
 ### Metadata service
 
-- **Migration:** simplify `node_schemas` and `edge_schemas` tables (drop `property_schemas`)
-  — types become lightweight (key, name, description, color)
-- **New migration:** `sessions` + `session_messages` tables
-- **Endpoints:** session CRUD, type CRUD (simplified)
-- **Remove:** `GenerateSchema`-related endpoints and OpenAPI entries
+- **Migration:** `sessions` + `session_messages` tables added to existing single migration
+  (no property_schemas, no user_role on sessions)
+- **New proto:** `metadata.proto` — 8 RPCs for AI→metadata gRPC communication (session CRUD,
+  schema CRUD, get schema)
+- **gRPC server** running alongside HTTP via `tokio::select!`
+- **Session management:** one active session per graph enforcement
+- **Schema CRUD:** `create_node_schema`, `create_edge_schema` via gRPC — generates key/color,
+  hooks into knowledge for vector index initialization
+- **No HTTP endpoints for session or schema CRUD** — AI communicates via gRPC only
 
 ---
 
@@ -545,16 +553,25 @@ All queries use **predefined Cypher templates** with parameterized values.
 
 **Removed:** `SchemaService` / `GenerateSchema` (no more schema generation).
 
-**`OpenRouterClient` changes:**
-- Tool calling support
-- SSE streaming
-- Provider routing
+**`OpenRouterClient` changes (implemented):**
+- `chat_stream()` method: SSE streaming with tool call accumulation via `ToolCallBuilder`
+- `Message` type with `system()`, `user()`, `assistant()`, `tool()` constructors
+- `ToolDefinition`, `ToolCall`, `FunctionDefinition`, `FunctionCall`, `StreamChatResult` types
+- reqwest `"stream"` feature for `bytes_stream()`
 
-**New `EmbeddingClient`.**
+**`EmbeddingClient` (implemented):**
+- `embed(texts: Vec<String>) → Vec<Vec<f32>>` (batch)
+- `embed_one(text: String) → Vec<f32>`
+- Same API key, configurable embedding model (`OPENROUTER_EMBEDDING_MODEL`)
 
-**New `AgentService`** — the core agent loop with entity resolution built in.
+**New `AgentService`** (Step 5) — the core agent loop with entity resolution built in.
 
-**New tools:** `create_type`, `create_edge_type` alongside existing node/edge tools.
+**New tools:** `create_schema`, `create_edge_schema` alongside existing node/edge tools.
+
+**gRPC clients:**
+- `MetadataClient` (Step 5) — gRPC client using `metadata.proto` for session/schema management
+- `KnowledgeClient` (Step 5) — gRPC client for knowledge service
+- Config: `KnowledgeServerConfig` with `KNOWLEDGE_GRPC_SERVER_URL`
 
 ---
 
@@ -567,8 +584,8 @@ All queries use **predefined Cypher templates** with parameterized values.
 | Embedding storage | In Memgraph alongside nodes |
 | LLM streaming | SSE from day one |
 | Property schemas | **Removed** — properties are free-form |
-| Schema generation | **Removed** — AI creates types on its own |
-| Schema validation | Type existence only — no property validation |
+| Schema generation | **Removed** — AI creates schemas on its own |
+| Schema validation | Schema existence only — no property validation |
 | Entity resolution | Automatic in `create_node` — search + neighbor context |
 | Graph normalization | Prompt-guided, no hard limits |
 | Batch inserts | **Open question** — start single, measure, then decide |
@@ -577,9 +594,10 @@ All queries use **predefined Cypher templates** with parameterized values.
 | Document delivery | Text inline in `SendMessage` request |
 | LLM-generated queries | **Never** — predefined parameterized templates |
 | Edge vector indexes | No — edge dedup is structural |
-| Type creation | AI creates types mid-conversation via tools |
+| Schema creation | AI creates schemas mid-conversation via tools |
 | Loop termination | `done` tool, text-only response, or 50 tool-call limit |
 | Concurrency per graph | One active session at a time |
+| AI→metadata | gRPC via `metadata.proto` (not HTTP) |
 
 ### Open: Batch inserts
 
@@ -597,7 +615,7 @@ No new knowledge RPCs needed — batch tools loop over single inserts in the exe
 - **Two-phase extraction** — separate "free extraction" LLM call before graph-mapping,
   for better entity coverage on complex documents
 - **Token truncation** — summarize older messages when history exceeds context window
-- **Vector index cleanup** — reconcile existing indexes against current types, drop orphans
+- **Vector index cleanup** — reconcile existing indexes against current schemas, drop orphans
 - **Branch/diff system** — session writes as a reviewable branch before merging
 - **Web search tools** — `web_search` + `fetch_page` for info beyond training cutoff
 - **Multi-session concurrency** — distributed locking or optimistic concurrency
@@ -607,5 +625,5 @@ No new knowledge RPCs needed — batch tools loop over single inserts in the exe
   at the end of the session) reviews flagged pairs with more context.
 - **Chunked document ingestion** — pre-chunk large documents, store as chunk nodes,
   let the agent retrieve relevant chunks via search
-- **User confirmation of new types** — before the AI creates a type, ask the user first
+- **User confirmation of new schemas** — before the AI creates a schema, ask the user first
 - **MCP exposure** — expose graph tools to external agents

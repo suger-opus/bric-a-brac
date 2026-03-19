@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "protos/common.proto",
                 "protos/ai.proto",
                 "protos/knowledge.proto",
+                "protos/metadata.proto",
             ],
             &["protos/"],
         )?;
@@ -20,6 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=protos/common.proto");
     println!("cargo:rerun-if-changed=protos/ai.proto");
     println!("cargo:rerun-if-changed=protos/knowledge.proto");
+    println!("cargo:rerun-if-changed=protos/metadata.proto");
 
     Ok(())
 }

@@ -1,8 +1,8 @@
 use crate::{
     domain::models::{
-        CreateGraphModel, EdgeSchemaIdModel, EdgeSchemaModel, GraphIdModel, GraphMetadataModel,
-        GraphModel, GraphSchemaModel, NodeSchemaIdModel, NodeSchemaModel, RedditModel, RoleModel,
-        UserIdModel,
+        CreateEdgeSchemaModel, CreateGraphModel, CreateNodeSchemaModel, EdgeSchemaIdModel,
+        EdgeSchemaModel, GraphIdModel, GraphMetadataModel, GraphModel, GraphSchemaModel,
+        NodeSchemaIdModel, NodeSchemaModel, RedditModel, RoleModel, UserIdModel,
     },
     presentation::errors::DatabaseError,
 };
@@ -203,6 +203,86 @@ RETURNING
         .await?;
 
         Ok(graph.into())
+    }
+
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.create_node_schema",
+        skip(self, connection, create)
+    )]
+    pub async fn create_node_schema(
+        &self,
+        connection: &mut PgConnection,
+        create: CreateNodeSchemaModel,
+    ) -> Result<NodeSchemaModel, DatabaseError> {
+        tracing::debug!(node_schema_id = ?create.node_schema_id, graph_id = ?create.graph_id);
+
+        let row = sqlx::query_as!(
+            NodeSchemaRow,
+            r#"
+INSERT INTO nodes_schemas (node_schema_id, graph_id, label, key, color, description)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING
+    node_schema_id AS "node_schema_id!:_",
+    graph_id AS "graph_id!:_",
+    label,
+    key,
+    color,
+    description,
+    created_at,
+    updated_at
+            "#,
+            create.node_schema_id as _,
+            create.graph_id as _,
+            create.label,
+            create.key,
+            create.color,
+            create.description,
+        )
+        .fetch_one(connection)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    #[tracing::instrument(
+        level = "debug",
+        name = "graph_repository.create_edge_schema",
+        skip(self, connection, create)
+    )]
+    pub async fn create_edge_schema(
+        &self,
+        connection: &mut PgConnection,
+        create: CreateEdgeSchemaModel,
+    ) -> Result<EdgeSchemaModel, DatabaseError> {
+        tracing::debug!(edge_schema_id = ?create.edge_schema_id, graph_id = ?create.graph_id);
+
+        let row = sqlx::query_as!(
+            EdgeSchemaRow,
+            r#"
+INSERT INTO edges_schemas (edge_schema_id, graph_id, label, key, color, description)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING
+    edge_schema_id AS "edge_schema_id!:_",
+    graph_id AS "graph_id!:_",
+    label,
+    key,
+    color,
+    description,
+    created_at,
+    updated_at
+            "#,
+            create.edge_schema_id as _,
+            create.graph_id as _,
+            create.label,
+            create.key,
+            create.color,
+            create.description,
+        )
+        .fetch_one(connection)
+        .await?;
+
+        Ok(row.into())
     }
 
 }

@@ -78,3 +78,28 @@ CREATE TABLE edges_schemas (
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT edge_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
 );
+
+CREATE TABLE sessions (
+    session_id          UUID PRIMARY KEY                NOT NULL,
+    graph_id            UUID                            NOT NULL REFERENCES graphs(graph_id) ON DELETE CASCADE,
+    user_id             UUID                            NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    status              VARCHAR(20)                     NOT NULL DEFAULT 'active',
+    created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT session_status_check                     CHECK (status IN ('active', 'completed', 'error'))
+);
+
+CREATE INDEX idx_sessions_graph_id ON sessions(graph_id);
+
+CREATE TABLE session_messages (
+    message_id          UUID PRIMARY KEY                NOT NULL,
+    session_id          UUID                            NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+    position            INTEGER                         NOT NULL,
+    role                VARCHAR(20)                     NOT NULL,
+    content             TEXT                            NOT NULL DEFAULT '',
+    tool_calls          JSONB,
+    tool_call_id        VARCHAR,
+    created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT message_role_check                       CHECK (role IN ('system', 'user', 'assistant', 'tool')),
+    CONSTRAINT unique_session_position                  UNIQUE (session_id, position)
+);

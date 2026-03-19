@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package metadata;
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+service Metadata {
+    rpc CreateSession(CreateSessionRequest) returns (SessionProto);
+    rpc GetSession(GetSessionRequest) returns (SessionProto);
+    rpc CloseSession(CloseSessionRequest) returns (SessionProto);
+    rpc GetSessionMessages(GetSessionMessagesRequest) returns (GetSessionMessagesResponse);
+    rpc AppendSessionMessages(AppendSessionMessagesRequest) returns (AppendSessionMessagesResponse);
+
+    rpc CreateNodeSchema(CreateNodeSchemaRequest) returns (common.NodeSchemaProto);
+    rpc CreateEdgeSchema(CreateEdgeSchemaRequest) returns (common.EdgeSchemaProto);
+    rpc GetSchema(GetSchemaRequest) returns (common.GraphSchemaProto);
+}
+
+// --- Session ---
+
+message SessionProto {
+    string session_id = 1;
+    string graph_id = 2;
+    string user_id = 3;
+    string status = 4;
+    google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 6;
+}
+
+message SessionMessageProto {
+    string message_id = 1;
+    string session_id = 2;
+    int32 position = 3;
+    string role = 4;
+    string content = 5;
+    optional string tool_calls = 6;
+    optional string tool_call_id = 7;
+    google.protobuf.Timestamp created_at = 8;
+}
+
+// --- Session RPCs ---
+
+message CreateSessionRequest {
+    string graph_id = 1;
+    string user_id = 2;
+}
+
+message GetSessionRequest {
+    string session_id = 1;
+}
+
+message CloseSessionRequest {
+    string session_id = 1;
+    string status = 2;
+}
+
+message GetSessionMessagesRequest {
+    string session_id = 1;
+}
+
+message GetSessionMessagesResponse {
+    repeated SessionMessageProto messages = 1;
+}
+
+message AppendSessionMessagesRequest {
+    string session_id = 1;
+    repeated NewSessionMessageProto messages = 2;
+}
+
+message NewSessionMessageProto {
+    string role = 1;
+    string content = 2;
+    optional string tool_calls = 3;
+    optional string tool_call_id = 4;
+}
+
+message AppendSessionMessagesResponse {}
+
+// --- Schema RPCs ---
+
+message CreateNodeSchemaRequest {
+    string graph_id = 1;
+    string label = 2;
+    string description = 3;
+}
+
+message CreateEdgeSchemaRequest {
+    string graph_id = 1;
+    string label = 2;
+    string description = 3;
+}
+
+message GetSchemaRequest {
+    string graph_id = 1;
+}

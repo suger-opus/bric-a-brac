@@ -16,3 +16,12 @@ pub struct NodeSchemaModel {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+pub struct CreateNodeSchemaModel {
+    pub node_schema_id: NodeSchemaIdModel,
+    pub graph_id: GraphIdModel,
+    pub label: String,
+    pub key: String,
+    pub color: String,
+    pub description: String,
+}

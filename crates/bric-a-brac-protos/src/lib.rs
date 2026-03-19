@@ -11,6 +11,10 @@ pub mod knowledge {
     tonic::include_proto!("knowledge");
 }
 
+pub mod metadata {
+    tonic::include_proto!("metadata");
+}
+
 // Base trait & error
 mod client;
 mod error;
