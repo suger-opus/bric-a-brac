@@ -38,7 +38,7 @@ pub struct Message {
 impl Message {
     pub fn system(content: impl Into<String>) -> Self {
         Self {
-            role: "system".to_string(),
+            role: "system".to_owned(),
             content: Some(content.into()),
             tool_calls: None,
             tool_call_id: None,
@@ -47,16 +47,17 @@ impl Message {
 
     pub fn user(content: impl Into<String>) -> Self {
         Self {
-            role: "user".to_string(),
+            role: "user".to_owned(),
             content: Some(content.into()),
             tool_calls: None,
             tool_call_id: None,
         }
     }
 
+    #[must_use] 
     pub fn assistant(content: Option<String>, tool_calls: Option<Vec<ToolCall>>) -> Self {
         Self {
-            role: "assistant".to_string(),
+            role: "assistant".to_owned(),
             content,
             tool_calls,
             tool_call_id: None,
@@ -65,7 +66,7 @@ impl Message {
 
     pub fn tool(tool_call_id: String, content: impl Into<String>) -> Self {
         Self {
-            role: "tool".to_string(),
+            role: "tool".to_owned(),
             content: Some(content.into()),
             tool_calls: None,
             tool_call_id: Some(tool_call_id),
@@ -190,10 +191,11 @@ pub struct OpenRouterClient {
 }
 
 impl OpenRouterClient {
+    #[must_use] 
     pub fn new(config: &OpenRouterConfig) -> Self {
         Self {
             api_key: config.api_key().clone(),
-            default_model: config.default_model().to_string(),
+            default_model: config.default_model().to_owned(),
             client: reqwest::Client::new(),
         }
     }
@@ -217,9 +219,9 @@ impl OpenRouterClient {
         let is_structured_output_needed = schema.is_some();
 
         let response_format = schema.map(|s| ResponseFormat {
-            type_: "json_schema".to_string(),
+            type_: "json_schema".to_owned(),
             json_schema: JsonSchemaFormat {
-                name: "schema_generation".to_string(),
+                name: "schema_generation".to_owned(),
                 strict: true,
                 schema: s,
             },
@@ -227,7 +229,7 @@ impl OpenRouterClient {
 
         let plugins = match response_format {
             Some(_) => vec![Plugin {
-                id: "response-healing".to_string(),
+                id: "response-healing".to_owned(),
             }],
             None => vec![],
         };
@@ -253,7 +255,7 @@ impl OpenRouterClient {
             .send()
             .await
             .map_err(|err| OpenRouterClientError::Request {
-                message: "Failed to call OpenRouter API".to_string(),
+                message: "Failed to call OpenRouter API".to_owned(),
                 source: err,
             })?;
 
@@ -263,7 +265,7 @@ impl OpenRouterClient {
                 .text()
                 .await
                 .map_err(|err| OpenRouterClientError::ReadResponse {
-                    message: "Failed to read OpenRouter API response".to_string(),
+                    message: "Failed to read OpenRouter API response".to_owned(),
                     source: err,
                 })?;
 
@@ -276,8 +278,7 @@ impl OpenRouterClient {
 
         let chat_response: ChatResponse = serde_json::from_str(&response_text).map_err(|err| {
             OpenRouterClientError::Deserialization {
-                message: "Failed to deserialize ChatResponse from OpenRouter response_text"
-                    .to_string(),
+                message: "Failed to deserialize ChatResponse from OpenRouter response_text".to_owned(),
                 source: err,
             }
         })?;
@@ -286,22 +287,19 @@ impl OpenRouterClient {
             .choices
             .first()
             .ok_or_else(|| OpenRouterClientError::ResponseFormat {
-                message: "No choices in OpenRouter response".to_string(),
+                message: "No choices in OpenRouter response".to_owned(),
             })?
             .message
             .content
             .clone()
             .unwrap_or_default();
 
-        let value = match is_structured_output_needed {
-            true => serde_json::from_str::<serde_json::Value>(&content).map_err(|err| {
-                OpenRouterClientError::Deserialization {
-                    message: "Failed to deserialize content field as JSON value".to_string(),
-                    source: err,
-                }
-            })?,
-            false => serde_json::Value::String(content.clone()),
-        };
+        let value = if is_structured_output_needed { serde_json::from_str::<serde_json::Value>(&content).map_err(|err| {
+            OpenRouterClientError::Deserialization {
+                message: "Failed to deserialize content field as JSON value".to_owned(),
+                source: err,
+            }
+        })? } else { serde_json::Value::String(content.clone()) };
 
         Ok(ChatResult {
             raw_content: content,
@@ -347,7 +345,7 @@ impl OpenRouterClient {
             .send()
             .await
             .map_err(|err| OpenRouterClientError::Request {
-                message: "Failed to call OpenRouter API (stream)".to_string(),
+                message: "Failed to call OpenRouter API (stream)".to_owned(),
                 source: err,
             })?;
 
@@ -366,7 +364,7 @@ impl OpenRouterClient {
 
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|err| OpenRouterClientError::ReadResponse {
-                message: "Failed to read stream chunk".to_string(),
+                message: "Failed to read stream chunk".to_owned(),
                 source: err,
             })?;
 
@@ -374,7 +372,7 @@ impl OpenRouterClient {
 
             // Process complete SSE lines
             while let Some(line_end) = buffer.find('\n') {
-                let line = buffer[..line_end].trim().to_string();
+                let line = buffer[..line_end].trim().to_owned();
                 buffer = buffer[line_end + 1..].to_string();
 
                 if line.is_empty() || line == "data: [DONE]" {
@@ -424,7 +422,7 @@ impl OpenRouterClient {
             .filter_map(|b| {
                 Some(ToolCall {
                     id: b.id?,
-                    type_: "function".to_string(),
+                    type_: "function".to_owned(),
                     function: FunctionCall {
                         name: b.name?,
                         arguments: b.arguments,

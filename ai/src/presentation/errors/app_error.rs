@@ -63,9 +63,10 @@ pub enum OpenRouterClientError {
 }
 
 impl GrpcClientError {
+    #[must_use] 
     pub fn is_connection_error(&self) -> bool {
         match self {
-            GrpcClientError::Base(base_err) => base_err.is_connection_error(),
+            Self::Base(base_err) => base_err.is_connection_error(),
             _ => false,
         }
     }
@@ -95,6 +96,6 @@ impl From<AppError> for Status {
 
 impl From<DtosConversionError> for AppError {
     fn from(err: DtosConversionError) -> Self {
-        AppError::GrpcClient(err.into())
+        Self::GrpcClient(err.into())
     }
 }

@@ -28,10 +28,11 @@ pub struct EmbeddingClient {
 }
 
 impl EmbeddingClient {
+    #[must_use] 
     pub fn new(config: &OpenRouterConfig) -> Self {
         Self {
             api_key: config.api_key().clone(),
-            embedding_model: config.embedding_model().to_string(),
+            embedding_model: config.embedding_model().to_owned(),
             client: reqwest::Client::new(),
         }
     }
@@ -64,7 +65,7 @@ impl EmbeddingClient {
             .send()
             .await
             .map_err(|err| OpenRouterClientError::Request {
-                message: "Failed to call OpenRouter Embeddings API".to_string(),
+                message: "Failed to call OpenRouter Embeddings API".to_owned(),
                 source: err,
             })?;
 
@@ -74,7 +75,7 @@ impl EmbeddingClient {
                 .text()
                 .await
                 .map_err(|err| OpenRouterClientError::ReadResponse {
-                    message: "Failed to read OpenRouter Embeddings API response".to_string(),
+                    message: "Failed to read OpenRouter Embeddings API response".to_owned(),
                     source: err,
                 })?;
 
@@ -88,7 +89,7 @@ impl EmbeddingClient {
         let embedding_response: EmbeddingResponse =
             serde_json::from_str(&response_text).map_err(|err| {
                 OpenRouterClientError::Deserialization {
-                    message: "Failed to deserialize EmbeddingResponse".to_string(),
+                    message: "Failed to deserialize EmbeddingResponse".to_owned(),
                     source: err,
                 }
             })?;
@@ -112,7 +113,7 @@ impl EmbeddingClient {
     ) -> Result<Vec<f32>, OpenRouterClientError> {
         let mut results = self.embed(vec![text]).await?;
         results.pop().ok_or(OpenRouterClientError::ResponseFormat {
-            message: "No embedding data in response".to_string(),
+            message: "No embedding data in response".to_owned(),
         })
     }
 }

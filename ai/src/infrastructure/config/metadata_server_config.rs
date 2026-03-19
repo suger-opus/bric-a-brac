@@ -8,7 +8,7 @@ pub struct MetadataServerConfig {
 }
 
 impl MetadataServerConfig {
-    pub fn url(&self) -> &Uri {
+    pub const fn url(&self) -> &Uri {
         &self.metadata_grpc_server_url
     }
 }

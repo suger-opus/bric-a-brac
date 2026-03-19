@@ -692,7 +692,9 @@ in this step — will be added when needed during agent loop implementation (Ste
 
 ---
 
-## Step 5: AI Service — Agent Loop
+## Step 5: AI Service — Agent Loop ✅
+
+**Status:** COMPLETED
 
 **Goal:** Implement `AgentService` — the core agent loop that receives a user message,
 calls the model, executes tools, and streams events.
@@ -929,18 +931,27 @@ No `SchemaService` — schema generation has been removed.
 
 ### Checklist
 
-- [ ] `knowledge_client.rs` — gRPC client for knowledge service
-- [ ] `metadata_client.rs` — gRPC client for metadata service (schemas + sessions via `metadata.proto`)
-- [ ] `tools.rs` — tool definitions including `create_schema` and `create_edge_schema`
-- [ ] `prompt.rs` — system prompt builder (schemas, not property schemas)
-- [ ] `tool_executor.rs` — dispatches tool calls, entity resolution in `create_node`, schema-only validation
-- [ ] `agent_service.rs` — core agent loop with streaming, schema refresh on create
-- [ ] Module exports updated (no `SchemaService`)
-- [ ] `cargo build -p ai` passes
+- [x] `knowledge_client.rs` — gRPC client for knowledge service (7 RPCs: insert/update node, insert edge, search nodes, get node, get neighbors, find paths)
+- [x] `metadata_client.rs` — gRPC client for metadata service (8 RPCs: session CRUD, message append/get, schema CRUD)
+- [x] `tools.rs` — 10 tool definitions: 4 read (search_nodes, get_node, get_neighbors, find_paths) + 5 write (create_schema, create_edge_schema, create_node, create_edge, update_node) + 1 session (done)
+- [x] `prompt.rs` — system prompt builder with dynamic schema listing and behavioral rules
+- [x] `tool_executor.rs` — dispatches tool calls, entity resolution in `create_node` (similarity search + neighbor context), schema-only validation, auto-embedding on create/update
+- [x] `agent_service.rs` — core agent loop with streaming via `mpsc` channel, schema refresh on create, max 50 iterations, message persistence
+- [x] Module exports updated (`AgentService`, `ToolExecutor`)
+- [x] `cargo build -p ai` passes
+
+**Implementation notes:**
+- `ToolExecutor` returns `ToolResult { content, schema_changed, is_done }` — simple struct, not gRPC errors
+- Entity resolution uses `SIMILARITY_THRESHOLD = 0.3` and `ENTITY_RESOLUTION_LIMIT = 5`
+- Agent loop uses `tokio::spawn` + `mpsc::Sender<AgentEventProto>` instead of returning a `Stream` trait (simpler wiring with tonic)
+- All tools available to all users (no role-based filtering yet — deferred to Step 7 testing)
+- `KNOWLEDGE_GRPC_SERVER_URL` added to `ai/mise.local.toml`
 
 ---
 
-## Step 6: AI Service — SendMessage Handler + Wiring
+## Step 6: AI Service — SendMessage Handler + Wiring ✅
+
+**Status:** COMPLETED
 
 **Goal:** Wire the `AgentService` into the gRPC server and expose `SendMessage`.
 
@@ -995,11 +1006,16 @@ No `SchemaService` — schema generation has been removed (Step 2b).
 
 ### Checklist
 
-- [ ] `send_message` RPC handler implemented
-- [ ] `AiService` struct updated with `AgentService`
-- [ ] `lib.rs` wiring updated
-- [ ] `cargo build -p ai` passes
-- [ ] End-to-end test: create session → send message → receive streaming events
+- [x] `send_message` RPC handler implemented — bridges `mpsc::channel<AgentEventProto>` to `ReceiverStream` for tonic
+- [x] `AiService` struct updated with `AgentService` field
+- [x] `lib.rs` wiring updated — creates OpenRouterClient, EmbeddingClient, KnowledgeClient, MetadataClient → ToolExecutor → AgentService → AiService
+- [x] `cargo build -p ai` passes (zero errors)
+- [ ] End-to-end test: create session → send message → receive streaming events (deferred to Step 7)
+
+**Implementation notes:**
+- `AiService.send_message()` creates two channels: one for raw `AgentEventProto` events from the agent, one forwarding task wrapping them as `Ok(event)` for the gRPC stream
+- `AgentService.send_message()` takes a `mpsc::Sender<AgentEventProto>` and spawns the loop in a `tokio::spawn` task
+- All 4 clients wired in `lib.rs`: `KnowledgeClient::new(config.knowledge_server().clone())`, `MetadataClient::new(config.metadata_server().clone())`
 
 ---
 
@@ -1096,7 +1112,7 @@ Step 1 (Protos) ✅ ───┬──→ Step 2 (Knowledge) ✅
 
 Step 2  ──┐
 Step 2b ──┤
-Step 3  ──┼──→ Step 5 (AI: agent loop) ──→ Step 6 (AI: handler) ──→ Step 7 (Testing)
+Step 3  ──┼──→ Step 5 (AI: agent loop) ✅ ──→ Step 6 (AI: handler) ✅ ──→ Step 7 (Testing)
 Step 4  ──┘
 
 Step 7 ──→ Step 8 (Web UI)
@@ -1104,7 +1120,7 @@ Step 7 ──→ Step 8 (Web UI)
 
 Steps 2, 3, and 4 were done after Step 1 (2 was done individually, 3 and 4 in parallel).
 Step 2b was done between 2 and 3.
-Step 5 needs all four (all now complete).
+Steps 5 and 6 were implemented together (all now complete).
 
 ---
 

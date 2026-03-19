@@ -12,6 +12,7 @@ pub struct AiServerConfig {
 }
 
 impl AiServerConfig {
+    #[must_use] 
     pub fn url(&self) -> SocketAddr {
         (self.ai_server_host, self.ai_server_port).into()
     }

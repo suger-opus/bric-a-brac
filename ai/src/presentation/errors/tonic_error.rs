@@ -17,7 +17,7 @@ impl TonicError {
 
 impl From<TonicError> for Status {
     fn from(err: TonicError) -> Self {
-        Status::new(err.code, err.message)
+        Self::new(err.code, err.message)
     }
 }
 
@@ -26,14 +26,14 @@ impl From<AppError> for TonicError {
         tracing::error!(error = ?err);
         match &err {
             AppError::FileParsing { .. } => {
-                TonicError::new(Code::InvalidArgument, format!("{}", err))
+                Self::new(Code::InvalidArgument, format!("{err}"))
             }
             AppError::OpenRouterClient(
                 OpenRouterClientError::Request { .. }
                 | OpenRouterClientError::ReadResponse { .. }
                 | OpenRouterClientError::NoSuccessResponse { .. },
-            ) => TonicError::new(Code::Unavailable, format!("{}", err)),
-            _ => TonicError::new(Code::Internal, format!("{}", err)),
+            ) => Self::new(Code::Unavailable, format!("{err}")),
+            _ => Self::new(Code::Internal, format!("{err}")),
         }
     }
 }
