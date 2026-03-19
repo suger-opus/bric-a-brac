@@ -4,7 +4,7 @@ use crate::{
         EdgeSchemaModel, GraphIdModel, GraphMetadataModel, GraphModel, GraphSchemaModel,
         NodeSchemaIdModel, NodeSchemaModel, RedditModel, RoleModel, UserIdModel,
     },
-    presentation::errors::DatabaseError,
+    infrastructure::errors::DatabaseError,
 };
 use chrono::{DateTime, Utc};
 use sqlx::{types::Json, PgConnection};

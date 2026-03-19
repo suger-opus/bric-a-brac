@@ -58,20 +58,11 @@ lightweight — no property definitions, no type enforcement on property values.
 | `description` | What this relationship means — guides the AI |
 | `color` | UI rendering |
 
-### What was removed
+### Why no property schemas
 
-- **Property schemas** (`property_schemas` table, `PropertySchemaDto`, `PropertySchemaProto`,
-  `PropertyTypeDto`, `PropertyMetadataDto`) — all deleted. Properties on nodes and edges
-  are free-form key-value pairs. Memgraph is schema-free by design; we no longer fight it.
-- **`GenerateSchema` RPC** — deleted. The AI creates schemas on its own as it processes data.
-  No upfront schema design step.
-- **Property validation** — deleted. The tool executor only validates that schemas exist
-  (prevents typos), not that properties conform to a schema.
-
-### Why
-
-The old schema design assumed a user designs the schema upfront, then data conforms to it.
-With an AI as the primary data creator, this creates constant friction:
+Properties on nodes and edges are free-form key-value pairs. Memgraph is schema-free by
+design. With an AI as the primary data creator, enforcing property schemas creates constant
+friction:
 - The AI encounters properties not in the schema → reports a mismatch → user edits schema
   → re-processes. Terrible UX.
 - Users can't design property schemas before seeing the data.
@@ -205,9 +196,25 @@ A single LLM tool-calling loop:
 6. If the response contains tool calls → execute them server-side → send `ToolCall`/`ToolResult` events → append to history → go to step 4
 7. If the response is text-only (no tool calls) → stream as final answer → **done**
 8. If the `done` tool is called → stream summary → **done**
-9. If 50 tool calls reached → force stop → stream error
+9. If 200 tool calls reached → force stop → stream error
 
 The loop runs as an async Tokio task. One active session per graph at a time.
+
+### Concurrency control
+
+A `tokio::sync::Semaphore` (20 permits) caps concurrent LLM calls across all agent sessions.
+If 20 agents are already calling OpenRouter simultaneously, the 21st will wait until one
+finishes. This prevents overwhelming the LLM provider with too many simultaneous requests,
+which would cause 429 rate-limit errors.
+
+### Retry & resilience
+
+- **gRPC calls** (to knowledge and metadata services) use automatic retry with exponential
+  backoff (3 attempts, retries on `Unavailable` and `DeadlineExceeded`). gRPC channels use
+  `connect_lazy()` for automatic HTTP/2 reconnection.
+- **HTTP calls** (to OpenRouter for chat and embeddings) use automatic retry with exponential
+  backoff (3 attempts, retries on 429/5xx and transient network errors, respects
+  `Retry-After` headers).
 
 ---
 
@@ -231,8 +238,6 @@ CREATE TABLE sessions (
 );
 ```
 
-Note: no `user_role` on sessions — the user's role is already tracked in the `accesses` table.
-
 ### `session_messages` table
 
 ```sql
@@ -252,6 +257,9 @@ CREATE TABLE session_messages (
 
 Each message is a row. This allows pagination, selective loading (last N messages for context
 window management), and clean queries.
+
+The user's role is not stored on the session — it's derived from the `accesses` table via
+a JOIN when loading the session.
 
 ### Lifecycle
 
@@ -289,9 +297,110 @@ message AgentEventProto {
 }
 ```
 
-**LLM token streaming** is enabled from day one. OpenRouter supports SSE (`stream: true`).
-The AI service consumes the SSE stream from OpenRouter, parses incremental tokens, and
-forwards them as `AgentText` events on the gRPC stream.
+OpenRouter supports SSE (`stream: true`). The AI service consumes the SSE stream from
+OpenRouter, parses incremental tokens, and forwards them as `AgentText` events on the
+gRPC stream.
+
+---
+
+## User Authentication & Resource Protection
+
+### Authentication (future — not yet implemented)
+
+Users will authenticate via OAuth2 social login:
+- **Providers:** Google (Gmail), Reddit
+- **Flow:** Standard OAuth2 authorization code flow → the web UI redirects to the provider,
+  receives a token, exchanges it for a session cookie or JWT.
+- **User creation:** On first login, a `users` row is created in metadata Postgres. Subsequent
+  logins match by provider + provider ID.
+- **Session token:** After authentication, every API request carries a session token (cookie
+  or `Authorization: Bearer` header). The metadata HTTP layer validates the token and extracts
+  the `user_id` before processing the request.
+
+Currently, `user_id` is passed directly in requests (no authentication layer). Adding OAuth
+will wrap existing endpoints with a middleware that resolves `user_id` from the token.
+
+### Role-Based Access Control (RBAC)
+
+Every graph has an access control list stored in the `accesses` table:
+
+```sql
+CREATE TABLE accesses (
+    user_id   UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    graph_id  UUID NOT NULL REFERENCES graphs(graph_id) ON DELETE CASCADE,
+    role      role_type NOT NULL DEFAULT 'None',
+    PRIMARY KEY (user_id, graph_id)
+);
+
+CREATE TYPE role_type AS ENUM ('Owner', 'Admin', 'Editor', 'Viewer', 'None');
+```
+
+**Role hierarchy:**
+
+| Role | Read graph | Write data | Manage schema | Share graph | Delete graph |
+|---|---|---|---|---|---|
+| **Owner** | Yes | Yes | Yes | Yes | Yes |
+| **Admin** | Yes | Yes | Yes | Yes | No |
+| **Editor** | Yes | Yes | No | No | No |
+| **Viewer** | Yes | No | No | No | No |
+| **None** | No | No | No | No | No |
+
+- **Owner** is assigned automatically when a user creates a graph. Cannot be transferred.
+- **Admin** can invite other users and assign roles (except Owner).
+- **Editor** can create/update/delete nodes, edges, and schemas via the AI agent.
+- **Viewer** can query the graph (search, get_node, get_neighbors, find_paths) but cannot
+  modify it.
+- **None** is the default when no access record exists — no access at all.
+
+### Resource protection: how roles are enforced
+
+Roles are enforced at **two layers** — defense-in-depth:
+
+#### Layer 1 — Tool filtering (AI service)
+
+When the agent loop starts, the user's role is loaded from the session (which JOINs the
+`accesses` table). Based on the role, the agent receives different tool sets:
+
+- **Owner / Admin / Editor:** read tools + write tools + session tools
+- **Viewer / None:** read tools + session tools only
+
+The LLM literally does not see write tools in its tool list. It cannot call what it doesn't
+know exists.
+
+#### Layer 2 — Tool executor guard (AI service, defense-in-depth)
+
+Even if the LLM somehow calls a write tool (e.g., through prompt injection or a bug in tool
+filtering), the tool executor independently checks the user's role before executing:
+
+```
+if WRITE_TOOLS.contains(tool_name) && !is_write_role(user_role) {
+    return "Permission denied: role 'Viewer' cannot use tool 'create_node'."
+}
+```
+
+This is a server-side guard — not prompt-based, not bypassable by the LLM.
+
+#### Layer 3 — Graph-level isolation (knowledge service)
+
+Every Memgraph query is scoped to a `graph_id`. A user's session is bound to a specific
+graph. There is no mechanism (in the tool executor or knowledge client) to query a different
+graph than the one the session was created for. Cross-graph data leakage is impossible by
+construction.
+
+### Security: no LLM-generated queries
+
+The LLM **never** writes Cypher or SQL. Every tool maps to a **predefined query template**
+with parameterized inputs. The LLM provides parameter values, the server plugs them into
+hardcoded queries. Injection is impossible by construction.
+
+The node schema key is validated against known schemas before being interpolated into Cypher
+(it's a label, not a parameter — Cypher doesn't support parameterized labels).
+
+### Public graphs
+
+Graphs can be made public by their admin. Public graphs are read-only for unauthenticated
+users — they can browse the graph, search nodes, and view data. They cannot modify anything
+or create sessions with write access.
 
 ---
 
@@ -330,7 +439,7 @@ across all node schemas in the graph and merges results by distance.
 The agent loop ends when:
 1. The agent calls `done` — for document ingestion, the summary reports what was created
 2. The agent responds with **text only, no tool calls** — for question answering
-3. **50 tool calls** reached — hard safety limit
+3. **200 tool calls** reached — hard safety limit
 
 ### Schema validation
 
@@ -345,21 +454,6 @@ No property validation — properties are free-form.
 Why validate in the AI service:
 - Schemas live in metadata Postgres — knowledge has no access.
 - Validation errors are conversational: the LLM retries, not crashes.
-
-### Rights enforcement
-
-Enforced **server-side in the tool execution layer**, never by the prompt. If a read-only
-user's agent calls `create_node`, the tool returns an error to the model:
-`"Permission denied: you have read-only access to this graph."`
-
-### Security: no LLM-generated queries
-
-The LLM **never** writes Cypher or SQL. Every tool maps to a **predefined query template**
-with parameterized inputs. The LLM provides parameter values, the server plugs them into
-hardcoded queries. Injection is impossible by construction.
-
-The node schema key is validated against schemas before being interpolated into Cypher (it's a
-label, not a parameter — Cypher doesn't support parameterized labels).
 
 ---
 
@@ -492,86 +586,29 @@ Format: **human-readable text**, not JSON.
 
 ---
 
-## Changes Required
+## Service Architecture
 
-### Protos (`bric-a-brac-protos`)
+Three microservices communicate via gRPC:
 
-**`Ai` service:**
-```protobuf
-rpc SendMessage(SendMessageRequest) returns (stream AgentEventProto);
+```
+Web UI → AI service (gRPC-Web)
+         ├── → Knowledge service (gRPC) — Memgraph graph database
+         └── → Metadata service (gRPC)  — Postgres control plane
+                └── → Knowledge service (gRPC) — for vector index initialization
+Web UI → Metadata service (HTTP)        — CRUD for graphs, users, schemas (web-facing)
 ```
 
-**`Knowledge` service (already implemented):**
-```protobuf
-rpc InitializeSchema(InitializeSchemaRequest) returns (InitializeSchemaResponse);
-rpc InsertNode(InsertNodeRequest) returns (NodeDataProto);
-rpc UpdateNode(UpdateNodeRequest) returns (NodeDataProto);
-rpc InsertEdge(InsertEdgeRequest) returns (EdgeDataProto);
-rpc SearchNodes(SearchNodesRequest) returns (SearchNodesResponse);
-rpc GetNode(GetNodeRequest) returns (NodeDataProto);
-rpc GetNeighbors(GetNeighborsRequest) returns (GetNeighborsResponse);
-rpc FindPaths(FindPathsRequest) returns (FindPathsResponse);
-```
+| Service | Port | Transport | Database |
+|---|---|---|---|
+| **Knowledge** | 50051 | gRPC | Memgraph |
+| **Metadata** | 50052 (gRPC) + HTTP | gRPC + HTTP (Axum) | PostgreSQL |
+| **AI** | 50053 | gRPC | None (stateless) |
 
-**Removed:** `GenerateSchema` / `GenerateSchemaRequest` / `CreateGraphSchemaProto` and all
-property schema proto messages.
-
----
-
-### Knowledge service
-
-| Handler | What it does |
-|---|---|
-| `InitializeSchema` | Creates vector indexes per node label |
-| `InsertNode` | Single node insert with `session_id` + `embedding` property |
-| `UpdateNode` | SET properties on existing node, update `embedding` |
-| `InsertEdge` | Single edge insert with `session_id` |
-| `SearchNodes` | Vector nearest-neighbor search |
-| `GetNode` | Fetch one node by ID |
-| `GetNeighbors` | Cypher traversal from a node, depth N |
-| `FindPaths` | `shortestPath` between two nodes |
-
-All queries use **predefined Cypher templates** with parameterized values.
-
----
-
-### Metadata service
-
-- **Migration:** `sessions` + `session_messages` tables added to existing single migration
-  (no property_schemas, no user_role on sessions)
-- **New proto:** `metadata.proto` — 8 RPCs for AI→metadata gRPC communication (session CRUD,
-  schema CRUD, get schema)
-- **gRPC server** running alongside HTTP via `tokio::select!`
-- **Session management:** one active session per graph enforcement
-- **Schema CRUD:** `create_node_schema`, `create_edge_schema` via gRPC — generates key/color,
-  hooks into knowledge for vector index initialization
-- **No HTTP endpoints for session or schema CRUD** — AI communicates via gRPC only
-
----
-
-### AI service
-
-**Removed:** `SchemaService` / `GenerateSchema` (no more schema generation).
-
-**`OpenRouterClient` changes (implemented):**
-- `chat_stream()` method: SSE streaming with tool call accumulation via `ToolCallBuilder`
-- `Message` type with `system()`, `user()`, `assistant()`, `tool()` constructors
-- `ToolDefinition`, `ToolCall`, `FunctionDefinition`, `FunctionCall`, `StreamChatResult` types
-- reqwest `"stream"` feature for `bytes_stream()`
-
-**`EmbeddingClient` (implemented):**
-- `embed(texts: Vec<String>) → Vec<Vec<f32>>` (batch)
-- `embed_one(text: String) → Vec<f32>`
-- Same API key, configurable embedding model (`OPENROUTER_EMBEDDING_MODEL`)
-
-**New `AgentService`** (Step 5) — the core agent loop with entity resolution built in.
-
-**New tools:** `create_schema`, `create_edge_schema` alongside existing node/edge tools.
-
-**gRPC clients:**
-- `MetadataClient` (Step 5) — gRPC client using `metadata.proto` for session/schema management
-- `KnowledgeClient` (Step 5) — gRPC client for knowledge service
-- Config: `KnowledgeServerConfig` with `KNOWLEDGE_GRPC_SERVER_URL`
+- **AI → Metadata:** gRPC via `metadata.proto` (session management, schema CRUD)
+- **AI → Knowledge:** gRPC via `knowledge.proto` (graph operations)
+- **Metadata → Knowledge:** gRPC for vector index initialization on schema creation
+- **Web UI → Metadata:** HTTP REST for user-facing CRUD
+- **Web UI → AI:** gRPC-Web for agent chat streaming
 
 ---
 
@@ -583,21 +620,25 @@ All queries use **predefined Cypher templates** with parameterized values.
 | Embedding model | `openai/text-embedding-3-small` via OpenRouter |
 | Embedding storage | In Memgraph alongside nodes |
 | LLM streaming | SSE from day one |
-| Property schemas | **Removed** — properties are free-form |
-| Schema generation | **Removed** — AI creates schemas on its own |
+| Property schemas | None — properties are free-form |
 | Schema validation | Schema existence only — no property validation |
 | Entity resolution | Automatic in `create_node` — search + neighbor context |
 | Graph normalization | Prompt-guided, no hard limits |
-| Batch inserts | **Open question** — start single, measure, then decide |
+| Batch inserts | Start single, measure, then decide |
 | Session ownership | Metadata service (Postgres) |
 | Message storage | One row per message in `session_messages` |
 | Document delivery | Text inline in `SendMessage` request |
 | LLM-generated queries | **Never** — predefined parameterized templates |
 | Edge vector indexes | No — edge dedup is structural |
 | Schema creation | AI creates schemas mid-conversation via tools |
-| Loop termination | `done` tool, text-only response, or 50 tool-call limit |
+| Loop termination | `done` tool, text-only response, or 200 tool-call limit |
 | Concurrency per graph | One active session at a time |
 | AI→metadata | gRPC via `metadata.proto` (not HTTP) |
+| LLM concurrency | Semaphore (20 permits) across all sessions |
+| gRPC retry | 3 attempts, exponential backoff on Unavailable/DeadlineExceeded |
+| HTTP retry | 3 attempts, exponential backoff on 429/5xx, respects Retry-After |
+| gRPC channels | `connect_lazy()` for automatic HTTP/2 reconnection |
+| Role enforcement | Two layers: tool filtering + tool executor guard |
 
 ### Open: Batch inserts
 
@@ -623,7 +664,148 @@ No new knowledge RPCs needed — batch tools loop over single inserts in the exe
 - **Deferred entity resolution** — let the AI flag uncertain matches (`potential_duplicate_of`)
   instead of forcing an immediate merge/keep decision. A post-processing step (or the AI
   at the end of the session) reviews flagged pairs with more context.
-- **Chunked document ingestion** — pre-chunk large documents, store as chunk nodes,
-  let the agent retrieve relevant chunks via search
 - **User confirmation of new schemas** — before the AI creates a schema, ask the user first
 - **MCP exposure** — expose graph tools to external agents
+
+---
+
+## Future: Document Chunking Pipeline
+
+**Problem:** Currently, documents are sent inline as a single user message. This works for
+small-to-medium documents but will fail for large ones (token limits, degraded extraction
+quality on long contexts, cost).
+
+### Proposed Architecture
+
+**Two-stage approach: chunk → extract per chunk → deduplicate**
+
+#### Stage 1 — Chunking (AI service, before agent loop)
+
+Split the incoming document into overlapping chunks:
+
+- **Chunk size:** ~2000 tokens (configurable)
+- **Overlap:** ~200 tokens (10%) to avoid splitting entities at boundaries
+- **Strategy:** Prefer splitting at paragraph/section boundaries when possible
+  (detect markdown headers, double newlines). Fall back to token-based splitting.
+- Each `Chunk` carries `text`, `index`, and `byte_range` for traceability.
+
+Token counting should use a lightweight tokenizer (e.g., `tiktoken-rs`) rather than
+character-based heuristics.
+
+#### Stage 2 — Per-chunk extraction (agent loop, modified)
+
+For each chunk, run the agent loop with the chunk as the user message. The system prompt
+instructs the LLM that this is chunk N of M and to extract entities/relationships.
+
+Two options for execution:
+1. **Sequential chunks** — simpler, chunks processed one after another in the same session.
+   The LLM accumulates context (sees its own schema creations from earlier chunks).
+2. **Parallel chunks** — faster, each chunk processed independently in a `tokio::JoinSet`.
+   Schema creation is done in a pre-processing step (first chunk or a dedicated schema
+   inference pass). Subsequent chunks use the fixed schema.
+
+**Recommended:** Sequential for correctness (option 1). The LLM can build the schema
+incrementally and resolve entities across chunks because it sees the full message history.
+Parallel extraction is a later optimization.
+
+#### Stage 3 — Cross-chunk entity resolution (post-processing)
+
+After all chunks are processed, run a deduplication pass:
+1. For each node created during the session, search for similar nodes (by embedding).
+2. Present candidate duplicates to the LLM in a final "resolution" pass.
+3. The LLM decides: merge (update_node) or keep separate.
+
+This can reuse the existing entity resolution logic in `create_node` but as a batch
+post-processing step over all session-created nodes.
+
+### Open Questions
+
+- Should raw chunk text be stored as nodes in the graph? (Enables "show source" UX)
+- Should the chunker be configurable per-graph or global?
+- Should very small documents (< 1 chunk) skip the chunking pipeline entirely? (Yes, likely)
+- Should the deduplication pass be automatic or user-triggered?
+
+---
+
+## Future: Graph Data Limits
+
+**Problem:** Without limits, a single graph can grow unbounded — degrading Memgraph query
+performance, consuming excessive memory, and preventing fair resource sharing between users.
+When billing is introduced, users should pay more to store more data.
+
+### Limits to enforce
+
+| Limit | Default | Where enforced | Why |
+|---|---|---|---|
+| Max properties per node/edge | 50 | Knowledge service (insert/update) | Prevent bloated elements that slow queries and embeddings |
+| Max nodes per graph | 10,000 | Tool executor (before insert) | Storage and billing boundary |
+| Max edges per graph | 50,000 | Tool executor (before insert) | Same |
+
+### Enforcement layers
+
+**Layer 1 — Tool executor (AI service):**
+The tool executor checks graph limits **before** calling the knowledge service. If a limit
+is reached, it returns a clear message to the LLM instead of an error:
+
+    "Node limit reached (10000/10000). The graph cannot accept more nodes."
+
+This lets the LLM gracefully stop creating nodes and inform the user, rather than failing
+mid-session.
+
+**Layer 2 — Knowledge service (defense-in-depth):**
+The knowledge service validates independently — rejects insert requests that would exceed
+limits. This protects against bugs in the AI service or direct gRPC calls bypassing the
+tool executor.
+
+### Future: billing-based limits
+
+When billing is introduced:
+
+1. **Metadata DB** stores per-graph limits: `graphs.max_nodes`, `graphs.max_edges`,
+   `graphs.max_properties` — populated from the user's plan tier.
+2. **New RPC** `GetGraphLimits(graph_id)` on the metadata service — or extend `GetSchema`
+   response with limit fields.
+3. **AI agent** fetches limits alongside the schema at session start. The tool executor
+   uses these dynamic limits instead of hardcoded constants.
+4. **Plan tiers** example:
+   - Free: 500 nodes, 2,500 edges
+   - Pro: 50,000 nodes, 250,000 edges
+   - Enterprise: unlimited
+
+---
+
+## Future: Direct LLM Provider Keys
+
+**Problem:** OpenRouter is convenient for development (single API key, model switching) but
+becomes a bottleneck at scale:
+- **Rate limits** — with 100+ concurrent agents, 429 errors will be frequent even with
+  retry logic.
+- **Latency** — OpenRouter adds a proxy hop (~50-100ms) on every request.
+- **Availability** — an extra point of failure between the AI service and the model provider.
+- **Cost** — OpenRouter charges a small markup on top of provider pricing.
+
+### Current mitigation
+
+A `tokio::sync::Semaphore` caps concurrent LLM calls in the AI service. This prevents
+overwhelming OpenRouter during traffic spikes but limits throughput.
+
+### Migration plan: direct provider APIs
+
+When scaling past ~20 concurrent agents, switch to direct provider keys:
+
+1. **Multi-provider client** — replace `OpenRouterClient` with a `LlmClient` abstraction
+   that supports multiple backends (OpenAI, Anthropic, Google) behind a common interface.
+2. **Provider routing** — optionally distribute calls across multiple providers/keys
+   for higher aggregate throughput (round-robin or least-loaded).
+3. **Fallback chain** — if primary provider returns 429 or 5xx, fall back to a secondary
+   provider (e.g., OpenAI primary → Anthropic fallback).
+
+### Benefits of direct keys
+
+| Aspect | OpenRouter | Direct provider |
+|---|---|---|
+| Rate limits | Shared across all OpenRouter users | Dedicated to your account |
+| Latency | +50-100ms proxy | Direct connection |
+| SLA | Best-effort | Provider SLA (99.9%+) |
+| Cost | Provider price + markup | Provider price only |
+| Model selection | Any model via one key | One key per provider |

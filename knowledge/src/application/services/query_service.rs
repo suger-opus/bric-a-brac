@@ -2,7 +2,7 @@ use crate::{
     domain::models::{GraphDataModel, NodeDataModel, NodeSummaryModel},
     domain::utils::validate_depth,
     infrastructure::repositories::QueryRepository,
-    presentation::errors::AppError,
+    application::errors::AppError,
 };
 use bric_a_brac_dtos::{GraphDataDto, GraphIdDto, NodeDataIdDto};
 use neo4rs::Graph;

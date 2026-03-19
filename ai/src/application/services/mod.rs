@@ -1,3 +1,4 @@
+mod agent_error;
 mod agent_service;
 mod prompt;
 pub mod tool_executor;

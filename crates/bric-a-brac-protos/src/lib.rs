@@ -22,5 +22,5 @@ mod tracing;
 mod server;
 
 pub use server::build_grpc_server;
-pub use client::GrpcClient;
+pub use client::with_retry;
 pub use error::{BaseGrpcClientError, GrpcServiceKind};

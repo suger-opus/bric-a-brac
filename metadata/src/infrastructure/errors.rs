@@ -1,5 +1,3 @@
-use super::HttpError;
-use axum::response::{IntoResponse, Response};
 use bric_a_brac_dtos::DtosConversionError;
 use bric_a_brac_protos::BaseGrpcClientError;
 use sqlx::{error::ErrorKind, postgres::PgDatabaseError};
@@ -11,15 +9,6 @@ pub enum GrpcClientError {
 
     #[error(transparent)]
     Conversion(#[from] DtosConversionError),
-}
-
-impl GrpcClientError {
-    pub fn is_connection_error(&self) -> bool {
-        match self {
-            GrpcClientError::Base(base_err) => base_err.is_connection_error(),
-            _ => false,
-        }
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -69,45 +58,6 @@ pub enum DatabaseError {
     UnexpectedState { reason: String },
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum RequestError {
-    #[error("Request: unauthorized - {reason}")]
-    Unauthorized { reason: String },
-
-    #[error("Request: invalid header {header} - {issue}")]
-    InvalidHeader { issue: String, header: String },
-
-    #[error("Request: invalid file - {issue}")]
-    InvalidFile { issue: String },
-
-    #[error("Request: invalid input {field} - {issue}")]
-    InvalidInput { issue: String, field: String },
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum AppError {
-    #[error(transparent)]
-    Database(#[from] DatabaseError),
-
-    #[error(transparent)]
-    GrpcClient(#[from] GrpcClientError),
-
-    #[error(transparent)]
-    Request(#[from] RequestError),
-}
-
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        HttpError::from(self).into_response()
-    }
-}
-
-impl IntoResponse for RequestError {
-    fn into_response(self) -> Response {
-        HttpError::from(AppError::from(self)).into_response()
-    }
-}
-
 impl From<sqlx::Error> for DatabaseError {
     fn from(err: sqlx::Error) -> Self {
         match &err {
@@ -117,8 +67,6 @@ impl From<sqlx::Error> for DatabaseError {
                 let detail = pg_err.detail().unwrap_or("unknown").to_string();
                 let table = pg_err.table().unwrap_or("unknown").to_string();
                 let constraint_name = pg_err.constraint().unwrap_or("unknown").to_string();
-                // Constraint names follow pattern: tablename_fieldname_key
-                // Remove "_key" suffix, then skip table name prefix
                 let column = pg_err
                     .constraint()
                     .and_then(|constraint| {
@@ -162,11 +110,5 @@ impl From<sqlx::Error> for DatabaseError {
             }
             _ => DatabaseError::Unknown { source: err },
         }
-    }
-}
-
-impl From<sqlx::Error> for AppError {
-    fn from(err: sqlx::Error) -> Self {
-        DatabaseError::from(err).into()
     }
 }

@@ -1,4 +1,4 @@
-use super::{AppError, OpenRouterClientError};
+use crate::{application::errors::AppError, infrastructure::errors::OpenRouterClientError};
 use tonic::{Code, Status};
 
 pub struct TonicError {
@@ -23,17 +23,23 @@ impl From<TonicError> for Status {
 
 impl From<AppError> for TonicError {
     fn from(err: AppError) -> Self {
-        tracing::error!(error = ?err);
         match &err {
             AppError::FileParsing { .. } => {
+                tracing::warn!(error = ?err);
                 Self::new(Code::InvalidArgument, format!("{err}"))
             }
             AppError::OpenRouterClient(
                 OpenRouterClientError::Request { .. }
                 | OpenRouterClientError::ReadResponse { .. }
                 | OpenRouterClientError::NoSuccessResponse { .. },
-            ) => Self::new(Code::Unavailable, format!("{err}")),
-            _ => Self::new(Code::Internal, format!("{err}")),
+            ) => {
+                tracing::error!(error = ?err);
+                Self::new(Code::Unavailable, format!("{err}"))
+            }
+            _ => {
+                tracing::error!(error = ?err);
+                Self::new(Code::Internal, format!("{err}"))
+            }
         }
     }
 }

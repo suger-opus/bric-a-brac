@@ -1,5 +1,5 @@
-use crate::{
-    infrastructure::config::OpenRouterConfig, presentation::errors::OpenRouterClientError,
+use crate::infrastructure::{
+    config::OpenRouterConfig, errors::OpenRouterClientError, http_retry::send_with_retry,
 };
 use futures_util::StreamExt;
 use secrecy::{ExposeSecret, SecretString};
@@ -243,21 +243,17 @@ impl OpenRouterClient {
             stream: false,
         };
 
-        let response = self
-            .client
-            .post("https://openrouter.ai/api/v1/chat/completions")
-            .header(
-                "Authorization",
-                format!("Bearer {}", &self.api_key.expose_secret()),
-            )
-            .header("Content-Type", "application/json")
-            .json(&request)
-            .send()
-            .await
-            .map_err(|err| OpenRouterClientError::Request {
-                message: "Failed to call OpenRouter API".to_owned(),
-                source: err,
-            })?;
+        let response = send_with_retry("OpenRouter chat", || {
+            self.client
+                .post("https://openrouter.ai/api/v1/chat/completions")
+                .header(
+                    "Authorization",
+                    format!("Bearer {}", &self.api_key.expose_secret()),
+                )
+                .header("Content-Type", "application/json")
+                .json(&request)
+        })
+        .await?;
 
         let status = response.status();
         let response_text =
@@ -333,21 +329,17 @@ impl OpenRouterClient {
             stream: true,
         };
 
-        let response = self
-            .client
-            .post("https://openrouter.ai/api/v1/chat/completions")
-            .header(
-                "Authorization",
-                format!("Bearer {}", &self.api_key.expose_secret()),
-            )
-            .header("Content-Type", "application/json")
-            .json(&request)
-            .send()
-            .await
-            .map_err(|err| OpenRouterClientError::Request {
-                message: "Failed to call OpenRouter API (stream)".to_owned(),
-                source: err,
-            })?;
+        let response = send_with_retry("OpenRouter chat_stream", || {
+            self.client
+                .post("https://openrouter.ai/api/v1/chat/completions")
+                .header(
+                    "Authorization",
+                    format!("Bearer {}", &self.api_key.expose_secret()),
+                )
+                .header("Content-Type", "application/json")
+                .json(&request)
+        })
+        .await?;
 
         let status = response.status();
         if !status.is_success() {

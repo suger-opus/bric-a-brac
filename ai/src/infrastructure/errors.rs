@@ -1,8 +1,5 @@
-use crate::presentation::errors::TonicError;
 use bric_a_brac_dtos::DtosConversionError;
 use bric_a_brac_protos::BaseGrpcClientError;
-use std::str::Utf8Error;
-use tonic::Status;
 
 #[derive(Debug, thiserror::Error)]
 pub enum GrpcClientError {
@@ -60,42 +57,4 @@ pub enum OpenRouterClientError {
 
     #[error("AI failed to generate valid data after multiple attempts: {message}")]
     DataGeneration { message: String },
-}
-
-impl GrpcClientError {
-    #[must_use] 
-    pub fn is_connection_error(&self) -> bool {
-        match self {
-            Self::Base(base_err) => base_err.is_connection_error(),
-            _ => false,
-        }
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum AppError {
-    #[error(transparent)]
-    GrpcClient(#[from] GrpcClientError),
-
-    #[error(transparent)]
-    OpenRouterClient(#[from] OpenRouterClientError),
-
-    #[error("File parsing failed: {message}")]
-    FileParsing {
-        message: String,
-        #[source]
-        source: Utf8Error,
-    },
-}
-
-impl From<AppError> for Status {
-    fn from(err: AppError) -> Self {
-        TonicError::from(err).into()
-    }
-}
-
-impl From<DtosConversionError> for AppError {
-    fn from(err: DtosConversionError) -> Self {
-        Self::GrpcClient(err.into())
-    }
 }

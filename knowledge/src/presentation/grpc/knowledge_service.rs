@@ -1,6 +1,6 @@
 use crate::{
     application::services::{MutateService, QueryService},
-    presentation::errors::AppError,
+    application::errors::AppError,
 };
 use bric_a_brac_dtos::{
     EdgeDataDto, InsertEdgeDataDto, InsertNodeDataDto, KeyDto, NodeDataDto, UpdateNodeDataDto,

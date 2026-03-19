@@ -3,7 +3,7 @@ use crate::{
         EdgeDataModel, InsertEdgeDataModel, InsertNodeDataModel, NodeDataModel, UpdateNodeDataModel,
     },
     infrastructure::repositories::MutateRepository,
-    presentation::errors::AppError,
+    application::errors::AppError,
 };
 use bric_a_brac_dtos::GraphIdDto;
 use neo4rs::Graph;

@@ -1,5 +1,5 @@
-use crate::{
-    infrastructure::config::OpenRouterConfig, presentation::errors::OpenRouterClientError,
+use crate::infrastructure::{
+    config::OpenRouterConfig, errors::OpenRouterClientError, http_retry::send_with_retry,
 };
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -53,21 +53,17 @@ impl EmbeddingClient {
             input: texts,
         };
 
-        let response = self
-            .client
-            .post("https://openrouter.ai/api/v1/embeddings")
-            .header(
-                "Authorization",
-                format!("Bearer {}", &self.api_key.expose_secret()),
-            )
-            .header("Content-Type", "application/json")
-            .json(&request)
-            .send()
-            .await
-            .map_err(|err| OpenRouterClientError::Request {
-                message: "Failed to call OpenRouter Embeddings API".to_owned(),
-                source: err,
-            })?;
+        let response = send_with_retry("OpenRouter embed", || {
+            self.client
+                .post("https://openrouter.ai/api/v1/embeddings")
+                .header(
+                    "Authorization",
+                    format!("Bearer {}", &self.api_key.expose_secret()),
+                )
+                .header("Content-Type", "application/json")
+                .json(&request)
+        })
+        .await?;
 
         let status = response.status();
         let response_text =

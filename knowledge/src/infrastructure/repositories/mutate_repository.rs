@@ -4,7 +4,7 @@ use crate::{
         GraphIdModel, InsertEdgeDataModel, InsertNodeDataModel, NodeDataIdModel,
         NodeDataModel, UpdateNodeDataModel,
     },
-    presentation::errors::DatabaseError,
+    infrastructure::errors::DatabaseError,
 };
 use neo4rs::{query, BoltFloat, BoltList, BoltMap, BoltString, BoltType};
 use std::{collections::HashMap, str::FromStr};

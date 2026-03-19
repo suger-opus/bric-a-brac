@@ -1,5 +1,5 @@
 use super::super::dtos::{AccessDto, CreateAccessDto};
-use crate::{infrastructure::repositories::AccessRepository, presentation::errors::AppError};
+use crate::{infrastructure::repositories::AccessRepository, application::errors::AppError};
 use bric_a_brac_dtos::GraphIdDto;
 use sqlx::PgPool;
 

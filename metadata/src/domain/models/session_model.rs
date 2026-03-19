@@ -1,4 +1,4 @@
-use super::{GraphIdModel, UserIdModel};
+use super::{GraphIdModel, RoleModel, UserIdModel};
 use bric_a_brac_id::id;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -42,6 +42,7 @@ pub struct SessionModel {
     pub graph_id: GraphIdModel,
     pub user_id: UserIdModel,
     pub status: SessionStatusModel,
+    pub role: RoleModel,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

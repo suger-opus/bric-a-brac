@@ -6,9 +6,10 @@ use crate::{
     },
     infrastructure::{
         clients::KnowledgeClient,
+        errors::GrpcClientError,
         repositories::{AccessRepository, GraphRepository},
     },
-    presentation::errors::AppError,
+    application::errors::AppError,
 };
 use bric_a_brac_dtos::{EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto, NodeSchemaDto};
 use rand::RngExt;
@@ -126,7 +127,10 @@ impl GraphService {
 
     #[tracing::instrument(level = "trace", name = "graph_service.get_data", skip(self, graph_id))]
     pub async fn get_data(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, AppError> {
-        Ok(self.knowledge_client.load_graph(graph_id).await?)
+        let proto = self.knowledge_client.load_graph(graph_id).await?;
+        proto
+            .try_into()
+            .map_err(|e| GrpcClientError::Conversion(e).into())
     }
 
     #[tracing::instrument(

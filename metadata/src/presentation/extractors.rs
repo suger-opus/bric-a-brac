@@ -1,4 +1,4 @@
-use super::errors::RequestError;
+use crate::application::errors::RequestError;
 use crate::application::dtos::UserIdDto;
 use axum::http::request::Parts;
 use axum::extract::FromRequestParts;

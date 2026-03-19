@@ -1,7 +1,7 @@
 use super::{GraphIdModel, UserIdModel};
 use chrono::{DateTime, Utc};
 
-#[derive(Debug, sqlx::Type)]
+#[derive(Debug, Clone, serde::Serialize, sqlx::Type)]
 #[sqlx(type_name = "role_type")]
 pub enum RoleModel {
     Owner,
@@ -9,6 +9,18 @@ pub enum RoleModel {
     Editor,
     Viewer,
     None,
+}
+
+impl std::fmt::Display for RoleModel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Owner => write!(f, "Owner"),
+            Self::Admin => write!(f, "Admin"),
+            Self::Editor => write!(f, "Editor"),
+            Self::Viewer => write!(f, "Viewer"),
+            Self::None => write!(f, "None"),
+        }
+    }
 }
 
 #[derive(Debug, sqlx::FromRow)]

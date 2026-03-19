@@ -1,7 +1,7 @@
 use super::PropertiesDataModel;
 use crate::{
     domain::{models::GraphIdModel, utils::ExtendElement},
-    presentation::errors::DatabaseError,
+    infrastructure::errors::DatabaseError,
 };
 use bric_a_brac_id::id;
 use std::str::FromStr;

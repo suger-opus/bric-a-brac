@@ -1,4 +1,4 @@
-use crate::presentation::errors::DatabaseError;
+use crate::infrastructure::errors::DatabaseError;
 
 pub fn validate_depth(depth: i32) -> Result<u32, DatabaseError> {
     if depth < 1 || depth > 10 {

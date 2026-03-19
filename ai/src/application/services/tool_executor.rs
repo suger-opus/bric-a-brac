@@ -24,6 +24,18 @@ pub struct ToolResult {
     pub is_done: bool,
 }
 
+const WRITE_TOOLS: &[&str] = &[
+    "create_schema",
+    "create_edge_schema",
+    "create_node",
+    "create_edge",
+    "update_node",
+];
+
+fn is_write_role(role: &str) -> bool {
+    matches!(role, "Owner" | "Admin" | "Editor")
+}
+
 impl ToolExecutor {
     pub const fn new(
         knowledge_client: KnowledgeClient,
@@ -37,6 +49,12 @@ impl ToolExecutor {
         }
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "tool.execute",
+        skip(self, arguments, schema),
+        fields(tool_name, graph_id, session_id)
+    )]
     pub async fn execute(
         &self,
         tool_name: &str,
@@ -44,7 +62,19 @@ impl ToolExecutor {
         graph_id: &str,
         session_id: &str,
         schema: &GraphSchemaProto,
+        user_role: &str,
     ) -> ToolResult {
+        if WRITE_TOOLS.contains(&tool_name) && !is_write_role(user_role) {
+            return ToolResult {
+                content: format!(
+                    "Permission denied: role '{user_role}' cannot use tool '{tool_name}'. \
+                     Write access requires Owner, Admin, or Editor role."
+                ),
+                schema_changed: false,
+                is_done: false,
+            };
+        }
+
         let result = match tool_name {
             "search_nodes" => self.exec_search_nodes(arguments, graph_id).await,
             "get_node" => self.exec_get_node(arguments, graph_id).await,

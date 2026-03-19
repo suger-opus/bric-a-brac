@@ -1,4 +1,4 @@
-use crate::presentation::errors::DatabaseError;
+use crate::infrastructure::errors::DatabaseError;
 use neo4rs::{BoltBoolean, BoltString, BoltType};
 use std::collections::HashMap;
 

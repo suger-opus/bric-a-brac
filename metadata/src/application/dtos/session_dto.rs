@@ -22,6 +22,7 @@ impl From<SessionModel> for SessionProto {
             status: model.status.to_string(),
             created_at: Option::<Timestamp>::from_chrono(model.created_at),
             updated_at: Option::<Timestamp>::from_chrono(model.updated_at),
+            role: model.role.to_string(),
         }
     }
 }

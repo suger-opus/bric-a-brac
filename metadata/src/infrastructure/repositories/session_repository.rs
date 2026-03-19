@@ -1,10 +1,10 @@
 use crate::{
     domain::models::{
-        CreateSessionMessageModel, CreateSessionModel, GraphIdModel, SessionIdModel,
+        CreateSessionMessageModel, CreateSessionModel, GraphIdModel, RoleModel, SessionIdModel,
         SessionMessageIdModel, SessionMessageModel, SessionMessageRoleModel, SessionModel,
         SessionStatusModel,
     },
-    presentation::errors::DatabaseError,
+    infrastructure::errors::DatabaseError,
 };
 use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
@@ -54,15 +54,21 @@ impl SessionRepository {
         let row = sqlx::query_as!(
             SessionRow,
             r#"
-INSERT INTO sessions (session_id, graph_id, user_id)
-VALUES ($1, $2, $3)
-RETURNING
-    session_id,
-    graph_id,
-    user_id,
-    status AS "status!:_",
-    created_at,
-    updated_at
+WITH inserted AS (
+    INSERT INTO sessions (session_id, graph_id, user_id)
+    VALUES ($1, $2, $3)
+    RETURNING session_id, graph_id, user_id, status, created_at, updated_at
+)
+SELECT
+    i.session_id,
+    i.graph_id,
+    i.user_id,
+    i.status AS "status!:_",
+    COALESCE(a.role, 'None'::role_type) AS "role!:_",
+    i.created_at,
+    i.updated_at
+FROM inserted i
+LEFT JOIN accesses a ON i.user_id = a.user_id AND i.graph_id = a.graph_id
             "#,
             create_session.session_id as _,
             create_session.graph_id as _,
@@ -90,14 +96,16 @@ RETURNING
             SessionRow,
             r#"
 SELECT
-    session_id,
-    graph_id,
-    user_id,
-    status AS "status!:_",
-    created_at,
-    updated_at
-FROM sessions
-WHERE session_id = $1
+    s.session_id,
+    s.graph_id,
+    s.user_id,
+    s.status AS "status!:_",
+    COALESCE(a.role, 'None'::role_type) AS "role!:_",
+    s.created_at,
+    s.updated_at
+FROM sessions s
+LEFT JOIN accesses a ON s.user_id = a.user_id AND s.graph_id = a.graph_id
+WHERE s.session_id = $1
             "#,
             session_id as _,
         )
@@ -123,16 +131,22 @@ WHERE session_id = $1
         let row = sqlx::query_as!(
             SessionRow,
             r#"
-UPDATE sessions
-SET status = $2, updated_at = CURRENT_TIMESTAMP
-WHERE session_id = $1
-RETURNING
-    session_id,
-    graph_id,
-    user_id,
-    status AS "status!:_",
-    created_at,
-    updated_at
+WITH updated AS (
+    UPDATE sessions
+    SET status = $2, updated_at = CURRENT_TIMESTAMP
+    WHERE session_id = $1
+    RETURNING session_id, graph_id, user_id, status, created_at, updated_at
+)
+SELECT
+    u.session_id,
+    u.graph_id,
+    u.user_id,
+    u.status AS "status!:_",
+    COALESCE(a.role, 'None'::role_type) AS "role!:_",
+    u.created_at,
+    u.updated_at
+FROM updated u
+LEFT JOIN accesses a ON u.user_id = a.user_id AND u.graph_id = a.graph_id
             "#,
             session_id as _,
             status.to_string(),
@@ -255,6 +269,7 @@ struct SessionRow {
     graph_id: GraphIdModel,
     user_id: crate::domain::models::UserIdModel,
     status: SessionStatusModel,
+    role: RoleModel,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
 }
@@ -266,6 +281,7 @@ impl From<SessionRow> for SessionModel {
             graph_id: row.graph_id,
             user_id: row.user_id,
             status: row.status,
+            role: row.role,
             created_at: row.created_at,
             updated_at: row.updated_at,
         }

@@ -1,31 +1,4 @@
-use crate::presentation::errors::TonicError;
-use bric_a_brac_dtos::DtosConversionError;
 use neo4rs::BoltType;
-use tonic::Status;
-
-#[derive(Debug, thiserror::Error)]
-pub enum AppError {
-    #[error(transparent)]
-    Conversion(#[from] DtosConversionError),
-
-    #[error(transparent)]
-    Database(#[from] DatabaseError),
-
-    #[error("Internal error: {context}")]
-    Internal { context: String },
-
-    #[error("Not found: {entity}")]
-    NotFound { entity: String },
-
-    #[error("Invalid input: {reason}")]
-    InvalidInput { reason: String },
-}
-
-impl From<AppError> for Status {
-    fn from(err: AppError) -> Self {
-        TonicError::from(err).into()
-    }
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum DatabaseError {
@@ -87,11 +60,5 @@ impl From<neo4rs::Error> for DatabaseError {
 impl From<neo4rs::DeError> for DatabaseError {
     fn from(err: neo4rs::DeError) -> Self {
         DatabaseError::UnknownDe { source: err }
-    }
-}
-
-impl From<neo4rs::Error> for AppError {
-    fn from(err: neo4rs::Error) -> Self {
-        DatabaseError::from(err).into()
     }
 }

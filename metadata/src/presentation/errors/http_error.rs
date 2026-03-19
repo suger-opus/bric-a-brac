@@ -1,4 +1,7 @@
-use super::{AppError, DatabaseError, GrpcClientError, RequestError};
+use crate::{
+    application::errors::{AppError, RequestError},
+    infrastructure::errors::{DatabaseError, GrpcClientError},
+};
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -155,38 +158,16 @@ impl From<AppError> for HttpError {
             }
 
             // --- gRPC client errors ---
-            AppError::GrpcClient(GrpcClientError::Base(BaseGrpcClientError::Inaccessible {
-                service,
-                source: _,
-            })) => {
-                tracing::error!(error = ?err, "Request failed: (gRPC) Inaccessible");
-                HttpError::bad_gateway("External service not accessible", *service, "")
-            }
-            AppError::GrpcClient(GrpcClientError::Base(BaseGrpcClientError::Disconnected {
-                service,
-            })) => {
-                tracing::error!(error = ?err, "Request failed: (gRPC) Disconnected");
-                HttpError::bad_gateway("External service disconnected", *service, "")
-            }
             AppError::GrpcClient(GrpcClientError::Base(BaseGrpcClientError::Request {
                 service,
                 message,
                 source: _,
             })) => {
-                tracing::error!(error = ?err, "Request failed: (gRPC) Request");
+                tracing::error!(error = ?err, "Request failed: gRPC client error");
                 HttpError::bad_gateway("External service request failed", *service, message)
             }
-            AppError::GrpcClient(GrpcClientError::Base(BaseGrpcClientError::MutexPoisoned {
-                message,
-            })) => {
-                tracing::error!(error = ?err, "Request failed: (gRPC) Mutex Poisoned");
-                HttpError::internal_server_error(
-                    format!("Synchronization failed: {}", message).as_str(),
-                )
-            }
-            // TODO: handle each error enum case
             AppError::GrpcClient(GrpcClientError::Conversion(_)) => {
-                tracing::error!(error = ?err, "Request failed: (gRPC) DTO Conversion Error");
+                tracing::error!(error = ?err, "Request failed: gRPC DTO conversion error");
                 HttpError::internal_server_error("Failed to convert data from gRPC service")
             }
 

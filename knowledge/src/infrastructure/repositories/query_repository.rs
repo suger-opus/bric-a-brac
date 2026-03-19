@@ -3,7 +3,7 @@ use crate::{
         EdgeDataModel, GraphDataModel, GraphIdModel, NodeDataIdModel, NodeDataModel,
         NodeSummaryModel,
     },
-    presentation::errors::DatabaseError,
+    infrastructure::errors::DatabaseError,
 };
 use neo4rs::query;
 use std::str::FromStr;

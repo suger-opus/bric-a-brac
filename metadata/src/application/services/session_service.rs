@@ -3,8 +3,8 @@ use crate::{
         CreateSessionMessageModel, CreateSessionModel, SessionIdModel, SessionMessageModel,
         SessionModel, SessionStatusModel,
     },
-    infrastructure::repositories::SessionRepository,
-    presentation::errors::{AppError, DatabaseError},
+    application::errors::AppError,
+    infrastructure::{errors::DatabaseError, repositories::SessionRepository},
 };
 use sqlx::PgPool;
 

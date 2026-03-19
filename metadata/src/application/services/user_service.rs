@@ -1,7 +1,7 @@
 use crate::{
     application::dtos::{CreateUserDto, UserDto, UserIdDto},
     infrastructure::repositories::UserRepository,
-    presentation::errors::AppError,
+    application::errors::AppError,
 };
 use sqlx::PgPool;
 

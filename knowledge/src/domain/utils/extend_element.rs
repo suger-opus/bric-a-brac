@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{domain::models::PropertiesDataModel, presentation::errors::DatabaseError};
+use crate::{domain::models::PropertiesDataModel, infrastructure::errors::DatabaseError};
 use neo4rs::BoltType;
 
 pub trait ExtendElement {

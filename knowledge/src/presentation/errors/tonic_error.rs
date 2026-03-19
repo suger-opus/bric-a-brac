@@ -1,4 +1,4 @@
-use super::AppError;
+use crate::application::errors::AppError;
 use tonic::{Code, Status};
 
 pub struct TonicError {
@@ -23,7 +23,14 @@ impl From<TonicError> for Status {
 
 impl From<AppError> for TonicError {
     fn from(err: AppError) -> Self {
-        tracing::error!(error = ?err);
+        match &err {
+            AppError::NotFound { .. } | AppError::InvalidInput { .. } | AppError::Conversion(_) => {
+                tracing::warn!(error = ?err);
+            }
+            _ => {
+                tracing::error!(error = ?err);
+            }
+        }
         match &err {
             AppError::NotFound { .. } => TonicError::new(Code::NotFound, format!("{}", err)),
             AppError::InvalidInput { .. } => {

@@ -1,6 +1,6 @@
 use crate::{
     domain::models::{CreateUserModel, UserIdModel, UserModel},
-    presentation::errors::DatabaseError,
+    infrastructure::errors::DatabaseError,
 };
 use sqlx::PgConnection;
 
