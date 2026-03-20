@@ -2,9 +2,10 @@
 
 import { graphService } from "@/lib/api/services/graph-service";
 import type { GraphData, GraphMetadata, GraphSchema, ProcessedGraphData } from "@/types";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 type GraphContextType = {
+  graphId: string | null;
   metadata: GraphMetadata | null;
   schema: GraphSchema | null;
   data: GraphData | null;
@@ -16,6 +17,7 @@ type GraphContextType = {
   setFocusNode: (nodeId: string | null) => void;
   focusEdge: string | null;
   setFocusEdge: (edgeId: string | null) => void;
+  refetch: () => void;
 };
 
 const GraphContext = createContext<GraphContextType | undefined>(undefined);
@@ -56,6 +58,9 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
   const [error, setError] = useState<string | null>(null);
   const [focusNode, setFocusNode] = useState<string | null>(null);
   const [focusEdge, setFocusEdge] = useState<string | null>(null);
+  const [fetchTrigger, setFetchTrigger] = useState(0);
+
+  const refetch = useCallback(() => setFetchTrigger((n) => n + 1), []);
 
   useEffect(() => {
     if (!graphId) {
@@ -94,15 +99,17 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
 
     fetchGraph();
     return () => { cancelled = true; };
-  }, [graphId]);
+  }, [graphId, fetchTrigger]);
 
   return (
     <GraphContext.Provider
       value={{
+        graphId,
         metadata, schema, data, processedData,
         isLoading, isLoaded, error,
         focusNode, setFocusNode,
         focusEdge, setFocusEdge,
+        refetch,
       }}
     >
       {children}

@@ -20,13 +20,12 @@ pub struct KnowledgeClient {
 }
 
 impl KnowledgeClient {
-    pub fn new(config: KnowledgeServerConfig) -> Self {
-        let channel = tonic::transport::Endpoint::from_shared(config.url().to_string())
-            .expect("valid knowledge gRPC URL")
+    pub fn new(config: KnowledgeServerConfig) -> anyhow::Result<Self> {
+        let channel = tonic::transport::Endpoint::from_shared(config.url().to_string())?
             .connect_lazy();
-        Self {
+        Ok(Self {
             client: KnowledgeGrpcClient::new(channel),
-        }
+        })
     }
 
     pub async fn insert_node(

@@ -16,6 +16,10 @@ use utoipa::OpenApi;
         crate::presentation::http::graph_handler::get_schema,
         crate::presentation::http::graph_handler::get_data,
         crate::presentation::http::access_handler::create,
+        crate::presentation::http::session_handler::create,
+        crate::presentation::http::session_handler::get,
+        crate::presentation::http::session_handler::close,
+        crate::presentation::http::session_handler::get_messages,
     )
 )]
 pub struct ApiDoc;

@@ -15,8 +15,8 @@ use bric_a_brac_protos::{ai::ai_server::AiServer, build_grpc_server};
 pub async fn run(config: Config) -> anyhow::Result<()> {
     let openrouter_client = OpenRouterClient::new(config.openrouter());
     let embedding_client = EmbeddingClient::new(config.openrouter());
-    let knowledge_client = KnowledgeClient::new(config.knowledge_server().clone());
-    let metadata_client = MetadataClient::new(config.metadata_server().clone());
+    let knowledge_client = KnowledgeClient::new(config.knowledge_server().clone())?;
+    let metadata_client = MetadataClient::new(config.metadata_server().clone())?;
 
     let tool_executor = application::services::ToolExecutor::new(
         knowledge_client,

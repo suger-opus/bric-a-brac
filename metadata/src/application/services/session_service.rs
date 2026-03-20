@@ -1,9 +1,14 @@
 use crate::{
-    domain::models::{
-        CreateSessionMessageModel, CreateSessionModel, SessionIdModel, SessionMessageModel,
-        SessionModel, SessionStatusModel,
+    application::{
+        dtos::{
+            CreateSessionDto, CreateSessionMessageDto, SessionDto, SessionIdDto,
+            SessionMessageDto, UserIdDto,
+        },
+        errors::{AppError, RequestError},
     },
-    application::errors::AppError,
+    domain::models::{
+        CreateSessionMessageModel, CreateSessionModel, SessionMessageRoleModel,
+    },
     infrastructure::{errors::DatabaseError, repositories::SessionRepository},
 };
 use sqlx::PgPool;
@@ -22,18 +27,24 @@ impl SessionService {
     #[tracing::instrument(
         level = "trace",
         name = "session_service.create_session",
-        skip(self, create)
+        skip(self, create, user_id)
     )]
     pub async fn create_session(
         &self,
-        create: CreateSessionModel,
-    ) -> Result<SessionModel, AppError> {
+        create: CreateSessionDto,
+        user_id: UserIdDto,
+    ) -> Result<SessionDto, AppError> {
+        let model = CreateSessionModel {
+            session_id: SessionIdDto::new().into(),
+            graph_id: create.graph_id.into(),
+            user_id: user_id.into(),
+        };
+
         let mut txn = self.pool.begin().await?;
 
-        // Check if there's already an active session for this graph
         let has_active = self
             .repository
-            .has_active_session(&mut txn, create.graph_id)
+            .has_active_session(&mut txn, model.graph_id)
             .await?;
 
         if has_active {
@@ -42,10 +53,10 @@ impl SessionService {
             }));
         }
 
-        let session = self.repository.create_session(&mut txn, create).await?;
+        let session = self.repository.create_session(&mut txn, model).await?;
         txn.commit().await?;
 
-        Ok(session)
+        Ok(SessionDto::from(session))
     }
 
     #[tracing::instrument(
@@ -55,13 +66,16 @@ impl SessionService {
     )]
     pub async fn get_session(
         &self,
-        session_id: SessionIdModel,
-    ) -> Result<SessionModel, AppError> {
+        session_id: SessionIdDto,
+    ) -> Result<SessionDto, AppError> {
         let mut txn = self.pool.begin().await?;
-        let session = self.repository.get_session(&mut txn, session_id).await?;
+        let session = self
+            .repository
+            .get_session(&mut txn, session_id.into())
+            .await?;
         txn.commit().await?;
 
-        Ok(session)
+        Ok(SessionDto::from(session))
     }
 
     #[tracing::instrument(
@@ -71,17 +85,24 @@ impl SessionService {
     )]
     pub async fn close_session(
         &self,
-        session_id: SessionIdModel,
-        status: SessionStatusModel,
-    ) -> Result<SessionModel, AppError> {
+        session_id: SessionIdDto,
+        status: &str,
+    ) -> Result<SessionDto, AppError> {
+        let status_model = status.parse().map_err(|_| {
+            RequestError::InvalidInput {
+                field: "status".to_string(),
+                issue: format!("Invalid session status: {status}"),
+            }
+        })?;
+
         let mut txn = self.pool.begin().await?;
         let session = self
             .repository
-            .close_session(&mut txn, session_id, status)
+            .close_session(&mut txn, session_id.into(), status_model)
             .await?;
         txn.commit().await?;
 
-        Ok(session)
+        Ok(SessionDto::from(session))
     }
 
     #[tracing::instrument(
@@ -91,13 +112,16 @@ impl SessionService {
     )]
     pub async fn get_messages(
         &self,
-        session_id: SessionIdModel,
-    ) -> Result<Vec<SessionMessageModel>, AppError> {
+        session_id: SessionIdDto,
+    ) -> Result<Vec<SessionMessageDto>, AppError> {
         let mut txn = self.pool.begin().await?;
-        let messages = self.repository.get_messages(&mut txn, session_id).await?;
+        let messages = self
+            .repository
+            .get_messages(&mut txn, session_id.into())
+            .await?;
         txn.commit().await?;
 
-        Ok(messages)
+        Ok(messages.into_iter().map(SessionMessageDto::from).collect())
     }
 
     #[tracing::instrument(
@@ -107,28 +131,49 @@ impl SessionService {
     )]
     pub async fn append_messages(
         &self,
-        session_id: SessionIdModel,
-        messages: Vec<CreateSessionMessageModel>,
-    ) -> Result<Vec<SessionMessageModel>, AppError> {
+        session_id: SessionIdDto,
+        messages: Vec<CreateSessionMessageDto>,
+    ) -> Result<Vec<SessionMessageDto>, AppError> {
+        let session_id_model = session_id.into();
         let mut txn = self.pool.begin().await?;
         let max_pos = self
             .repository
-            .get_max_position(&mut txn, session_id)
+            .get_max_position(&mut txn, session_id_model)
             .await?;
 
-        // Re-number messages starting from max_pos + 1
-        let messages: Vec<CreateSessionMessageModel> = messages
+        let models = messages
             .into_iter()
             .enumerate()
-            .map(|(i, mut msg)| {
-                msg.position = max_pos + i as i32 + 1;
-                msg
-            })
-            .collect();
+            .map(|(i, dto)| {
+                let role = dto.role.parse::<SessionMessageRoleModel>().map_err(|_| {
+                    RequestError::InvalidInput {
+                        field: "role".to_string(),
+                        issue: format!("Invalid message role: {}", dto.role),
+                    }
+                })?;
+                let tool_calls = dto
+                    .tool_calls
+                    .map(|s| serde_json::from_str(&s))
+                    .transpose()
+                    .map_err(|_| RequestError::InvalidInput {
+                        field: "tool_calls".to_string(),
+                        issue: "Invalid JSON in tool_calls".to_string(),
+                    })?;
 
-        let result = self.repository.append_messages(&mut txn, messages).await?;
+                Ok(CreateSessionMessageModel {
+                    session_id: session_id_model,
+                    position: max_pos + i as i32 + 1,
+                    role,
+                    content: dto.content,
+                    tool_calls,
+                    tool_call_id: dto.tool_call_id,
+                })
+            })
+            .collect::<Result<Vec<_>, RequestError>>()?;
+
+        let result = self.repository.append_messages(&mut txn, models).await?;
         txn.commit().await?;
 
-        Ok(result)
+        Ok(result.into_iter().map(SessionMessageDto::from).collect())
     }
 }

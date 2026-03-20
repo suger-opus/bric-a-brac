@@ -7,4 +7,5 @@ export { GraphSchemaDto } from "./graph-schema-dto";
 export { NodeDataDto } from "./node-data-dto";
 export { NodeSchemaDto } from "./node-schema-dto";
 export { PropertiesDataDto } from "./property-data-dto";
+export { SessionDto, SessionMessageDto } from "./session-dto";
 export { UserDto } from "./user-dto";

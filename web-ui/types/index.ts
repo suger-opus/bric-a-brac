@@ -10,6 +10,8 @@ import type {
   NodeDataDto,
   NodeSchemaDto,
   PropertiesDataDto,
+  SessionDto,
+  SessionMessageDto,
   UserDto,
 } from "@/lib/api/dtos";
 
@@ -25,6 +27,8 @@ export type GraphMetadata = InferOutput<typeof GraphMetadataDto>;
 export type PropertiesData = InferOutput<typeof PropertiesDataDto>;
 export type CreateGraph = InferOutput<typeof CreateGraphDto>;
 export type User = InferOutput<typeof UserDto>;
+export type Session = InferOutput<typeof SessionDto>;
+export type SessionMessage = InferOutput<typeof SessionMessageDto>;
 
 // --- Processed Graph Data for Visualization ---
 

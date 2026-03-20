@@ -591,12 +591,15 @@ Format: **human-readable text**, not JSON.
 Three microservices communicate via gRPC:
 
 ```
-Web UI → AI service (gRPC-Web)
-         ├── → Knowledge service (gRPC) — Memgraph graph database
-         └── → Metadata service (gRPC)  — Postgres control plane
-                └── → Knowledge service (gRPC) — for vector index initialization
-Web UI → Metadata service (HTTP)        — CRUD for graphs, users, schemas (web-facing)
+Web UI → Metadata service (HTTP REST + SSE) — graphs, users, sessions, chat
+           ├── → Knowledge service (gRPC) — for vector index initialization
+           └── → AI service (gRPC stream) — chat SSE bridge
+                   ├── → Knowledge service (gRPC) — graph storage, embeddings
+                   └── → Metadata service (gRPC)  — schemas, sessions
 ```
+
+The web UI only talks HTTP to metadata. The SSE chat endpoint in metadata bridges
+to the AI service's gRPC stream.
 
 | Service | Port | Transport | Database |
 |---|---|---|---|

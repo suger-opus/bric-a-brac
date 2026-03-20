@@ -1,7 +1,7 @@
 use crate::{
-    application::services::{AccessService, GraphService, SessionService, UserService},
+    application::services::{AccessService, AiService, GraphService, SessionService, UserService},
     infrastructure::{
-        clients::KnowledgeClient,
+        clients::{AiClient, KnowledgeClient},
         config::Config,
         database,
         repositories::{AccessRepository, GraphRepository, SessionRepository, UserRepository},
@@ -11,6 +11,7 @@ use crate::{
 #[derive(Clone)]
 pub struct ApiState {
     pub access_service: AccessService,
+    pub ai_service: AiService,
     pub graph_service: GraphService,
     pub session_service: SessionService,
     pub user_service: UserService,
@@ -20,7 +21,9 @@ impl ApiState {
     pub async fn build(config: &Config) -> anyhow::Result<Self> {
         let db_pool = database::connect(config.metadata_db()).await?;
         database::migrate(config.metadata_db(), &db_pool).await?;
-        let knowledge_client = KnowledgeClient::new(config.knowledge_server().clone());
+        let knowledge_client = KnowledgeClient::new(config.knowledge_server().clone())?;
+        let ai_client = AiClient::new(config.ai_server().clone())?;
+        let ai_service = AiService::new(ai_client);
 
         let access_repository = AccessRepository::new();
         let graph_repository = GraphRepository::new();
@@ -38,6 +41,7 @@ impl ApiState {
 
         Ok(ApiState {
             access_service,
+            ai_service,
             graph_service,
             session_service,
             user_service,

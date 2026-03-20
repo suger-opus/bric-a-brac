@@ -1,5 +1,5 @@
 use super::{
-    http::{access_handler, graph_handler, user_handler},
+    http::{access_handler, chat_handler, graph_handler, session_handler, user_handler},
     openapi::ApiDoc,
     state::ApiState,
     tracing::http_tracing_layer,
@@ -35,6 +35,14 @@ pub fn build(state: ApiState) -> Router {
         .route("/graphs/{graph_id}/schema", get(graph_handler::get_schema))
         .route("/graphs/{graph_id}/data", get(graph_handler::get_data))
         .route("/accesses/graphs/{graph_id}", post(access_handler::create))
+        .route("/sessions", post(session_handler::create))
+        .route("/sessions/{session_id}", get(session_handler::get))
+        .route("/sessions/{session_id}/close", post(session_handler::close))
+        .route(
+            "/sessions/{session_id}/messages",
+            get(session_handler::get_messages),
+        )
+        .route("/graphs/{graph_id}/chat", post(chat_handler::chat))
         .layer(http_tracing_layer());
     router.layer(CorsLayer::permissive()).with_state(state)
 }

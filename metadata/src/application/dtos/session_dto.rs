@@ -1,35 +1,74 @@
-use crate::domain::models::{
-    CreateSessionMessageModel, CreateSessionModel, SessionIdModel, SessionMessageModel,
-    SessionMessageRoleModel, SessionModel,
-};
-use bric_a_brac_dtos::{DtosConversionError, GraphIdDto};
-use bric_a_brac_protos::metadata::{
-    NewSessionMessageProto, SessionMessageProto, SessionProto,
-};
-use crate::application::dtos::UserIdDto;
-use prost_types::Timestamp;
+use crate::domain::models::{SessionIdModel, SessionMessageModel, SessionModel};
+use bric_a_brac_dtos::GraphIdDto;
 use bric_a_brac_dtos::utils::ProtoTimestampExt;
-use std::str::FromStr;
+use bric_a_brac_id::id;
+use bric_a_brac_protos::metadata::{SessionMessageProto, SessionProto};
+use chrono::{DateTime, Utc};
+use prost_types::Timestamp;
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-// --- SessionModel → SessionProto ---
+id!(SessionIdDto);
 
-impl From<SessionModel> for SessionProto {
+impl From<SessionIdModel> for SessionIdDto {
+    fn from(id: SessionIdModel) -> Self {
+        Self::from(*id.as_ref())
+    }
+}
+
+impl From<SessionIdDto> for SessionIdModel {
+    fn from(id: SessionIdDto) -> Self {
+        Self::from(*id.as_ref())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DTOs
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateSessionDto {
+    pub graph_id: GraphIdDto,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SessionDto {
+    pub session_id: SessionIdDto,
+    pub graph_id: String,
+    pub user_id: String,
+    pub status: String,
+    pub role: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl From<SessionModel> for SessionDto {
     fn from(model: SessionModel) -> Self {
         Self {
-            session_id: model.session_id.to_string(),
+            session_id: model.session_id.into(),
             graph_id: model.graph_id.to_string(),
             user_id: model.user_id.to_string(),
             status: model.status.to_string(),
-            created_at: Option::<Timestamp>::from_chrono(model.created_at),
-            updated_at: Option::<Timestamp>::from_chrono(model.updated_at),
             role: model.role.to_string(),
+            created_at: model.created_at,
+            updated_at: model.updated_at,
         }
     }
 }
 
-// --- SessionMessageModel → SessionMessageProto ---
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SessionMessageDto {
+    pub message_id: String,
+    pub session_id: String,
+    pub position: i32,
+    pub role: String,
+    pub content: String,
+    pub tool_calls: Option<serde_json::Value>,
+    pub tool_call_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
 
-impl From<SessionMessageModel> for SessionMessageProto {
+impl From<SessionMessageModel> for SessionMessageDto {
     fn from(model: SessionMessageModel) -> Self {
         Self {
             message_id: model.message_id.to_string(),
@@ -37,64 +76,50 @@ impl From<SessionMessageModel> for SessionMessageProto {
             position: model.position,
             role: model.role.to_string(),
             content: model.content,
-            tool_calls: model.tool_calls.map(|v| v.to_string()),
+            tool_calls: model.tool_calls,
             tool_call_id: model.tool_call_id,
-            created_at: Option::<Timestamp>::from_chrono(model.created_at),
+            created_at: model.created_at,
         }
     }
 }
 
-// --- Proto → CreateSessionModel ---
-
-pub fn create_session_from_proto(
-    graph_id: String,
-    user_id: String,
-) -> Result<CreateSessionModel, DtosConversionError> {
-    Ok(CreateSessionModel {
-        session_id: SessionIdModel::new(),
-        graph_id: GraphIdDto::from_str(&graph_id)
-            .map_err(|e| DtosConversionError::Uuid { source: e })?
-            .into(),
-        user_id: UserIdDto::from_str(&user_id)
-            .map_err(|e| DtosConversionError::Uuid { source: e })?
-            .into(),
-    })
+#[derive(Debug)]
+pub struct CreateSessionMessageDto {
+    pub role: String,
+    pub content: String,
+    pub tool_calls: Option<String>,
+    pub tool_call_id: Option<String>,
 }
 
-// --- NewSessionMessageProto → CreateSessionMessageModel ---
+// ---------------------------------------------------------------------------
+// Dto → Proto conversions (for gRPC responses)
+// ---------------------------------------------------------------------------
 
-pub fn create_messages_from_proto(
-    session_id: SessionIdModel,
-    start_position: i32,
-    messages: Vec<NewSessionMessageProto>,
-) -> Result<Vec<CreateSessionMessageModel>, DtosConversionError> {
-    messages
-        .into_iter()
-        .enumerate()
-        .map(|(i, msg)| {
-            let role = msg
-                .role
-                .parse::<SessionMessageRoleModel>()
-                .map_err(|_| DtosConversionError::Enum {
-                    name: "SessionMessageRole".to_string(),
-                    value: 0,
-                })?;
-            let tool_calls = msg
-                .tool_calls
-                .map(|s| serde_json::from_str(&s))
-                .transpose()
-                .map_err(|_| DtosConversionError::NoField {
-                    field_name: "tool_calls".to_string(),
-                })?;
+impl From<SessionDto> for SessionProto {
+    fn from(dto: SessionDto) -> Self {
+        Self {
+            session_id: dto.session_id.to_string(),
+            graph_id: dto.graph_id,
+            user_id: dto.user_id,
+            status: dto.status,
+            created_at: Option::<Timestamp>::from_chrono(dto.created_at),
+            updated_at: Option::<Timestamp>::from_chrono(dto.updated_at),
+            role: dto.role,
+        }
+    }
+}
 
-            Ok(CreateSessionMessageModel {
-                session_id,
-                position: start_position + i as i32 + 1,
-                role,
-                content: msg.content,
-                tool_calls,
-                tool_call_id: msg.tool_call_id,
-            })
-        })
-        .collect()
+impl From<SessionMessageDto> for SessionMessageProto {
+    fn from(dto: SessionMessageDto) -> Self {
+        Self {
+            message_id: dto.message_id,
+            session_id: dto.session_id,
+            position: dto.position,
+            role: dto.role,
+            content: dto.content,
+            tool_calls: dto.tool_calls.map(|v| v.to_string()),
+            tool_call_id: dto.tool_call_id,
+            created_at: Option::<Timestamp>::from_chrono(dto.created_at),
+        }
+    }
 }

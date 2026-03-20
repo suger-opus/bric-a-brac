@@ -1,18 +1,15 @@
-use crate::{
-    application::{
-        dtos::session_dto::{create_messages_from_proto, create_session_from_proto},
-        services::{GraphService, SessionService},
-    },
-    domain::models::SessionStatusModel,
+use crate::application::{
+    dtos::{CreateSessionDto, CreateSessionMessageDto, SessionIdDto, UserIdDto},
+    services::{GraphService, SessionService},
 };
 use bric_a_brac_dtos::GraphIdDto;
+use bric_a_brac_protos::common::{EdgeSchemaProto, GraphSchemaProto, NodeSchemaProto};
 use bric_a_brac_protos::metadata::{
     metadata_server::Metadata, AppendSessionMessagesRequest, AppendSessionMessagesResponse,
-    CloseSessionRequest, CreateEdgeSchemaRequest, CreateNodeSchemaRequest,
-    CreateSessionRequest, GetSchemaRequest, GetSessionMessagesRequest,
-    GetSessionMessagesResponse, GetSessionRequest, SessionProto,
+    CloseSessionRequest, CreateEdgeSchemaRequest, CreateNodeSchemaRequest, CreateSessionRequest,
+    GetSchemaRequest, GetSessionMessagesRequest, GetSessionMessagesResponse, GetSessionRequest,
+    SessionProto,
 };
-use bric_a_brac_protos::common::{EdgeSchemaProto, GraphSchemaProto, NodeSchemaProto};
 use std::str::FromStr;
 use tonic::{Request, Response, Status};
 
@@ -38,12 +35,14 @@ impl Metadata for MetadataGrpcService {
         request: Request<CreateSessionRequest>,
     ) -> Result<Response<SessionProto>, Status> {
         let req = request.into_inner();
-        let create = create_session_from_proto(req.graph_id, req.user_id)
-            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        let graph_id = GraphIdDto::from_str(&req.graph_id)
+            .map_err(|_| Status::invalid_argument("Invalid graph_id"))?;
+        let user_id = UserIdDto::from_str(&req.user_id)
+            .map_err(|_| Status::invalid_argument("Invalid user_id"))?;
 
         let session = self
             .session_service
-            .create_session(create)
+            .create_session(CreateSessionDto { graph_id }, user_id)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -56,9 +55,7 @@ impl Metadata for MetadataGrpcService {
         request: Request<GetSessionRequest>,
     ) -> Result<Response<SessionProto>, Status> {
         let req = request.into_inner();
-        let session_id = req
-            .session_id
-            .parse()
+        let session_id = SessionIdDto::from_str(&req.session_id)
             .map_err(|_| Status::invalid_argument("Invalid session_id"))?;
 
         let session = self
@@ -76,18 +73,12 @@ impl Metadata for MetadataGrpcService {
         request: Request<CloseSessionRequest>,
     ) -> Result<Response<SessionProto>, Status> {
         let req = request.into_inner();
-        let session_id = req
-            .session_id
-            .parse()
+        let session_id = SessionIdDto::from_str(&req.session_id)
             .map_err(|_| Status::invalid_argument("Invalid session_id"))?;
-        let status: SessionStatusModel = req
-            .status
-            .parse()
-            .map_err(|_| Status::invalid_argument("Invalid status, expected: completed or error"))?;
 
         let session = self
             .session_service
-            .close_session(session_id, status)
+            .close_session(session_id, &req.status)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -104,9 +95,7 @@ impl Metadata for MetadataGrpcService {
         request: Request<GetSessionMessagesRequest>,
     ) -> Result<Response<GetSessionMessagesResponse>, Status> {
         let req = request.into_inner();
-        let session_id = req
-            .session_id
-            .parse()
+        let session_id = SessionIdDto::from_str(&req.session_id)
             .map_err(|_| Status::invalid_argument("Invalid session_id"))?;
 
         let messages = self
@@ -130,13 +119,19 @@ impl Metadata for MetadataGrpcService {
         request: Request<AppendSessionMessagesRequest>,
     ) -> Result<Response<AppendSessionMessagesResponse>, Status> {
         let req = request.into_inner();
-        let session_id = req
-            .session_id
-            .parse()
+        let session_id = SessionIdDto::from_str(&req.session_id)
             .map_err(|_| Status::invalid_argument("Invalid session_id"))?;
 
-        let messages = create_messages_from_proto(session_id, 0, req.messages)
-            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        let messages: Vec<CreateSessionMessageDto> = req
+            .messages
+            .into_iter()
+            .map(|m| CreateSessionMessageDto {
+                role: m.role,
+                content: m.content,
+                tool_calls: m.tool_calls,
+                tool_call_id: m.tool_call_id,
+            })
+            .collect();
 
         self.session_service
             .append_messages(session_id, messages)

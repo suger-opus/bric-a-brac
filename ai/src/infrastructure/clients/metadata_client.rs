@@ -18,13 +18,12 @@ pub struct MetadataClient {
 }
 
 impl MetadataClient {
-    pub fn new(config: MetadataServerConfig) -> Self {
-        let channel = tonic::transport::Endpoint::from_shared(config.url().to_string())
-            .expect("valid metadata gRPC URL")
+    pub fn new(config: MetadataServerConfig) -> anyhow::Result<Self> {
+        let channel = tonic::transport::Endpoint::from_shared(config.url().to_string())?
             .connect_lazy();
-        Self {
+        Ok(Self {
             client: MetadataGrpcClient::new(channel),
-        }
+        })
     }
 
     // --- Session RPCs ---
