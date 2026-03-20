@@ -1,5 +1,6 @@
 import { config } from "@/lib/config";
 import { mande } from "mande";
+import { toast } from "sonner";
 import type { GenericSchema, InferOutput } from "valibot";
 import { safeParse } from "valibot";
 
@@ -15,11 +16,21 @@ function validate<T extends GenericSchema>(schema: T, data: unknown): InferOutpu
 }
 
 export async function get<T extends GenericSchema>(path: string, schema: T): Promise<InferOutput<T>> {
-  const data = await api.get(path);
-  return validate(schema, data);
+  try {
+    const data = await api.get(path);
+    return validate(schema, data);
+  } catch (error) {
+    toast.error(`GET ${path} failed`);
+    throw error;
+  }
 }
 
 export async function post<T extends GenericSchema>(path: string, body: unknown, schema: T): Promise<InferOutput<T>> {
-  const data = await api.post(path, body);
-  return validate(schema, data);
+  try {
+    const data = await api.post(path, body);
+    return validate(schema, data);
+  } catch (error) {
+    toast.error(`POST ${path} failed`);
+    throw error;
+  }
 }

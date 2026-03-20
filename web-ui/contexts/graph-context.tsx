@@ -3,6 +3,7 @@
 import { graphService } from "@/lib/api/services/graph-service";
 import type { GraphData, GraphMetadata, GraphSchema, ProcessedGraphData } from "@/types";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type GraphContextType = {
   graphId: string | null;
@@ -92,6 +93,7 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
       } catch {
         if (cancelled) return;
         setError("Failed to load graph.");
+        toast.error("Failed to load graph");
       } finally {
         if (!cancelled) setIsLoading(false);
       }

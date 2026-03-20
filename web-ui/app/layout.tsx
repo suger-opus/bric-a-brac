@@ -1,3 +1,4 @@
+import { Toaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -27,6 +28,7 @@ const RootLayout = ({ children }: Readonly<{ children: React.ReactNode; }>) => {
         <main>
           {children}
         </main>
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );

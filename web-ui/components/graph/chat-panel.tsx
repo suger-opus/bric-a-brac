@@ -6,6 +6,7 @@ import { type ChatEvent, streamChat } from "@/lib/api/services/chat-service";
 import { sessionService } from "@/lib/api/services/session-service";
 import { BotIcon, LoaderIcon, SendIcon, WrenchIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 type ChatItem =
   | { type: "user"; content: string }
@@ -54,6 +55,7 @@ const ChatPanel = () => {
               const item = updated[i];
               if (item.type === "tool" && !item.result) {
                 updated[i] = { ...item, result: event.content };
+                toast.success(event.content, { duration: 3000 });
                 break;
               }
             }
@@ -77,6 +79,7 @@ const ChatPanel = () => {
             ...prev,
             { type: "error", message: event.message },
           ]);
+          toast.error(event.message);
           streamingRef.current = "";
           setStreamingText("");
           setIsStreaming(false);
@@ -116,6 +119,7 @@ const ChatPanel = () => {
         ...prev,
         { type: "error", message: "Failed to start chat" },
       ]);
+      toast.error("Failed to start chat");
       setIsStreaming(false);
     }
   }, [graphId, input, isStreaming, sessionId, handleEvent]);
