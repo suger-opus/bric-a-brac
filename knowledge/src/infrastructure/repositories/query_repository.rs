@@ -162,17 +162,17 @@ RETURN
 
         for label in labels {
             let cypher = format!(
-                r#"CALL vector_search.search("{}", "embedding", $emb, $limit)
+                r#"CALL vector_search.search("idx_{}_embedding", {}, $emb)
 YIELD node, distance
+WITH node, distance
 WHERE node.graph_id = $gid
 RETURN node, distance"#,
-                label
+                label, limit
             );
             let mut result = connection
                 .execute(
                     query(&cypher)
                         .param("emb", emb.clone())
-                        .param("limit", limit as i64)
                         .param("gid", graph_id.to_string()),
                 )
                 .await?;

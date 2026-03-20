@@ -10,7 +10,7 @@ pub fn setup() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "warn,metadata=debug".into()),
+                .unwrap_or_else(|_| "warn,metadata=debug,bric_a_brac_protos=info".into()),
         )
         .with(
             tracing_subscriber::fmt::layer()

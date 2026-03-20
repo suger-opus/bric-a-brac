@@ -83,7 +83,7 @@ const GraphSidebar = () => {
           </TabsList>
         </div>
 
-        <TabsContent value="chat" className="flex-1 min-h-0 mt-0">
+        <TabsContent value="chat" forceMount className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
           <ChatPanel />
         </TabsContent>
 

@@ -13,7 +13,7 @@
 # KNOWLEDGE_SERVER_PORT=""
 
 # LOGS
-# RUST_LOG="warn,knowledge=trace"
+# RUST_LOG="warn,knowledge=trace,bric_a_brac_protos=info"
 
 [tasks]
 db-config = "docker compose -f compose.db.yaml config"

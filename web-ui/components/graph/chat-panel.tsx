@@ -4,15 +4,78 @@ import { Button } from "@/components/ui/button";
 import { useGraph } from "@/contexts/graph-context";
 import { type ChatEvent, streamChat } from "@/lib/api/services/chat-service";
 import { sessionService } from "@/lib/api/services/session-service";
-import { BotIcon, LoaderIcon, SendIcon, WrenchIcon } from "lucide-react";
+import {
+  BotIcon,
+  ChevronDownIcon,
+  LoaderIcon,
+  SendIcon,
+  WrenchIcon,
+  XIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type ChatItem =
   | { type: "user"; content: string }
   | { type: "assistant"; content: string }
-  | { type: "tool"; name: string; result?: string }
+  | { type: "tool"; name: string; arguments?: string; result?: string }
   | { type: "error"; message: string };
+
+type ToolChatItem = Extract<ChatItem, { type: "tool" }>;
+
+const ToolItem = ({
+  item,
+  isError,
+}: { item: ToolChatItem; isError: boolean }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const parsedArgs = (() => {
+    if (!item.arguments) return null;
+    try {
+      return JSON.parse(item.arguments) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  })();
+
+  return (
+    <div className="text-xs text-muted-foreground px-1">
+      <button
+        type="button"
+        className="flex items-center gap-1.5 w-full text-left hover:text-foreground transition-colors"
+        onClick={() => setExpanded((e) => !e)}
+      >
+        <WrenchIcon className="h-3 w-3 shrink-0" />
+        <span className="font-mono truncate">{item.name}</span>
+        {item.result &&
+          (isError ? (
+            <XIcon className="h-3 w-3 shrink-0 text-destructive" />
+          ) : (
+            <span className="text-green-600 shrink-0">✓</span>
+          ))}
+        <ChevronDownIcon
+          className={`h-3 w-3 shrink-0 ml-auto transition-transform ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+      {expanded && (
+        <div className="ml-4.5 mt-1 space-y-1">
+          {parsedArgs && (
+            <pre className="bg-muted rounded px-2 py-1 overflow-x-auto whitespace-pre-wrap break-all text-[11px]">
+              {JSON.stringify(parsedArgs, null, 2)}
+            </pre>
+          )}
+          {item.result && (
+            <pre
+              className={`rounded px-2 py-1 overflow-x-auto whitespace-pre-wrap break-all text-[11px] ${isError ? "bg-destructive/10 text-destructive" : "bg-muted"}`}
+            >
+              {item.result}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ChatPanel = () => {
   const { graphId, refetch } = useGraph();
@@ -46,7 +109,10 @@ const ChatPanel = () => {
           setStreamingText(streamingRef.current);
           break;
         case "tool_call":
-          setItems((prev) => [...prev, { type: "tool", name: event.name }]);
+          setItems((prev) => [
+            ...prev,
+            { type: "tool", name: event.name, arguments: event.arguments },
+          ]);
           break;
         case "tool_result":
           setItems((prev) => {
@@ -55,18 +121,18 @@ const ChatPanel = () => {
               const item = updated[i];
               if (item.type === "tool" && !item.result) {
                 updated[i] = { ...item, result: event.content };
-                toast.success(event.content, { duration: 3000 });
                 break;
               }
             }
             return updated;
           });
           break;
-        case "done":
-          if (streamingRef.current) {
+        case "done": {
+          const finalContent = streamingRef.current || event.summary;
+          if (finalContent) {
             setItems((prev) => [
               ...prev,
-              { type: "assistant", content: streamingRef.current },
+              { type: "assistant", content: finalContent },
             ]);
           }
           streamingRef.current = "";
@@ -74,6 +140,7 @@ const ChatPanel = () => {
           setIsStreaming(false);
           refetch();
           break;
+        }
         case "error":
           setItems((prev) => [
             ...prev,
@@ -164,19 +231,12 @@ const ChatPanel = () => {
                     </div>
                   </div>
                 );
-              case "tool":
-                return (
-                  <div
-                    key={key}
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground px-1"
-                  >
-                    <WrenchIcon className="h-3 w-3 shrink-0" />
-                    <span className="font-mono truncate">{item.name}</span>
-                    {item.result && (
-                      <span className="text-green-600 shrink-0">✓</span>
-                    )}
-                  </div>
-                );
+              case "tool": {
+                const isError =
+                  item.result?.startsWith("Error") ||
+                  item.result?.startsWith("error");
+                return <ToolItem key={key} item={item} isError={!!isError} />;
+              }
               case "error":
                 return (
                   <div

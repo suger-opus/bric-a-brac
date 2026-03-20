@@ -15,7 +15,7 @@
 # KNOWLEDGE_GRPC_SERVER_URL=""
 
 # LOGS
-# RUST_LOG="warn,ai=trace"
+# RUST_LOG="warn,ai=trace,bric_a_brac_protos=info"
 
 [tasks]
 server-config = "docker compose -f compose.server.yaml config"

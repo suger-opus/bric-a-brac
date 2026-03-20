@@ -53,7 +53,7 @@ impl ToolExecutor {
         level = "debug",
         name = "tool.execute",
         skip(self, arguments, schema),
-        fields(tool_name, graph_id, session_id)
+        fields(%tool_name, %graph_id, %session_id)
     )]
     pub async fn execute(
         &self,
@@ -102,7 +102,10 @@ impl ToolExecutor {
         ToolResult {
             content: match result {
                 Ok(content) => content,
-                Err(err) => format!("Error: {err}"),
+                Err(err) => {
+                    tracing::warn!(tool_name, error = %err, "Tool execution failed");
+                    format!("Error: {err}")
+                }
             },
             schema_changed: false,
             is_done: false,
@@ -534,12 +537,25 @@ fn get_str<'a>(args: &'a Value, field: &str) -> Result<&'a str, String> {
 }
 
 fn get_properties(args: &Value) -> Result<HashMap<String, Value>, String> {
-    let obj = args
-        .get("properties")
-        .and_then(|v| v.as_object())
-        .ok_or("Missing required field: properties")?;
+    // Try nested "properties" key first (correct schema)
+    if let Some(obj) = args.get("properties").and_then(|v| v.as_object()) {
+        return Ok(obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
+    }
 
-    Ok(obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+    // Fallback: LLM sometimes puts properties at top level instead of nesting
+    let obj = args.as_object().ok_or("Missing required field: properties")?;
+    let skip_keys = ["node_key", "edge_key", "node_data_id"];
+    let props: HashMap<String, Value> = obj
+        .iter()
+        .filter(|(k, _)| !skip_keys.contains(&k.as_str()))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+
+    if props.is_empty() {
+        return Err("Missing required field: properties".to_owned());
+    }
+
+    Ok(props)
 }
 
 fn validate_node_key(schema: &GraphSchemaProto, node_key: &str) -> Result<(), String> {

@@ -160,8 +160,8 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
     ) -> Result<(), DatabaseError> {
         for key in node_keys {
             let cypher = format!(
-                "CREATE VECTOR INDEX ON :{}(embedding) OPTIONS {{dimension: 1536, capacity: 10000, metric: \"cos\"}}",
-                key
+                "CREATE VECTOR INDEX idx_{}_embedding ON :{}(embedding) WITH CONFIG {{\"dimension\": 1536, \"capacity\": 10000, \"metric\": \"cos\"}}",
+                key, key
             );
             match graph.run(query(&cypher)).await {
                 Ok(_) => {

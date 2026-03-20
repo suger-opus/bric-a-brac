@@ -609,13 +609,15 @@ the chat model. 1536 dimensions, $0.02 per 1M tokens.
 ### Memgraph vector indexes
 
 ```cypher
-CREATE VECTOR INDEX ON :ESVhRs9k(embedding)
-OPTIONS { dimension: 1536, capacity: 10000, metric: "cos" }
-IF NOT EXISTS;
+CREATE VECTOR INDEX idx_ESVhRs9k_embedding ON :ESVhRs9k(embedding)
+WITH CONFIG { "dimension": 1536, "capacity": 10000, "metric": "cos" };
 ```
 
 Created via `InitializeSchema` RPC — one index per node schema. Called when a new node
 schema is created (via `create_node_schema` in metadata service).
+
+**Querying** uses `vector_search.search(index_name, result_set_size, query_vector)`.
+`result_set_size` must be a literal integer (not a Cypher parameter).
 
 Edges do **not** get vector indexes. Edge deduplication is structural.
 
