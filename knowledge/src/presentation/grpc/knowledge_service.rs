@@ -3,15 +3,17 @@ use crate::{
     application::errors::AppError,
 };
 use bric_a_brac_dtos::{
-    EdgeDataDto, InsertEdgeDataDto, InsertNodeDataDto, KeyDto, NodeDataDto, UpdateNodeDataDto,
+    EdgeDataDto, InsertEdgeDataDto, InsertNodeDataDto, KeyDto, NodeDataDto,
+    UpdateNodeDataDto,
 };
 use bric_a_brac_protos::{
     common::{EdgeDataProto, GraphDataProto, NodeDataProto, PathProto, SubgraphProto},
     knowledge::{
-        knowledge_server::Knowledge, FindPathsRequest, FindPathsResponse, GetNeighborsRequest,
-        GetNeighborsResponse, GetNodeRequest, InitializeSchemaRequest, InitializeSchemaResponse,
-        InsertEdgeRequest, InsertNodeRequest, LoadGraphRequest,
-        SearchNodesRequest, SearchNodesResponse, UpdateNodeRequest,
+        knowledge_server::Knowledge, DeleteEdgeRequest, DeleteEdgeResponse, DeleteNodeRequest,
+        DeleteNodeResponse, FindPathsRequest,
+        FindPathsResponse, GetNeighborsRequest, GetNeighborsResponse, GetNodeRequest,
+        InitializeSchemaRequest, InitializeSchemaResponse, InsertEdgeRequest, InsertNodeRequest,
+        LoadGraphRequest, SearchNodesRequest, SearchNodesResponse, UpdateNodeRequest,
     },
 };
 use tonic::{Request, Response, Status};
@@ -134,6 +136,48 @@ impl Knowledge for KnowledgeService {
 
         let dto: NodeDataDto = node.into();
         Ok(Response::new(dto.into()))
+    }
+
+    async fn delete_node(
+        &self,
+        request: Request<DeleteNodeRequest>,
+    ) -> Result<Response<DeleteNodeResponse>, Status> {
+        let req = request.into_inner();
+        tracing::debug!(graph_id = %req.graph_id, node_data_id = %req.node_data_id);
+
+        self.mutate_service
+            .delete_node(
+                req.graph_id
+                    .try_into()
+                    .map_err(|err| AppError::from(err))?,
+                req.node_data_id
+                    .try_into()
+                    .map_err(|err| AppError::from(err))?,
+            )
+            .await?;
+
+        Ok(Response::new(DeleteNodeResponse {}))
+    }
+
+    async fn delete_edge(
+        &self,
+        request: Request<DeleteEdgeRequest>,
+    ) -> Result<Response<DeleteEdgeResponse>, Status> {
+        let req = request.into_inner();
+        tracing::debug!(graph_id = %req.graph_id, edge_data_id = %req.edge_data_id);
+
+        self.mutate_service
+            .delete_edge(
+                req.graph_id
+                    .try_into()
+                    .map_err(|err| AppError::from(err))?,
+                req.edge_data_id
+                    .try_into()
+                    .map_err(|err| AppError::from(err))?,
+            )
+            .await?;
+
+        Ok(Response::new(DeleteEdgeResponse {}))
     }
 
     async fn insert_edge(

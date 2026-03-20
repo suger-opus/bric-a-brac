@@ -9,7 +9,9 @@ service Knowledge {
     rpc InitializeSchema(InitializeSchemaRequest) returns (InitializeSchemaResponse);
     rpc InsertNode(InsertNodeRequest) returns (common.NodeDataProto);
     rpc UpdateNode(UpdateNodeRequest) returns (common.NodeDataProto);
+    rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
     rpc InsertEdge(InsertEdgeRequest) returns (common.EdgeDataProto);
+    rpc DeleteEdge(DeleteEdgeRequest) returns (DeleteEdgeResponse);
     rpc SearchNodes(SearchNodesRequest) returns (SearchNodesResponse);
     rpc GetNode(GetNodeRequest) returns (common.NodeDataProto);
     rpc GetNeighbors(GetNeighborsRequest) returns (GetNeighborsResponse);
@@ -36,10 +38,22 @@ message UpdateNodeRequest {
     common.UpdateNodeDataProto node = 2;
 }
 
+message DeleteNodeRequest {
+    string graph_id = 1;
+    string node_data_id = 2;
+}
+message DeleteNodeResponse {}
+
 message InsertEdgeRequest {
     string graph_id = 1;
     common.InsertEdgeDataProto edge = 2;
 }
+
+message DeleteEdgeRequest {
+    string graph_id = 1;
+    string edge_data_id = 2;
+}
+message DeleteEdgeResponse {}
 
 message SearchNodesRequest {
     string graph_id = 1;

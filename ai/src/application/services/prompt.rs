@@ -56,9 +56,11 @@ pub fn build_system_prompt(schema: &GraphSchemaProto) -> String {
     prompt.push_str(
         "1. **Reuse existing schemas.** Before creating a new schema, check if an existing one \
          fits. Only create schemas for genuinely new concepts.\n\
-         2. **Entity resolution.** When creating a node, the system automatically searches for \
-         similar existing nodes. If duplicates are found, review them carefully. Update the \
-         existing node with merged information rather than creating duplicates.\n\
+         2. **Entity resolution.** When you call `create_node`, the system automatically \
+         searches for similar existing nodes. If duplicates are found, the node is NOT created \
+         and you receive the candidates. Use `update_node` to merge new information into the \
+         existing node. Only call `create_node` with `force: true` if you are certain the \
+         entity is genuinely new.\n\
          3. **Normalize data.** Use consistent naming conventions and capitalization for schema \
          labels and property values.\n\
          4. **Extract thoroughly.** When processing a document, extract all relevant entities and \

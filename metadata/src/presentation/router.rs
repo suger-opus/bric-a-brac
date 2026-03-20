@@ -36,6 +36,10 @@ pub fn build(state: ApiState) -> Router {
         .route("/graphs/{graph_id}/data", get(graph_handler::get_data))
         .route("/accesses/graphs/{graph_id}", post(access_handler::create))
         .route("/sessions", post(session_handler::create))
+        .route(
+            "/graphs/{graph_id}/active-session",
+            get(session_handler::get_active),
+        )
         .route("/sessions/{session_id}", get(session_handler::get))
         .route("/sessions/{session_id}/close", post(session_handler::close))
         .route(

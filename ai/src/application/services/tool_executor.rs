@@ -30,6 +30,8 @@ const WRITE_TOOLS: &[&str] = &[
     "create_node",
     "create_edge",
     "update_node",
+    "delete_node",
+    "delete_edge",
 ];
 
 fn is_write_role(role: &str) -> bool {
@@ -95,6 +97,8 @@ impl ToolExecutor {
                     .await
             }
             "update_node" => self.exec_update_node(arguments, graph_id).await,
+            "delete_node" => self.exec_delete_node(arguments, graph_id).await,
+            "delete_edge" => self.exec_delete_edge(arguments, graph_id).await,
             "done" => return self.exec_done(arguments),
             _ => Err(format!("Unknown tool: {tool_name}")),
         };
@@ -333,6 +337,7 @@ impl ToolExecutor {
         let args: Value = parse_args(arguments)?;
         let node_key = get_str(&args, "node_key")?;
         let properties = get_properties(&args)?;
+        let force = args.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
 
         // Validate schema exists
         validate_node_key(schema, node_key)?;
@@ -345,24 +350,63 @@ impl ToolExecutor {
             .await
             .map_err(|e| format!("Embedding failed: {e}"))?;
 
-        // Entity resolution: search for similar existing nodes
-        let similar_nodes = self
-            .knowledge_client
-            .search_nodes(
-                graph_id,
-                Some(node_key.to_owned()),
-                embedding.clone(),
-                ENTITY_RESOLUTION_LIMIT,
-            )
-            .await
-            .map_err(|e| format!("Entity resolution search failed: {e}"))?;
+        // Entity resolution: search for similar existing nodes (unless forced)
+        if !force {
+            let similar_nodes = self
+                .knowledge_client
+                .search_nodes(
+                    graph_id,
+                    Some(node_key.to_owned()),
+                    embedding.clone(),
+                    ENTITY_RESOLUTION_LIMIT,
+                )
+                .await
+                .map_err(|e| format!("Entity resolution search failed: {e}"))?;
 
-        let close_matches: Vec<_> = similar_nodes
-            .into_iter()
-            .filter(|n| n.distance < SIMILARITY_THRESHOLD)
-            .collect();
+            let close_matches: Vec<_> = similar_nodes
+                .into_iter()
+                .filter(|n| n.distance < SIMILARITY_THRESHOLD)
+                .collect();
 
-        // Create the node
+            if !close_matches.is_empty() {
+                let mut candidates = Vec::new();
+                for candidate in &close_matches {
+                    let neighbors = self
+                        .knowledge_client
+                        .get_neighbors(graph_id, &candidate.node_data_id, None, 1)
+                        .await
+                        .ok();
+
+                    let neighbor_summary = neighbors.map(|s| {
+                        serde_json::json!({
+                            "node_count": s.nodes.len(),
+                            "edge_count": s.edges.len(),
+                        })
+                    });
+
+                    candidates.push(serde_json::json!({
+                        "node_data_id": candidate.node_data_id,
+                        "key": candidate.key,
+                        "properties": proto_properties_to_json(&candidate.properties),
+                        "distance": candidate.distance,
+                        "neighbors": neighbor_summary,
+                    }));
+                }
+
+                let result = serde_json::json!({
+                    "created": false,
+                    "reason": "Similar nodes already exist. Use update_node to merge information \
+                        into an existing node, or call create_node again with force=true to \
+                        create anyway.",
+                    "similar_nodes": candidates,
+                });
+
+                return serde_json::to_string_pretty(&result)
+                    .map_err(|e| format!("Serialization failed: {e}"));
+            }
+        }
+
+        // No close matches (or force=true) — create the node
         let node_data_id = uuid::Uuid::now_v7().to_string();
         let proto_properties = json_properties_to_proto(&properties);
 
@@ -381,45 +425,12 @@ impl ToolExecutor {
             .await
             .map_err(|e| format!("Failed to create node: {e}"))?;
 
-        let mut result = serde_json::json!({
+        let result = serde_json::json!({
+            "created": true,
             "node_data_id": node.node_data_id,
             "key": node.key,
             "properties": proto_properties_to_json(&node.properties),
         });
-
-        // If similar nodes found, add warnings for LLM to decide
-        if !close_matches.is_empty() {
-            let mut warnings = Vec::new();
-            for candidate in &close_matches {
-                // Fetch neighbor context for each candidate
-                let neighbors = self
-                    .knowledge_client
-                    .get_neighbors(graph_id, &candidate.node_data_id, None, 1)
-                    .await
-                    .ok();
-
-                let neighbor_summary = neighbors.map(|s| {
-                    serde_json::json!({
-                        "node_count": s.nodes.len(),
-                        "edge_count": s.edges.len(),
-                    })
-                });
-
-                warnings.push(serde_json::json!({
-                    "similar_node_data_id": candidate.node_data_id,
-                    "key": candidate.key,
-                    "properties": proto_properties_to_json(&candidate.properties),
-                    "distance": candidate.distance,
-                    "neighbors": neighbor_summary,
-                }));
-            }
-
-            result["WARNING"] = serde_json::json!(
-                "Similar nodes already exist. Review them and consider using update_node to merge \
-                 information into an existing node instead of keeping duplicates."
-            );
-            result["similar_nodes"] = serde_json::json!(warnings);
-        }
 
         serde_json::to_string_pretty(&result).map_err(|e| format!("Serialization failed: {e}"))
     }
@@ -508,6 +519,38 @@ impl ToolExecutor {
         });
 
         serde_json::to_string_pretty(&result).map_err(|e| format!("Serialization failed: {e}"))
+    }
+
+    async fn exec_delete_node(
+        &self,
+        arguments: &str,
+        graph_id: &str,
+    ) -> Result<String, String> {
+        let args: Value = parse_args(arguments)?;
+        let node_data_id = get_str(&args, "node_data_id")?;
+
+        self.knowledge_client
+            .delete_node(graph_id, node_data_id)
+            .await
+            .map_err(|e| format!("Failed to delete node: {e}"))?;
+
+        Ok(format!("Deleted node {node_data_id} and all its edges."))
+    }
+
+    async fn exec_delete_edge(
+        &self,
+        arguments: &str,
+        graph_id: &str,
+    ) -> Result<String, String> {
+        let args: Value = parse_args(arguments)?;
+        let edge_data_id = get_str(&args, "edge_data_id")?;
+
+        self.knowledge_client
+            .delete_edge(graph_id, edge_data_id)
+            .await
+            .map_err(|e| format!("Failed to delete edge: {e}"))?;
+
+        Ok(format!("Deleted edge {edge_data_id}."))
     }
 
     fn exec_done(&self, arguments: &str) -> ToolResult {

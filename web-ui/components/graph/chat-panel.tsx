@@ -96,10 +96,34 @@ const ChatPanel = () => {
     if (el) el.scrollTop = el.scrollHeight;
   }, [items, streamingText]);
 
-  // Cleanup on unmount
+  // Recover active session on mount
   useEffect(() => {
-    return () => abortRef.current?.abort();
-  }, []);
+    if (!graphId) return;
+    let cancelled = false;
+
+    sessionService.getActiveSession(graphId).then((session) => {
+      if (cancelled || !session) return;
+      setSessionId(session.session_id);
+      sessionService.getMessages(session.session_id).then((messages) => {
+        if (cancelled) return;
+        const restored: ChatItem[] = messages
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ type: m.role as "user" | "assistant", content: m.content }));
+        if (restored.length > 0) setItems(restored);
+      }).catch(() => {});
+    }).catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [graphId]);
+
+  // Cleanup on unmount: abort streaming & close session
+  useEffect(() => {
+    const sid = sessionId;
+    return () => {
+      abortRef.current?.abort();
+      if (sid) sessionService.close(sid).catch(() => {});
+    };
+  }, [sessionId]);
 
   const handleEvent = useCallback(
     (event: ChatEvent) => {
@@ -155,6 +179,13 @@ const ChatPanel = () => {
     },
     [refetch],
   );
+
+  const cancelStreaming = useCallback(() => {
+    abortRef.current?.abort();
+    streamingRef.current = "";
+    setStreamingText("");
+    setIsStreaming(false);
+  }, []);
 
   const sendMessage = useCallback(async () => {
     if (!graphId || !input.trim() || isStreaming) return;
@@ -278,13 +309,23 @@ const ChatPanel = () => {
             rows={1}
             className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
-          <Button
-            size="icon"
-            onClick={sendMessage}
-            disabled={isStreaming || !input.trim() || !graphId}
-          >
-            <SendIcon className="h-4 w-4" />
-          </Button>
+          {isStreaming ? (
+            <Button
+              size="icon"
+              variant="destructive"
+              onClick={cancelStreaming}
+            >
+              <XIcon className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              size="icon"
+              onClick={sendMessage}
+              disabled={!input.trim() || !graphId}
+            >
+              <SendIcon className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

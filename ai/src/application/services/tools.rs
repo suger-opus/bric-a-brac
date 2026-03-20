@@ -28,6 +28,8 @@ pub fn write_tools() -> Vec<ToolDefinition> {
         create_node_tool(),
         create_edge_tool(),
         update_node_tool(),
+        delete_node_tool(),
+        delete_edge_tool(),
     ]
 }
 
@@ -178,7 +180,10 @@ fn create_edge_schema_tool() -> ToolDefinition {
 fn create_node_tool() -> ToolDefinition {
     tool(
         "create_node",
-        "Create a new node in the graph. The system will automatically check for similar existing nodes and warn you about potential duplicates. You can then decide to update an existing node instead.",
+        "Create a new node in the graph. The system checks for similar existing nodes first. \
+         If duplicates are found, the node is NOT created — you get the candidates back and \
+         should use update_node to merge info into an existing node. Pass force=true to skip \
+         the check and create anyway.",
         json!({
             "type": "object",
             "properties": {
@@ -196,6 +201,10 @@ fn create_node_tool() -> ToolDefinition {
                             {"type": "boolean"}
                         ]
                     }
+                },
+                "force": {
+                    "type": "boolean",
+                    "description": "If true, skip the duplicate check and create the node even if similar nodes exist. Default: false."
                 }
             },
             "required": ["node_key", "properties"],
@@ -265,6 +274,42 @@ fn update_node_tool() -> ToolDefinition {
                 }
             },
             "required": ["node_data_id", "properties"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn delete_node_tool() -> ToolDefinition {
+    tool(
+        "delete_node",
+        "Delete a node and all its edges from the graph. Use this during entity resolution: after merging properties into the surviving node via update_node, delete the duplicate.",
+        json!({
+            "type": "object",
+            "properties": {
+                "node_data_id": {
+                    "type": "string",
+                    "description": "The ID of the node to delete"
+                }
+            },
+            "required": ["node_data_id"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn delete_edge_tool() -> ToolDefinition {
+    tool(
+        "delete_edge",
+        "Delete a single edge (relationship) from the graph without affecting the connected nodes.",
+        json!({
+            "type": "object",
+            "properties": {
+                "edge_data_id": {
+                    "type": "string",
+                    "description": "The ID of the edge to delete"
+                }
+            },
+            "required": ["edge_data_id"],
             "additionalProperties": false
         }),
     )

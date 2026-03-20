@@ -5,9 +5,10 @@ use bric_a_brac_protos::{
         SubgraphProto, UpdateNodeDataProto,
     },
     knowledge::{
-        knowledge_client::KnowledgeClient as KnowledgeGrpcClient, FindPathsRequest,
-        GetNeighborsRequest, GetNodeRequest, InsertEdgeRequest, InsertNodeRequest,
-        SearchNodesRequest, UpdateNodeRequest,
+        knowledge_client::KnowledgeClient as KnowledgeGrpcClient, DeleteEdgeRequest,
+        DeleteNodeRequest,
+        FindPathsRequest, GetNeighborsRequest, GetNodeRequest, InsertEdgeRequest,
+        InsertNodeRequest, SearchNodesRequest, UpdateNodeRequest,
     },
     with_retry, GrpcServiceKind,
 };
@@ -64,6 +65,48 @@ impl KnowledgeClient {
         })
         .await
         .map_err(Into::into)
+    }
+
+    pub async fn delete_node(
+        &self,
+        graph_id: &str,
+        node_data_id: &str,
+    ) -> Result<(), GrpcClientError> {
+        let client = self.client.clone();
+        let graph_id = graph_id.to_owned();
+        let node_data_id = node_data_id.to_owned();
+        with_retry(GrpcServiceKind::Knowledge, "Failed to delete node", || {
+            let mut c = client.clone();
+            let req = Request::new(DeleteNodeRequest {
+                graph_id: graph_id.clone(),
+                node_data_id: node_data_id.clone(),
+            });
+            async move { c.delete_node(req).await }
+        })
+        .await
+        .map_err(GrpcClientError::from)?;
+        Ok(())
+    }
+
+    pub async fn delete_edge(
+        &self,
+        graph_id: &str,
+        edge_data_id: &str,
+    ) -> Result<(), GrpcClientError> {
+        let client = self.client.clone();
+        let graph_id = graph_id.to_owned();
+        let edge_data_id = edge_data_id.to_owned();
+        with_retry(GrpcServiceKind::Knowledge, "Failed to delete edge", || {
+            let mut c = client.clone();
+            let req = Request::new(DeleteEdgeRequest {
+                graph_id: graph_id.clone(),
+                edge_data_id: edge_data_id.clone(),
+            });
+            async move { c.delete_edge(req).await }
+        })
+        .await
+        .map_err(GrpcClientError::from)?;
+        Ok(())
     }
 
     pub async fn insert_edge(

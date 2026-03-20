@@ -1,6 +1,6 @@
 use crate::{
     domain::models::{
-        EdgeDataModel,
+        EdgeDataIdModel, EdgeDataModel,
         GraphIdModel, InsertEdgeDataModel, InsertNodeDataModel, NodeDataIdModel,
         NodeDataModel, UpdateNodeDataModel,
     },
@@ -118,10 +118,13 @@ impl MutateRepository {
             edge_props.insert("session_id".into(), sid.into());
         }
 
+        // MERGE ensures edge uniqueness per (from, to, edge_key) triple.
+        // ON CREATE sets properties for new edges, ON MATCH updates for existing ones.
         let cypher = format!(
             r#"MATCH (a {{node_data_id: $from, graph_id: $gid}}), (b {{node_data_id: $to, graph_id: $gid}})
-CREATE (a)-[r:{}]->(b)
-SET r = $props
+MERGE (a)-[r:{}]->(b)
+ON CREATE SET r = $props
+ON MATCH SET r += $props
 RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id"#,
             data.key
         );
@@ -146,6 +149,68 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
         edge_data.from_node_data_id = from_node_data_id;
         edge_data.to_node_data_id = to_node_data_id;
         Ok(edge_data)
+    }
+
+    #[tracing::instrument(
+        level = "debug",
+        name = "mutate_repository.delete_node",
+        skip(self, connection, graph_id, node_data_id)
+    )]
+    pub async fn delete_node(
+        &self,
+        connection: &mut neo4rs::Txn,
+        graph_id: GraphIdModel,
+        node_data_id: NodeDataIdModel,
+    ) -> Result<(), DatabaseError> {
+        let mut result = connection
+            .execute(
+                query("MATCH (n { node_data_id: $nid, graph_id: $gid }) DETACH DELETE n RETURN count(n) AS deleted")
+                    .param("nid", node_data_id.to_string())
+                    .param("gid", graph_id.to_string()),
+            )
+            .await?;
+
+        let row = result
+            .next(&mut *connection)
+            .await?
+            .ok_or(DatabaseError::NoneRow())?;
+        let deleted: i64 = row.get("deleted")?;
+        if deleted == 0 {
+            return Err(DatabaseError::NoneRow());
+        }
+        Ok(())
+    }
+
+    #[tracing::instrument(
+        level = "debug",
+        name = "mutate_repository.delete_edge",
+        skip(self, connection, graph_id, edge_data_id)
+    )]
+    pub async fn delete_edge(
+        &self,
+        connection: &mut neo4rs::Txn,
+        graph_id: GraphIdModel,
+        edge_data_id: EdgeDataIdModel,
+    ) -> Result<(), DatabaseError> {
+        let mut result = connection
+            .execute(
+                query(
+                    "MATCH ({ graph_id: $gid })-[r { edge_data_id: $eid }]->({ graph_id: $gid }) DELETE r RETURN count(r) AS deleted"
+                )
+                    .param("eid", edge_data_id.to_string())
+                    .param("gid", graph_id.to_string()),
+            )
+            .await?;
+
+        let row = result
+            .next(&mut *connection)
+            .await?
+            .ok_or(DatabaseError::NoneRow())?;
+        let deleted: i64 = row.get("deleted")?;
+        if deleted == 0 {
+            return Err(DatabaseError::NoneRow());
+        }
+        Ok(())
     }
 
     #[tracing::instrument(

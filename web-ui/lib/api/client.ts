@@ -25,6 +25,17 @@ export async function get<T extends GenericSchema>(path: string, schema: T): Pro
   }
 }
 
+export async function getOptional<T extends GenericSchema>(path: string, schema: T): Promise<InferOutput<T> | null> {
+  try {
+    const data = await api.get(path);
+    if (data == null) return null;
+    return validate(schema, data);
+  } catch (error) {
+    toast.error(`GET ${path} failed`);
+    throw error;
+  }
+}
+
 export async function post<T extends GenericSchema>(path: string, body: unknown, schema: T): Promise<InferOutput<T>> {
   try {
     const data = await api.post(path, body);

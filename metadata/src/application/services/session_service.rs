@@ -11,6 +11,7 @@ use crate::{
     },
     infrastructure::{errors::DatabaseError, repositories::SessionRepository},
 };
+use bric_a_brac_dtos::GraphIdDto;
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -57,6 +58,26 @@ impl SessionService {
         txn.commit().await?;
 
         Ok(SessionDto::from(session))
+    }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "session_service.get_active_session",
+        skip(self, graph_id, user_id)
+    )]
+    pub async fn get_active_session(
+        &self,
+        graph_id: GraphIdDto,
+        user_id: UserIdDto,
+    ) -> Result<Option<SessionDto>, AppError> {
+        let mut txn = self.pool.begin().await?;
+        let session = self
+            .repository
+            .get_active_session(&mut txn, graph_id.into(), user_id.into())
+            .await?;
+        txn.commit().await?;
+
+        Ok(session.map(SessionDto::from))
     }
 
     #[tracing::instrument(

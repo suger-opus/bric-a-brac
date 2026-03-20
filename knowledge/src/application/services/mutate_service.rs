@@ -1,11 +1,12 @@
 use crate::{
     domain::models::{
-        EdgeDataModel, InsertEdgeDataModel, InsertNodeDataModel, NodeDataModel, UpdateNodeDataModel,
+        EdgeDataModel, InsertEdgeDataModel, InsertNodeDataModel, NodeDataModel,
+        UpdateNodeDataModel,
     },
     infrastructure::repositories::MutateRepository,
     application::errors::AppError,
 };
-use bric_a_brac_dtos::GraphIdDto;
+use bric_a_brac_dtos::{EdgeDataIdDto, GraphIdDto, NodeDataIdDto};
 use neo4rs::Graph;
 use std::sync::Arc;
 
@@ -74,6 +75,42 @@ impl MutateService {
             .await?;
         txn.commit().await?;
         Ok(edge)
+    }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "mutate_service.delete_node",
+        skip(self, graph_id, node_data_id)
+    )]
+    pub async fn delete_node(
+        &self,
+        graph_id: GraphIdDto,
+        node_data_id: NodeDataIdDto,
+    ) -> Result<(), AppError> {
+        let mut txn = self.pool.start_txn().await?;
+        self.repository
+            .delete_node(&mut txn, graph_id.into(), node_data_id.into())
+            .await?;
+        txn.commit().await?;
+        Ok(())
+    }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "mutate_service.delete_edge",
+        skip(self, graph_id, edge_data_id)
+    )]
+    pub async fn delete_edge(
+        &self,
+        graph_id: GraphIdDto,
+        edge_data_id: EdgeDataIdDto,
+    ) -> Result<(), AppError> {
+        let mut txn = self.pool.start_txn().await?;
+        self.repository
+            .delete_edge(&mut txn, graph_id.into(), edge_data_id.into())
+            .await?;
+        txn.commit().await?;
+        Ok(())
     }
 
     #[tracing::instrument(

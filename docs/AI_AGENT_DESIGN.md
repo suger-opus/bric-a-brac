@@ -141,39 +141,54 @@ overlap with existing ones and merge instead of duplicating.
 1. AI calls `create_node(node_key, properties)`
 2. Tool executor serializes properties → embeds them
 3. Executor runs `search_nodes` with that embedding
-4. **If similar nodes found:**
+4. **If similar nodes found (distance < 0.3):**
    - Fetches their properties + first-degree neighbors (live, not cached)
-   - Returns everything to the AI as part of the tool response:
+   - **The node is NOT created.** Instead, the tool returns the candidates:
+     ```json
+     {
+       "created": false,
+       "reason": "Similar nodes already exist. Use update_node to merge...",
+       "similar_nodes": [
+         {
+           "node_data_id": "def456",
+           "key": "person",
+           "properties": { "name": "Marcus Aurelius", "title": "Emperor" },
+           "distance": 0.06,
+           "neighbors": { "node_count": 4, "edge_count": 3 }
+         }
+       ]
+     }
      ```
-     "Created node abc123 (Person: Marcus Aurelius).
-     Note: found 2 similar existing nodes:
-     - node def456 (Person: Marcus Aurelius, Emperor of Rome) — similarity: 0.94
-       Neighbors: wrote → Meditations, ruled → Roman Empire
-     - node ghi789 (Person: Marcus, the lighthouse keeper) — similarity: 0.67
-     If node def456 is the same entity, use update_node to merge them."
-     ```
-   - The AI decides: same entity → `update_node` to merge, different → keep both
+   - The AI decides: same entity → `update_node` to merge, different → `create_node`
+     again with `force: true`
 5. **If no similar nodes:** creates directly
+6. **If `force: true` is passed:** skips the check and creates unconditionally
+
+### Why pre-check (not create-first)
+
+The previous approach was create-first: always insert the node, then warn the LLM to
+merge and delete the duplicate. This had critical failure modes:
+
+- If the agent errors out, hits the token limit, or the user cancels mid-resolution,
+  **orphan duplicates remain forever** in the graph.
+- Every merge required 3 tool calls (`create_node` → `update_node` → `delete_node`)
+  instead of 1 (`update_node`).
+
+With pre-check, zero data is written until the LLM commits to a decision. The merge case
+is a single `update_node` call. The "genuinely new" case costs one extra call
+(`create_node` with `force: true`), but this is the less common path.
 
 ### Node merge workflow
 
-When the AI determines that a newly created node (A) is the same entity as an existing
-node (B):
+When the AI determines that the new entity matches an existing node (B):
 
-1. `update_node(B, {properties from A that B is missing or that should override})`
-   — merge semantics: adds new properties, overrides existing ones.
-2. `delete_node(A)` — removes the duplicate and all its edges. Since A was just created
-   in the same session, it typically has no edges yet (the AI hasn't created edges to A
-   because it just discovered the duplicate). If A does have edges (e.g., from a previous
-   tool call in the same message), those edges are detach-deleted — the AI can recreate
-   them pointing to B if needed.
+1. `update_node(B, {merged properties})` — merges new information into the existing node.
+   Adds new property keys, overrides existing ones. The embedding is recomputed.
 
-**`delete_node` is not yet implemented.** Until it is, step 1 works (merge properties into
-the surviving node) but step 2 does not — the orphan duplicate stays in the graph. See
-[Implementation Status](#implementation-status).
+When the AI determines the entity is genuinely new despite candidates being shown:
 
-`delete_node` performs a Memgraph `DETACH DELETE`, which removes the node and all edges
-connected to it in a single operation.
+1. `create_node(node_key, properties, force=true)` — creates the node, skipping the
+   duplicate check.
 
 ### Why automatic
 
@@ -481,12 +496,13 @@ across all node schemas in the graph and merges results by distance.
 |---|---|---|---|
 | `create_schema` | `name` (string), `description` (string) | Schema with generated key | **Implemented** |
 | `create_edge_schema` | `name` (string), `description` (string) | Schema with generated key | **Implemented** |
-| `create_node` | `node_key` (string), `properties` (object) | Node (+ entity resolution warnings) | **Implemented** |
+| `create_node` | `node_key` (string), `properties` (object), `force?` (boolean) | Node or similar-node candidates | **Implemented** |
 | `create_edge` | `edge_key` (string), `from_id` (string), `to_id` (string), `properties?` (object) | Edge | **Implemented** |
 | `update_node` | `node_id` (string), `properties` (object) | Updated node | **Implemented** |
 | `update_edge` | `edge_id` (string), `properties` (object) | Updated edge | **Not implemented** |
 | `remove_properties` | `element_id` (string), `keys` (string[]) | Updated node or edge | **Not implemented** |
-| `delete_node` | `node_id` (string) | Confirmation (detach-deletes edges) | **Not implemented** |
+| `delete_node` | `node_id` (string) | Confirmation (detach-deletes edges) | **Implemented** |
+| `delete_edge` | `edge_data_id` (string) | Confirmation | **Implemented** |
 
 #### `update_node` / `update_edge` semantics
 
@@ -514,6 +530,12 @@ After removing properties from a node, the embedding is recomputed.
 Deletes a node and all its edges (`DETACH DELETE` in Memgraph). Used during entity
 resolution when the AI decides two nodes are the same entity — after merging properties
 into the surviving node, the duplicate is deleted.
+
+#### `delete_edge`
+
+Deletes a single edge by its `edge_data_id`. Unlike `delete_node`, this does not cascade
+— only the targeted relationship is removed. Useful when the AI needs to correct a
+wrong relationship or when the user explicitly asks to remove a connection.
 
 #### Edge uniqueness
 
@@ -594,7 +616,8 @@ the chat model. 1536 dimensions, $0.02 per 1M tokens.
 **At `create_node` time:**
 1. Serialize the node to text: `"{type_name}: {prop1}={value1}, {prop2}={value2}"`
 2. Call embedding model → `Vec<f32>`
-3. **Run entity resolution** — search for similar existing nodes
+3. **Run entity resolution** — search for similar existing nodes; if found, return
+   candidates without creating (pre-check approach)
 4. Store the embedding as a property on the Memgraph node
 
 **At `update_node` time:**
@@ -671,8 +694,9 @@ You can search the graph, inspect nodes, and find paths.
 - Before extracting from a document, analyze what schemas of entities and relationships exist.
   Reuse existing schemas. Create new schemas only when no existing schema fits.
 - Keep the number of schemas manageable. Prefer a broader schema over a narrow one.
-- Entity resolution is automatic: when you create a node, the system will search for similar
-  existing nodes and show them to you. If a match is found, use update_node to merge.
+- Entity resolution is automatic: when you create a node, the system searches for similar
+  existing nodes. If a match is found, the node is NOT created — you get the candidates back.
+  Use update_node to merge into an existing node, or call create_node with force=true.
 - Use schema keys (like ESVhRs9k) in tool calls, not human-readable names.
 - Process the ENTIRE document before finishing.
 - Keep nodes focused on one concept. If a node has many properties, consider splitting it.
@@ -842,7 +866,7 @@ schema colors onto nodes and edges.
 | LLM streaming | SSE from day one |
 | Property schemas | None — properties are free-form |
 | Schema validation | Schema existence only — no property validation |
-| Entity resolution | Automatic in `create_node` — search + neighbor context |
+| Entity resolution | Pre-check in `create_node` — blocks creation if similar nodes exist, returns candidates with neighbor context. `force=true` to override. |
 | Graph normalization | Prompt-guided, no hard limits |
 | `update_node` semantics | Merge (override existing, add new) — not replace |
 | Batch inserts | Start single, measure, then decide |
@@ -885,10 +909,27 @@ What's **built and compiles** vs what's **design-only** (documented above but no
   vector index management. `cargo check` clean.
 - **AI service** — gRPC server, agent loop, system prompt builder, tool executor, streaming,
   LLM semaphore, HTTP retry, gRPC retry. `cargo check` clean.
-- **10 tools**: `search_nodes`, `get_node`, `get_neighbors`, `find_paths`, `create_schema`,
-  `create_edge_schema`, `create_node`, `create_edge`, `update_node`, `done`.
-- **Entity resolution** — automatic similarity search + neighbor context in `create_node`.
+- **12 tools**: `search_nodes`, `get_node`, `get_neighbors`, `find_paths`, `create_schema`,
+  `create_edge_schema`, `create_node`, `create_edge`, `update_node`, `delete_node`,
+  `delete_edge`, `done`.
+- **`delete_node` tool** — full pipeline: tool definition, tool executor handler, AI gRPC
+  client, knowledge gRPC handler, repository (`DETACH DELETE`).
+- **`delete_edge` tool** — full pipeline: tool definition, tool executor handler, AI gRPC
+  client, knowledge gRPC handler, repository (`DELETE r` by `edge_data_id`).
+- **Entity resolution** — pre-check in `create_node`: similar nodes block creation and
+  return candidates with neighbor context. `force=true` to override.
+- **Edge uniqueness enforcement** — `create_edge` uses `MERGE` with `ON CREATE SET` /
+  `ON MATCH SET` to upsert on (from, to, edge_key) triples. No duplicate edges.
 - **Session concurrency** — one active session per graph, transaction-guarded.
+- **Active session recovery** — `GET /graphs/{graph_id}/active-session` endpoint returns
+  the current active session (or 204). Frontend `ChatPanel` recovers session + messages
+  on mount.
+- **Session close on unmount** — `ChatPanel` calls `POST /sessions/{id}/close` when the
+  component unmounts (navigation away or page close).
+- **Streaming cancel button** — "Stop" button replaces "Send" while streaming. Aborts the
+  SSE connection and resets streaming state.
+- **Chat history recovery** — on page load, if an active session exists, previous messages
+  are loaded from `GET /sessions/{id}/messages` and displayed in the chat panel.
 - **Web UI** — dashboard, graph page (3D force graph), sidebar with Chat + Schema tabs,
   SSE streaming chat, toast notifications. `tsc --noEmit` clean.
 - **Role-based tool filtering** — read-only vs write tools based on user role.
@@ -897,16 +938,8 @@ What's **built and compiles** vs what's **design-only** (documented above but no
 
 ### Not yet implemented
 
-- **3 tools**: `delete_node`, `update_edge`, `remove_properties` — designed above but not
-  in `tools.rs` or `tool_executor.rs`. Without `delete_node`, the node merge workflow
-  (create duplicate → merge properties → delete duplicate) cannot fully execute. The AI
-  can still `update_node` to merge properties, but the orphan duplicate stays.
-- **Edge uniqueness enforcement** — the doc says `create_edge` should upsert on conflict
-  (one edge per from/to/key triple). The knowledge service does not enforce this yet;
-  duplicate edges can be created.
-- **Active session recovery** — `GET /graphs/{graph_id}/active-session` endpoint. Without
-  it, a page refresh during an active session blocks the user (see [Stale session
-  problem](#stale-session-problem)).
+- **2 tools**: `update_edge`, `remove_properties` — designed above but not
+  yet in `tools.rs` or `tool_executor.rs`.
 - **Authentication** — OAuth2 login. Currently `user_id` is hardcoded / passed as a header.
 - **Loading skeletons** — skeleton loaders for dashboard cards and graph page.
 - **Incremental graph updates** — update the 3D graph from `tool_result` events in real
@@ -918,13 +951,16 @@ What's **built and compiles** vs what's **design-only** (documented above but no
 
 See [Implementation Status](#implementation-status) for what's built vs what's not.
 
-- **End-to-end testing** — create graph → chat → AI builds graph → verify 3D renders
-- **Implement missing tools** — `delete_node`, `update_edge`, `remove_properties` (tool
-  definitions + tool executor handlers + knowledge gRPC calls)
-- **Edge uniqueness** — enforce upsert-on-conflict in knowledge service `create_edge`
-- **Active session recovery** — `GET /graphs/{graph_id}/active-session` endpoint +
-  frontend `ChatPanel` recovery on mount
-- **Loading skeletons** — skeleton loaders for dashboard cards and graph page
+- **Implement missing tools** — `update_edge`, `remove_properties` (tool
+  definitions + tool executor handlers + knowledge gRPC calls). `delete_node` and
+  `delete_edge` are already implemented.
+- **Auto-assign schema colors** — when creating schemas, the backend should auto-assign
+  a distinct color from a palette. Currently schemas are created without colors, getting
+  defaults. No AI involvement needed — deterministic assignment based on the number of
+  existing schemas.
+- **Delete graph** — `DELETE /graphs/{graph_id}` endpoint. CASCADE delete in Postgres
+  (removes schemas, sessions, accesses) + drop corresponding nodes/edges in Memgraph.
+  Currently no way to delete a graph.
 - **Incremental graph updates** — optionally update 3D graph from `tool_result` events
   instead of waiting for "done" (optimistic updates)
 

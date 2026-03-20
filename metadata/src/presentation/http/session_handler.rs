@@ -8,6 +8,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use bric_a_brac_dtos::GraphIdDto;
 
 #[utoipa::path(
     post,
@@ -35,6 +36,35 @@ pub async fn create(
         .create_session(payload, user_id)
         .await
         .map(|s| (StatusCode::CREATED, Json(s)))
+}
+
+#[utoipa::path(
+    get,
+    path = "/graphs/{graph_id}/active-session",
+    params(("graph_id" = String, Path, description = "Graph ID")),
+    tag = "Sessions",
+    responses(
+        (status = 200, description = "Active session found", body = SessionDto),
+        (status = 204, description = "No active session"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+#[tracing::instrument(
+    level = "trace",
+    name = "session_handler.get_active",
+    skip(state, user_id, graph_id)
+)]
+pub async fn get_active(
+    State(state): State<ApiState>,
+    AuthenticatedUser { user_id }: AuthenticatedUser,
+    Path(graph_id): Path<GraphIdDto>,
+) -> impl IntoResponse {
+    match state.session_service.get_active_session(graph_id, user_id).await {
+        Ok(Some(session)) => (StatusCode::OK, Json(session)).into_response(),
+        Ok(None) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
 }
 
 #[utoipa::path(

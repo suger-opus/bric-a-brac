@@ -2,7 +2,7 @@ use crate::{
     domain::models::{
         CreateSessionMessageModel, CreateSessionModel, GraphIdModel, RoleModel, SessionIdModel,
         SessionMessageIdModel, SessionMessageModel, SessionMessageRoleModel, SessionModel,
-        SessionStatusModel,
+        SessionStatusModel, UserIdModel,
     },
     infrastructure::errors::DatabaseError,
 };
@@ -37,6 +37,44 @@ impl SessionRepository {
         .await?;
 
         Ok(row)
+    }
+
+    #[tracing::instrument(
+        level = "debug",
+        name = "session_repository.get_active_session",
+        skip(self, connection, graph_id, user_id)
+    )]
+    pub async fn get_active_session(
+        &self,
+        connection: &mut PgConnection,
+        graph_id: GraphIdModel,
+        user_id: UserIdModel,
+    ) -> Result<Option<SessionModel>, DatabaseError> {
+        tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
+
+        let row: Option<SessionRow> = sqlx::query_as!(
+            SessionRow,
+            r#"
+SELECT
+    s.session_id,
+    s.graph_id,
+    s.user_id,
+    s.status AS "status!:_",
+    COALESCE(a.role, 'None'::role_type) AS "role!:_",
+    s.created_at,
+    s.updated_at
+FROM sessions s
+LEFT JOIN accesses a ON s.user_id = a.user_id AND s.graph_id = a.graph_id
+WHERE s.graph_id = $1 AND s.user_id = $2 AND s.status = 'active'
+LIMIT 1
+            "#,
+            graph_id as _,
+            user_id as _,
+        )
+        .fetch_optional(connection)
+        .await?;
+
+        Ok(row.map(SessionRow::into))
     }
 
     #[tracing::instrument(
