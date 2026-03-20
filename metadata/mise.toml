@@ -1,9 +1,4 @@
 [env]
-# Metadata Server Configuration
-# METADATA_SERVER_HOST=""
-# METADATA_HTTP_SERVER_PORT=""
-# METADATA_GRPC_SERVER_PORT=""
-
 # Metadata Database Configuration
 # METADATA_DB_HOST=""
 # METADATA_DB_PORT=""
@@ -14,15 +9,23 @@
 # METADATA_DB_MAX_CONNECTIONS=""
 # METADATA_DB_SKIP_MIGRATION=""
 
+# Metadata Server Configuration
+# METADATA_SERVER_HOST=""
+# METADATA_HTTP_SERVER_PORT=""
+# METADATA_GRPC_SERVER_PORT=""
+
 # Knowledge Server Configuration
-# KNOWLEDGE_SERVER_URL=""
+# KNOWLEDGE_GRPC_SERVER_URL=""
+
+# AI Server Configuration
+# AI_GRPC_SERVER_URL=""
 
 # SQLX
 # SQLX_OFFLINE="false"
 # DATABASE_URL="{{env.METADATA_DB_URL}}"
 
 # LOGS
-# RUST_LOG="warn,metadata=trace,bric_a_brac_protos=debug"
+# RUST_LOG="warn,metadata=trace"
 
 [tasks]
 db-config = "docker compose -f compose.db.yaml config"

@@ -1,17 +1,21 @@
 [env]
-# Ai Server Configuration
+# AI Server Configuration
 # AI_SERVER_HOST=""
 # AI_SERVER_PORT=""
 
 # OpenRouter Configuration
 # OPENROUTER_API_KEY=""
 # OPENROUTER_DEFAULT_MODEL=""
+# OPENROUTER_EMBEDDING_MODEL=""
 
 # Metadata Server Configuration
 # METADATA_GRPC_SERVER_URL=""
 
+# Knowledge Server Configuration
+# KNOWLEDGE_GRPC_SERVER_URL=""
+
 # LOGS
-# RUST_LOG="warn,ai=trace,bric_a_brac_protos=debug"
+# RUST_LOG="warn,ai=trace"
 
 [tasks]
 server-config = "docker compose -f compose.server.yaml config"

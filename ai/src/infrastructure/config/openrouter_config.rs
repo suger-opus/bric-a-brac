@@ -10,7 +10,7 @@ pub struct OpenRouterConfig {
     #[arg(
         long,
         env = "OPENROUTER_DEFAULT_MODEL",
-        default_value = "qwen/qwen-2.5-72b-instruct"
+        default_value = "openai/gpt-4.1"
     )]
     openrouter_default_model: String,
 
