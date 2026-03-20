@@ -610,8 +610,120 @@ to the AI service's gRPC stream.
 - **AI → Metadata:** gRPC via `metadata.proto` (session management, schema CRUD)
 - **AI → Knowledge:** gRPC via `knowledge.proto` (graph operations)
 - **Metadata → Knowledge:** gRPC for vector index initialization on schema creation
-- **Web UI → Metadata:** HTTP REST for user-facing CRUD
-- **Web UI → AI:** gRPC-Web for agent chat streaming
+- **Web UI → Metadata:** HTTP REST + SSE for all user-facing operations including chat
+
+### Layering rules
+
+These apply across the entire Rust codebase:
+
+- **Handlers** extract request data, call services, return responses. No business logic.
+- **Services** take and return **DTOs**. Convert DTO↔Model internally.
+- **Repositories** take and return **Models**.
+- **gRPC clients** take and return **DTOs**.
+- **Proto↔Dto** conversions live in dto files as `From` trait impls.
+- **Dto↔Model** conversions live in dto files as `From` trait impls.
+- Zero `.expect()` / `.unwrap()` in production code. gRPC client constructors return
+  `anyhow::Result<Self>`.
+- Type-safe IDs via `id!()` macro (e.g. `SessionIdDto`, `GraphIdDto`).
+
+### Metadata HTTP routes
+
+```
+POST /users                             → create user
+GET  /users/me                          → get current user
+
+GET  /graphs                            → list user's graphs
+POST /graphs                            → create graph
+GET  /graphs/{graph_id}                 → get graph metadata
+GET  /graphs/{graph_id}/schema          → get graph schema
+GET  /graphs/{graph_id}/data            → get graph data
+
+POST /accesses/graphs/{graph_id}        → create access
+
+POST /sessions                          → create session (body: { graph_id })
+GET  /sessions/{session_id}             → get session
+POST /sessions/{session_id}/close       → close session
+GET  /sessions/{session_id}/messages    → get messages
+
+POST /graphs/{graph_id}/chat            → SSE chat bridge (body: { session_id, content })
+```
+
+### Chat SSE bridge (metadata → AI)
+
+The `POST /graphs/{graph_id}/chat` endpoint bridges HTTP to gRPC:
+
+1. Receives `{ session_id, content }` from the browser
+2. Calls `ai_service.chat()` which opens a gRPC `SendMessage` stream to the AI service
+3. Maps each `AgentEventProto` from the stream to an SSE event
+4. Streams events to the browser with `event:` + `data:` format
+
+SSE event types:
+
+```
+event: text
+data: {"content":"I'll create a Person node type..."}
+
+event: tool_call
+data: {"tool_call_id":"abc","name":"create_node_schema","arguments":"{...}"}
+
+event: tool_result
+data: {"tool_call_id":"abc","content":"Created node schema 'Person'"}
+
+event: done
+data: {"summary":"Created 2 node types and 15 nodes"}
+
+event: error
+data: {"message":"Failed to create node schema"}
+```
+
+---
+
+## Web UI
+
+### Stack
+
+- **Next.js 16.1.1** + **React 19.2.3** + **TypeScript 5** (React Compiler enabled)
+- **TailwindCSS v4** + **shadcn/ui** (Radix primitives)
+- **Valibot v1.2.0** for DTO runtime validation
+- **Mande v2.0.9** as HTTP client
+- **react-force-graph-3d** + **three-spritetext** for 3D graph visualization
+- **Sonner** for toast notifications
+- Config: `NEXT_PUBLIC_API_URL` env var pointing to metadata HTTP
+
+### API client (`lib/api/client.ts`)
+
+Typed `get<T>(path, schema)` and `post<T>(path, body, schema)` wrapping Mande. Every
+response is validated at runtime with Valibot `safeParse`. Failed requests show a toast.
+Hardcoded `user_id` header (no auth yet).
+
+Chat uses raw `fetch()` with manual SSE parsing (not EventSource — needs POST body).
+Returns an `AbortController` for cancellation.
+
+### Page structure
+
+**Dashboard** (`app/page.tsx`) — list + create graphs. Stub cards for search, bookmarks,
+cheers, settings.
+
+**Graph page** (`app/graph/[graph_id]/page.tsx`):
+
+```
+GraphProvider (context: graphId, metadata, schema, data, processedData, refetch)
+├── Graph (3D force graph — react-force-graph-3d, SpriteText labels, schema colors)
+└── GraphSidebar
+    ├── Header (name, owner, dates, privacy badge, node/edge counts)
+    ├── Tabs
+    │   ├── "Chat" (default) → ChatPanel
+    │   └── "Schema" → Collapsible NodeSchemaItem[] + EdgeSchemaItem[]
+    └── Footer (exit to home)
+```
+
+**ChatPanel** — lazy session creation on first message, SSE streaming with blinking cursor,
+tool call/result visualization, auto-scroll. Calls `refetch()` on "done" event to update
+the 3D graph. Toast notifications on tool results and errors.
+
+**GraphContext** — parallel fetch of metadata + schema + data. `refetch()` increments a
+`fetchTrigger` counter that re-triggers the fetch effect. Processes graph data by mapping
+schema colors onto nodes and edges.
 
 ---
 
@@ -651,6 +763,15 @@ document ingestion. If round-trips are the bottleneck:
 2. If still not enough, add explicit batch tools (`create_nodes`, `create_edges`)
 
 No new knowledge RPCs needed — batch tools loop over single inserts in the executor.
+
+---
+
+## Remaining Work
+
+- **End-to-end testing** — create graph → chat → AI builds graph → verify 3D renders
+- **Loading skeletons** — skeleton loaders for dashboard cards and graph page
+- **Incremental graph updates** — optionally update 3D graph from `tool_result` events
+  instead of waiting for "done" (optimistic updates)
 
 ---
 
