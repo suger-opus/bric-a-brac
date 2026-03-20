@@ -1,6 +1,4 @@
 import * as v from "valibot";
-import { CreatePropertySchemaDto, PropertySchemaDto } from "./property-schema-dto";
-import { SendColorDto, SendLabelDto } from "./utils-dto";
 
 export const EdgeSchemaDto = v.object({
   edge_schema_id: v.string(),
@@ -8,13 +6,7 @@ export const EdgeSchemaDto = v.object({
   label: v.string(),
   key: v.string(),
   color: v.string(),
+  description: v.string(),
   created_at: v.pipe(v.string(), v.isoTimestamp()),
   updated_at: v.pipe(v.string(), v.isoTimestamp()),
-  properties: v.array(PropertySchemaDto)
-});
-
-export const CreateEdgeSchemaDto = v.object({
-  label: SendLabelDto,
-  color: SendColorDto,
-  properties: v.array(CreatePropertySchemaDto)
 });

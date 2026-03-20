@@ -1,42 +1,13 @@
-import { ProcessedGraphData } from "@/types";
+import type { ProcessedGraphData } from "@/types";
 
 export const sampleProcessedGraphData: ProcessedGraphData = {
   nodes: [
-    {
-      id: "node-data-1",
-      key: "Person",
-      color: "#808080",
-      properties: { Name: "Alice", Job_Title: "Engineer" }
-    },
-    {
-      id: "node-data-2",
-      key: "Company",
-      color: "#808080",
-      properties: { Name: "Acme Corp" }
-    },
-    {
-      id: "node-data-3",
-      key: "Person",
-      color: "#808080",
-      properties: { Name: "Bob", Job_Title: "Manager", Is_Full_Time: true, Age: 30 }
-    }
+    { id: "1", key: "Person", color: "#6366f1", properties: { name: "Alice", role: "Engineer" } },
+    { id: "2", key: "Company", color: "#f59e0b", properties: { name: "Acme Corp" } },
+    { id: "3", key: "Person", color: "#6366f1", properties: { name: "Bob", role: "Manager" } },
   ],
   links: [
-    {
-      id: "edge_data_1",
-      source: "node-data-1",
-      target: "node-data-2",
-      key: "WORKS_AT",
-      color: "#808080",
-      properties: { Start_Year: 2020 }
-    },
-    {
-      id: "edge_data_2",
-      source: "node-data-3",
-      target: "node-data-2",
-      key: "WORKS_AT",
-      color: "#808080",
-      properties: { Start_Year: 2021 }
-    }
-  ]
+    { id: "e1", source: "1", target: "2", key: "WORKS_AT", color: "#94a3b8", properties: { since: 2020 } },
+    { id: "e2", source: "3", target: "2", key: "WORKS_AT", color: "#94a3b8", properties: { since: 2021 } },
+  ],
 };

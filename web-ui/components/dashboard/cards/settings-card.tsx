@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api/provider";
+import { userService } from "@/lib/api/services/user-service";
 import { scrollToElement } from "@/lib/utils";
 import { User } from "@/types";
 import {
@@ -43,7 +43,6 @@ type SettingsProps = {
 };
 
 const SettingsCard = ({ is_expanded, expand, un_expand }: SettingsProps) => {
-  const { userService } = ApiProvider;
   const [user, setUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
 
@@ -61,7 +60,7 @@ const SettingsCard = ({ is_expanded, expand, un_expand }: SettingsProps) => {
   const getUser = async () => {
     try {
       setIsUserLoading(true);
-      const result = await userService.get();
+      const result = await userService.getCurrent();
       setUser(result);
     } catch (error) {
       console.error("Error during getUser:", error);

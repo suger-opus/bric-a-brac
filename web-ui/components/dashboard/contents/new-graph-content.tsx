@@ -19,7 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { CreateGraphDto } from "@/lib/api/dtos";
-import { ApiProvider } from "@/lib/api/provider";
+import { graphService } from "@/lib/api/services/graph-service";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useState } from "react";
@@ -31,7 +31,6 @@ type NewGraphDialogContentProps = {
 };
 
 const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) => {
-  const { graphService } = ApiProvider;
   const router = useRouter();
 
   const [name, setName] = useState("");

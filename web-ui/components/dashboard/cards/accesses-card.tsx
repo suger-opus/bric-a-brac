@@ -25,7 +25,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api/provider";
+import { graphService } from "@/lib/api/services/graph-service";
 import { scrollToElement } from "@/lib/utils";
 import { GraphMetadata } from "@/types";
 import { ExpandIcon, PlusIcon, ShrinkIcon, VectorSquareIcon } from "lucide-react";
@@ -38,7 +38,6 @@ type AccessesProps = {
 };
 
 const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
-  const { graphService } = ApiProvider;
   const [accessedGraphs, setAccessedGraphs] = useState<GraphMetadata[]>([]);
   const [isAccessesLoading, setIsAccessesLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);

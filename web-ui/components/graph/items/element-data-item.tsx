@@ -1,62 +1,38 @@
-"use client";
-
-import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { PropertySchema, PropertyValue, Role } from "@/types";
+import type { PropertiesData } from "@/types";
 
 type GraphElementItemProps = {
   kind: "node" | "edge";
   id: string;
   label: string;
   color: string;
-  schemaProperties: PropertySchema[];
-  dataProperties: Record<string, PropertyValue>;
-  role: Role;
+  properties: PropertiesData;
 };
 
-const GraphElementItem = ({
-  kind,
-  id,
-  label,
-  color,
-  schemaProperties,
-  dataProperties,
-  role
-}: GraphElementItemProps) => {
+const GraphElementItem = ({ kind, id, label, color, properties }: GraphElementItemProps) => {
   return (
     <div className="w-80 max-w-full h-fit space-y-2 p-2 overflow-auto no-scrollbar bg-transparent backdrop-blur-sm border border-black/10 rounded-md">
       <div className="flex items-center space-x-2">
         <div
           className={kind === "node" ? "w-4 h-4 rounded-full" : "w-4 h-2 rounded-xs"}
-          style={{ "backgroundColor": color }}
+          style={{ backgroundColor: color }}
         />
-        <h2 className="scroll-m-20 text-xl font-semibold tracking-tight">
-          {label}
-        </h2>
+        <h2 className="scroll-m-20 text-xl font-semibold tracking-tight">{label}</h2>
       </div>
       <Table>
         <TableBody>
           <TableRow>
             <TableCell className="font-medium">ID</TableCell>
-            <TableCell>{id}</TableCell>
+            <TableCell className="font-mono text-xs">{id}</TableCell>
           </TableRow>
-          {Object.entries(dataProperties).map(([key, value]) => (
+          {Object.entries(properties).map(([key, value]) => (
             <TableRow key={key}>
-              <TableCell className="font-medium">
-                {schemaProperties.find((p) => p.key === key)?.label || key}
-              </TableCell>
-              <TableCell>
-                {String(value)}
-              </TableCell>
+              <TableCell className="font-medium">{key}</TableCell>
+              <TableCell>{String(value)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-      {[Role.OWNER, Role.ADMIN, Role.EDITOR].includes(role) && (
-        <Button size="sm" variant="secondary" className="w-full">
-          Manage
-        </Button>
-      )}
     </div>
   );
 };

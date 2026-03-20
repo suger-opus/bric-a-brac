@@ -1,39 +1,31 @@
 "use client";
 
 import { useGraph } from "@/contexts/graph-context";
-import { NodeSchema, ProcessedNodeData } from "@/types";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useMemo } from "react";
 import GraphElementItem from "./element-data-item";
 
 const GraphNodeItem = () => {
-  const { metadata, schema, processedData, focusNode } = useGraph();
-  const [nodeData, setNodeData] = useState<ProcessedNodeData | null>(null);
-  const [nodeSchema, setNodeSchema] = useState<NodeSchema | null>(null);
+  const { schema, processedData, focusNode } = useGraph();
 
-  const findNode = useEffectEvent(() => {
-    const foundData = processedData?.nodes.find((n) => n.id === focusNode);
-    const foundSchema = schema?.nodes.find((n) => n.key === foundData?.key);
-    setNodeData(foundData || null);
-    setNodeSchema(foundSchema || null);
-  });
+  const match = useMemo(() => {
+    if (!focusNode || !processedData || !schema) return null;
+    const node = processedData.nodes.find((n) => n.id === focusNode);
+    if (!node) return null;
+    const nodeSchema = schema.nodes.find((n) => n.key === node.key);
+    return nodeSchema ? { node, schema: nodeSchema } : null;
+  }, [focusNode, processedData, schema]);
 
-  useEffect(() => {
-    findNode();
-  }, [focusNode]);
+  if (!match) return null;
 
-  return (nodeData && nodeSchema)
-    ? (
-      <GraphElementItem
-        kind="node"
-        id={focusNode!}
-        label={nodeSchema.label}
-        color={nodeSchema.color}
-        schemaProperties={nodeSchema.properties}
-        dataProperties={nodeData.properties}
-        role={metadata!.user_role}
-      />
-    )
-    : null;
+  return (
+    <GraphElementItem
+      kind="node"
+      id={match.node.id}
+      label={match.schema.label}
+      color={match.schema.color}
+      properties={match.node.properties}
+    />
+  );
 };
 
 export default GraphNodeItem;

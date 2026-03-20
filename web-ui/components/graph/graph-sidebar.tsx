@@ -5,7 +5,6 @@ import NodeSchemaItem from "@/components/graph/items/node-schema-item";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Kbd } from "@/components/ui/kbd";
 import {
   Sidebar,
   SidebarContent,
@@ -13,28 +12,14 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader
+  SidebarHeader,
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Toggle } from "@/components/ui/toggle";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGraph } from "@/contexts/graph-context";
-import { Role } from "@/types";
-import {
-  BookmarkIcon,
-  ChevronDown,
-  HandHeartIcon,
-  HomeIcon,
-  PackageIcon,
-  SplineIcon
-} from "lucide-react";
+import { ChevronDown, HomeIcon, PackageIcon, SplineIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-type GraphSidebarProps = {
-  openCommand: () => void;
-};
-
-const GraphSidebar = ({ openCommand }: GraphSidebarProps) => {
+const GraphSidebar = () => {
   const router = useRouter();
   const { metadata, isLoaded, schema } = useGraph();
 
@@ -52,15 +37,11 @@ const GraphSidebar = ({ openCommand }: GraphSidebarProps) => {
           : (
             <div className="space-y-2">
               <div className="space-y-1">
-                <p className="text-xl font-bold">
-                  {metadata!.name}
-                </p>
+                <p className="text-xl font-bold">{metadata!.name}</p>
                 <div className="border-l-2 border-black/80 pl-2 text-black/80 text-xs">
                   <p>
                     <i>by</i>{" "}
-                    <b>
-                      <u>{metadata!.owner_username}</u>
-                    </b>{" "}
+                    <b><u>{metadata!.owner_username}</u></b>{" "}
                     <i>on {new Date(metadata!.created_at).toLocaleDateString()}</i>
                   </p>
                   <p>
@@ -72,53 +53,6 @@ const GraphSidebar = ({ openCommand }: GraphSidebarProps) => {
                 <Badge className="font-bold text-[9px] h-5">
                   {metadata!.is_public ? "PUBLIC" : "PRIVATE"}
                 </Badge>
-                {metadata!.user_role !== Role.NONE && (
-                  <Badge className="font-bold text-[9px] h-5">
-                    {metadata!.user_role.toUpperCase()}
-                  </Badge>
-                )}
-                {metadata!.is_public && (
-                  <>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="outline" className="h-5">
-                          <Toggle
-                            aria-label="Toggle bookmark"
-                            variant="default"
-                            pressed={metadata!.is_cheered_by_user}
-                            className="h-5 w-fit p-0 font-bold text-[11px] cursor-pointer data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-black data-[state=on]:*:[svg]:stroke-black"
-                          >
-                            <HandHeartIcon />
-                            {metadata!.nb_cheers}
-                          </Toggle>
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {metadata!.is_cheered_by_user ? "Un-cheer this graph" : "Cheer this graph"}
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="outline" className="h-5">
-                          <Toggle
-                            aria-label="Toggle bookmark"
-                            variant="default"
-                            pressed={metadata!.is_bookmarked_by_user}
-                            className="h-5 w-fit p-0 font-bold text-[11px] cursor-pointer data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-black data-[state=on]:*:[svg]:stroke-black"
-                          >
-                            <BookmarkIcon />
-                            {metadata!.nb_bookmarks}
-                          </Toggle>
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {metadata!.is_bookmarked_by_user
-                          ? "Un-bookmark this graph"
-                          : "Bookmark this graph"}
-                      </TooltipContent>
-                    </Tooltip>
-                  </>
-                )}
                 <Badge variant="outline" className="font-bold text-[11px] h-5">
                   <PackageIcon />
                   {metadata!.nb_data_nodes}
@@ -128,13 +62,13 @@ const GraphSidebar = ({ openCommand }: GraphSidebarProps) => {
                   {metadata!.nb_data_edges}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">{metadata!.description}</p>
+              {metadata!.description && (
+                <p className="text-sm text-muted-foreground">{metadata!.description}</p>
+              )}
             </div>
           )}
-        <Button onClick={openCommand} variant="outline" size="sm" className="w-full mt-2">
-          Open Command Menu<Kbd>Ctrl + M</Kbd>
-        </Button>
       </SidebarHeader>
+
       <SidebarContent className="gap-0">
         <Collapsible defaultOpen className="group/collapsible-nodes">
           <SidebarGroup>
@@ -147,24 +81,13 @@ const GraphSidebar = ({ openCommand }: GraphSidebarProps) => {
             <CollapsibleContent>
               <SidebarGroupContent className="space-y-1">
                 {!isLoaded
-                  ? (
-                    <>
-                      <Skeleton className="h-8" />
-                      <Skeleton className="h-8" />
-                      <Skeleton className="h-8" />
-                    </>
-                  )
-                  : (
-                    <>
-                      {schema!.nodes.map((node, index) => (
-                        <NodeSchemaItem key={index} schema={node} />
-                      ))}
-                    </>
-                  )}
+                  ? <>{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8" />)}</>
+                  : schema!.nodes.map((node) => <NodeSchemaItem key={node.node_schema_id} schema={node} />)}
               </SidebarGroupContent>
             </CollapsibleContent>
           </SidebarGroup>
         </Collapsible>
+
         <Collapsible defaultOpen className="group/collapsible-edges">
           <SidebarGroup>
             <SidebarGroupLabel asChild>
@@ -176,32 +99,16 @@ const GraphSidebar = ({ openCommand }: GraphSidebarProps) => {
             <CollapsibleContent>
               <SidebarGroupContent className="space-y-1">
                 {!isLoaded
-                  ? (
-                    <>
-                      <Skeleton className="h-8" />
-                      <Skeleton className="h-8" />
-                      <Skeleton className="h-8" />
-                    </>
-                  )
-                  : (
-                    <>
-                      {schema!.edges.map((edge, index) => (
-                        <EdgeSchemaItem key={index} schema={edge} />
-                      ))}
-                    </>
-                  )}
+                  ? <>{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8" />)}</>
+                  : schema!.edges.map((edge) => <EdgeSchemaItem key={edge.edge_schema_id} schema={edge} />)}
               </SidebarGroupContent>
             </CollapsibleContent>
           </SidebarGroup>
         </Collapsible>
       </SidebarContent>
+
       <SidebarFooter className="flex flex-row items-center">
-        <Button
-          className="ml-auto"
-          size="sm"
-          onClick={() =>
-            router.push("/")}
-        >
+        <Button className="ml-auto" size="sm" onClick={() => router.push("/")}>
           <HomeIcon />Exit to Home
         </Button>
       </SidebarFooter>
