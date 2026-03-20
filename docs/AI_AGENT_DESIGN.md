@@ -155,6 +155,26 @@ overlap with existing ones and merge instead of duplicating.
    - The AI decides: same entity → `update_node` to merge, different → keep both
 5. **If no similar nodes:** creates directly
 
+### Node merge workflow
+
+When the AI determines that a newly created node (A) is the same entity as an existing
+node (B):
+
+1. `update_node(B, {properties from A that B is missing or that should override})`
+   — merge semantics: adds new properties, overrides existing ones.
+2. `delete_node(A)` — removes the duplicate and all its edges. Since A was just created
+   in the same session, it typically has no edges yet (the AI hasn't created edges to A
+   because it just discovered the duplicate). If A does have edges (e.g., from a previous
+   tool call in the same message), those edges are detach-deleted — the AI can recreate
+   them pointing to B if needed.
+
+**`delete_node` is not yet implemented.** Until it is, step 1 works (merge properties into
+the surviving node) but step 2 does not — the orphan duplicate stays in the graph. See
+[Implementation Status](#implementation-status).
+
+`delete_node` performs a Memgraph `DETACH DELETE`, which removes the node and all edges
+connected to it in a single operation.
+
 ### Why automatic
 
 Relying on the LLM to remember to call `search_nodes` before every `create_node` is fragile.
@@ -278,6 +298,43 @@ The frontend sends **only the new user message**. The server:
 4. Runs the agent loop
 5. Persists all new messages (user message + assistant responses + tool results) via metadata gRPC
 6. Streams events to the client throughout
+
+### Session concurrency enforcement
+
+One active session per graph. Enforced in `session_service.create_session()` inside a
+Postgres transaction:
+
+1. `BEGIN`
+2. `has_active_session(graph_id)` — `SELECT EXISTS(... WHERE status = 'active')`
+3. If true → return error: "An active session already exists for this graph"
+4. If false → `INSERT INTO sessions`
+5. `COMMIT`
+
+The transaction ensures no race condition between the check and the insert. If a second
+user tries to open a chat on the same graph while a session is active, the frontend
+receives an error and should display it.
+
+### Stale session problem
+
+**Problem:** The frontend stores `sessionId` in React state (`useState`). If the user
+refreshes the page, the state is lost — but the session stays `active` in Postgres.
+When the user sends a new message, the frontend tries to create a new session, which fails
+("already active"). The user is blocked.
+
+**Solution — recover the active session on page load:**
+
+1. Add a new endpoint: `GET /graphs/{graph_id}/active-session`
+   - Returns the active session for the graph (if any), or 404.
+   - Query: `SELECT * FROM sessions WHERE graph_id = $1 AND status = 'active' LIMIT 1`
+2. The `ChatPanel` component calls this endpoint on mount (when `sessionId` is null).
+   If an active session exists, it sets `sessionId` to the returned session and loads
+   its message history via `GET /sessions/{session_id}/messages`.
+3. If no active session exists, the frontend proceeds normally (lazy creation on first
+   message).
+
+**Not yet implemented.** Currently the frontend does not recover sessions on page load. If
+a page refresh happens during an active session, the user must wait for the session to
+expire or be cleaned up manually. This is the next feature to implement.
 
 ---
 
@@ -420,13 +477,53 @@ across all node schemas in the graph and merges results by distance.
 
 ### Write tools (write-role users only)
 
-| Tool | Parameters | Returns |
-|---|---|---|
-| `create_schema` | `name` (string), `description` (string) | Schema with generated key |
-| `create_edge_schema` | `name` (string), `description` (string) | Schema with generated key |
-| `create_node` | `node_key` (string), `properties` (object) | Node (+ entity resolution warnings) |
-| `create_edge` | `edge_key` (string), `from_id` (string), `to_id` (string), `properties?` (object) | Edge |
-| `update_node` | `node_id` (string), `properties` (object) | Updated node |
+| Tool | Parameters | Returns | Status |
+|---|---|---|---|
+| `create_schema` | `name` (string), `description` (string) | Schema with generated key | **Implemented** |
+| `create_edge_schema` | `name` (string), `description` (string) | Schema with generated key | **Implemented** |
+| `create_node` | `node_key` (string), `properties` (object) | Node (+ entity resolution warnings) | **Implemented** |
+| `create_edge` | `edge_key` (string), `from_id` (string), `to_id` (string), `properties?` (object) | Edge | **Implemented** |
+| `update_node` | `node_id` (string), `properties` (object) | Updated node | **Implemented** |
+| `update_edge` | `edge_id` (string), `properties` (object) | Updated edge | **Not implemented** |
+| `remove_properties` | `element_id` (string), `keys` (string[]) | Updated node or edge | **Not implemented** |
+| `delete_node` | `node_id` (string) | Confirmation (detach-deletes edges) | **Not implemented** |
+
+#### `update_node` / `update_edge` semantics
+
+**Merge, not replace.** `update_node` is implemented. `update_edge` is not yet implemented.
+
+For each key in the provided `properties` object:
+- If the key exists on the node/edge → override the value.
+- If the key does not exist → add the property.
+
+Properties not mentioned in the call are left untouched. To remove a property, use
+`remove_properties`.
+
+After an `update_node`, the embedding is recomputed from the merged property set.
+
+#### `remove_properties`
+
+Removes one or more properties from a node or edge by key. Accepts a list of keys to
+enable removing multiple properties in a single tool call (saves round-trips). The element
+is identified by `element_id` which can be either a node ID or edge ID.
+
+After removing properties from a node, the embedding is recomputed.
+
+#### `delete_node`
+
+Deletes a node and all its edges (`DETACH DELETE` in Memgraph). Used during entity
+resolution when the AI decides two nodes are the same entity — after merging properties
+into the surviving node, the duplicate is deleted.
+
+#### Edge uniqueness
+
+**Not yet enforced in code.** Design target:
+
+A relationship between two nodes is unique per type: two nodes can have multiple
+relationships, but only one per edge schema key. If the AI calls `create_edge` with a
+(from, to, key) triple that already exists, the knowledge service returns the existing
+edge instead of creating a duplicate. The AI can then use `update_edge` to modify its
+properties if needed.
 
 ### Session tools (all users)
 
@@ -437,9 +534,14 @@ across all node schemas in the graph and merges results by distance.
 ### Loop termination
 
 The agent loop ends when:
-1. The agent calls `done` — for document ingestion, the summary reports what was created
-2. The agent responds with **text only, no tool calls** — for question answering
-3. **200 tool calls** reached — hard safety limit
+1. The agent calls `done` — for document ingestion, the summary reports what was created.
+2. The agent responds with **text only, no tool calls** — for question answering. The
+   server automatically emits a `Done` event after the text.
+3. **200 tool calls** reached — hard safety limit. The server emits an `Error` event.
+
+The gRPC stream **always** terminates with either a `Done` or `Error` event. The frontend
+relies on this: it resets streaming state and triggers `refetch()` on `done`, and shows an
+error message on `error`. There is no scenario where the stream ends silently.
 
 ### Schema validation
 
@@ -645,6 +747,7 @@ GET  /sessions/{session_id}             → get session
 POST /sessions/{session_id}/close       → close session
 GET  /sessions/{session_id}/messages    → get messages
 
+GET  /graphs/{graph_id}/active-session  → get active session (or 404) ← NOT YET IMPLEMENTED
 POST /graphs/{graph_id}/chat            → SSE chat bridge (body: { session_id, content })
 ```
 
@@ -739,15 +842,17 @@ schema colors onto nodes and edges.
 | Schema validation | Schema existence only — no property validation |
 | Entity resolution | Automatic in `create_node` — search + neighbor context |
 | Graph normalization | Prompt-guided, no hard limits |
+| `update_node` semantics | Merge (override existing, add new) — not replace |
 | Batch inserts | Start single, measure, then decide |
 | Session ownership | Metadata service (Postgres) |
 | Message storage | One row per message in `session_messages` |
 | Document delivery | Text inline in `SendMessage` request |
 | LLM-generated queries | **Never** — predefined parameterized templates |
-| Edge vector indexes | No — edge dedup is structural |
+| Edge vector indexes | No — edge dedup is structural (unique per type between two nodes) |
+| Edge uniqueness | One edge per (from, to, edge_key) triple — upsert on conflict |
 | Schema creation | AI creates schemas mid-conversation via tools |
-| Loop termination | `done` tool, text-only response, or 200 tool-call limit |
-| Concurrency per graph | One active session at a time |
+| Loop termination | `done` event always emitted — text-only triggers auto-done, or 200-call error |
+| Concurrency per graph | One active session at a time (transaction-guarded) |
 | AI→metadata | gRPC via `metadata.proto` (not HTTP) |
 | LLM concurrency | Semaphore (20 permits) across all sessions |
 | gRPC retry | 3 attempts, exponential backoff on Unavailable/DeadlineExceeded |
@@ -766,9 +871,57 @@ No new knowledge RPCs needed — batch tools loop over single inserts in the exe
 
 ---
 
+## Implementation Status
+
+What's **built and compiles** vs what's **design-only** (documented above but not in code).
+
+### Implemented
+
+- **Metadata service** — full HTTP API (users, graphs, sessions, schema, data, chat SSE
+  bridge), gRPC server, Postgres repositories, migrations. `cargo check` clean.
+- **Knowledge service** — gRPC server, Memgraph repositories (nodes, edges, schemas),
+  vector index management. `cargo check` clean.
+- **AI service** — gRPC server, agent loop, system prompt builder, tool executor, streaming,
+  LLM semaphore, HTTP retry, gRPC retry. `cargo check` clean.
+- **10 tools**: `search_nodes`, `get_node`, `get_neighbors`, `find_paths`, `create_schema`,
+  `create_edge_schema`, `create_node`, `create_edge`, `update_node`, `done`.
+- **Entity resolution** — automatic similarity search + neighbor context in `create_node`.
+- **Session concurrency** — one active session per graph, transaction-guarded.
+- **Web UI** — dashboard, graph page (3D force graph), sidebar with Chat + Schema tabs,
+  SSE streaming chat, toast notifications. `tsc --noEmit` clean.
+- **Role-based tool filtering** — read-only vs write tools based on user role.
+- **Tool executor guard** — defense-in-depth role check before executing write tools.
+- **Schema validation** — node_key/edge_key validated against metadata before tool execution.
+
+### Not yet implemented
+
+- **3 tools**: `delete_node`, `update_edge`, `remove_properties` — designed above but not
+  in `tools.rs` or `tool_executor.rs`. Without `delete_node`, the node merge workflow
+  (create duplicate → merge properties → delete duplicate) cannot fully execute. The AI
+  can still `update_node` to merge properties, but the orphan duplicate stays.
+- **Edge uniqueness enforcement** — the doc says `create_edge` should upsert on conflict
+  (one edge per from/to/key triple). The knowledge service does not enforce this yet;
+  duplicate edges can be created.
+- **Active session recovery** — `GET /graphs/{graph_id}/active-session` endpoint. Without
+  it, a page refresh during an active session blocks the user (see [Stale session
+  problem](#stale-session-problem)).
+- **Authentication** — OAuth2 login. Currently `user_id` is hardcoded / passed as a header.
+- **Loading skeletons** — skeleton loaders for dashboard cards and graph page.
+- **Incremental graph updates** — update the 3D graph from `tool_result` events in real
+  time instead of waiting for "done".
+
+---
+
 ## Remaining Work
 
+See [Implementation Status](#implementation-status) for what's built vs what's not.
+
 - **End-to-end testing** — create graph → chat → AI builds graph → verify 3D renders
+- **Implement missing tools** — `delete_node`, `update_edge`, `remove_properties` (tool
+  definitions + tool executor handlers + knowledge gRPC calls)
+- **Edge uniqueness** — enforce upsert-on-conflict in knowledge service `create_edge`
+- **Active session recovery** — `GET /graphs/{graph_id}/active-session` endpoint +
+  frontend `ChatPanel` recovery on mount
 - **Loading skeletons** — skeleton loaders for dashboard cards and graph page
 - **Incremental graph updates** — optionally update 3D graph from `tool_result` events
   instead of waiting for "done" (optimistic updates)
