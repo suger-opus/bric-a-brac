@@ -1,12 +1,5 @@
 use bric_a_brac_protos::ai::agent_event_proto;
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
-
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct ChatRequestDto {
-    pub session_id: String,
-    pub content: String,
-}
+use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]

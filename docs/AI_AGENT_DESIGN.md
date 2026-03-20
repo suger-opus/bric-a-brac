@@ -15,6 +15,121 @@ memory the AI builds and navigates.
 
 ---
 
+## Positioning: Interactive Graph-Based RAG
+
+### The core problem
+
+The core problem isn't "RAG is hard" — plenty of tools make RAG easier (LangChain,
+LlamaIndex, Pinecone, Weaviate). The problem is deeper: **humans can't see, verify, or correct what an AI "knows."**
+
+Today, when you feed documents into a RAG pipeline, you're trusting a black box. You can't
+inspect what was retained, what was lost in chunking, what connections exist between
+concepts, or whether two chunks contradict each other. When the AI gives a wrong answer,
+you can't trace *why* — was the data bad? Was retrieval bad? Was the chunk poorly split?
+You have no tools to fix it.
+
+Bric-a-brac makes AI knowledge **tangible and manipulable**. That's the real value
+proposition.
+
+### Why it's interesting
+
+**1. The knowledge curation gap is real.** Every company building on RAG hits the same
+wall: retrieval quality degrades over time, data gets stale, duplicates accumulate, and
+nobody knows what's inside the vector store. The only fix is "re-ingest everything."
+Bric-a-brac treats this as a first-class UX problem rather than an engineering problem.
+
+**2. The graph structure is genuinely better for relational knowledge.** Factual,
+relational, entity-heavy domains — legal, medical, academic research, competitive
+intelligence, internal company knowledge — are poorly served by flat chunk-and-embed.
+"Who reports to whom," "which contracts reference this clause," "how are these research
+papers connected" — these questions need structure that vector search alone can't provide.
+
+**3. The AI-as-builder pattern is novel.** Most tools are either "AI answers questions
+over your data" (RAG) or "you manually build a knowledge base" (Notion, wikis, graph tools
+like Neo4j Browser). Bric-a-brac merges both: the AI builds the graph *while* being
+conversational, and the user steers it. The pre-check entity resolution is a good example
+— it's collaborative knowledge construction.
+
+### Traditional RAG limitations vs bric-a-brac
+
+Traditional RAG follows a rigid pipeline: documents → chunks → embeddings → vector store →
+retrieve → answer. Research identifies these well-known limitations:
+
+1. **No web platform exists** to build and manage RAG interactively — pipelines are
+   code-only.
+2. **Data hygiene is critical** — quality depends entirely on chunking and cleaning, with
+   no visibility into the vector store.
+3. **Chunk strategy is a trade-off** — fixed-size, semantic, recursive splitting all lose
+   information differently.
+4. **Data cannot be updated live** — modifying a single fact means re-chunking and
+   re-embedding entire documents.
+5. **Relationships are lost** — similarity only, no structural queries.
+
+| Pain point | Traditional RAG | Bric-a-brac |
+|---|---|---|
+| No web platform | Pipelines are code-only | Web UI with 3D graph viz + conversational chat |
+| Data hygiene | Hope your chunks are clean | AI-assisted curation + entity resolution that flags duplicates |
+| Chunk strategy | Fixed-size / semantic / recursive | Graph nodes with schemas — user and AI define granularity together |
+| Can't update live | Re-index entire pipeline | Mutate nodes/edges in real-time, embeddings recompute on the fly |
+| Data integrity | Black-box vector store | User sees and validates the graph directly |
+| No relationships | Similarity only | Graph traversal + vector search — hybrid retrieval |
+
+The key insight: **the "chunk" is a graph node.** Instead of opaque text fragments, each
+unit of knowledge is a structured entity with typed properties, connected to other entities
+by named relationships. The chunk strategy problem disappears — the granularity is defined
+by schemas, not by a splitting algorithm.
+
+### Risks and honest challenges
+
+**1. "Who is the user?" is hard.** Knowledge graphs appeal to technical users who
+understand entities and relationships. But the chat-first UX targets non-technical users.
+These audiences want different things. A researcher wants precision and control. A casual
+user wants to dump documents and get answers. If we try to serve both, we might serve
+neither well. The 3D graph visualization is powerful, but does a marketing manager actually
+want to see a force-directed graph of their brand strategy?
+
+**2. Manual curation doesn't scale.** The entity resolution pre-check is smart for small
+graphs. But at 10,000 nodes, will users still review duplicate candidates? At 100,000? The
+strength of traditional RAG — even with its flaws — is that it's hands-off. Our product's
+strength (user control) becomes a weakness when volume exceeds the user's attention. We'll
+eventually need an "auto-pilot" mode where the AI resolves duplicates without asking — and
+then we're back to a trust problem.
+
+**3. Ingestion is the cold-start bottleneck.** Right now, knowledge enters through
+conversation. That's fine for incremental additions, but a user with 500 documents wants
+bulk import. Building a document → graph pipeline (see [Document Chunking Pipeline](#future-document-chunking-pipeline))
+is essentially building a traditional RAG chunker anyway, just with graph output. The
+complexity removed from the query side reappears on the ingestion side.
+
+**4. The competitive landscape is moving fast.** Google NotebookLM does "structured
+understanding of documents" with a conversational UI. Notion AI is adding knowledge graphs.
+Mem.ai, Obsidian + AI plugins, Capacities — all targeting AI-assisted knowledge management.
+None of them do graph-based RAG with user-controlled entity resolution, but the window for
+differentiation narrows quickly. Speed to market matters.
+
+**5. Graph maintenance is unsolved UX.** Graphs get messy. Nodes accumulate disconnected.
+Schemas drift. Relationships become stale. Traditional databases have decades of tooling
+for maintenance. Graph databases have almost none, especially for LLM-generated content.
+We'll need to build graph hygiene tools — orphan detection, schema conformance checks,
+relationship consistency validation — that don't exist yet.
+
+### The bottom line
+
+The insight that **AI knowledge should be transparent, structured, and user-editable** is
+sound — it's the natural next step after the first wave of "just throw documents at a vector
+store" RAG products disappoints users who need accuracy and control.
+
+The risk isn't that the problem is uninteresting. The risk is **scope**. We're building a
+knowledge graph database, a conversational AI agent, a real-time graph visualization, and
+an entity resolution system — simultaneously. Each of those is a product by itself. The
+discipline will be in saying no until the core loop — "talk to AI → graph grows → graph is
+useful → ask questions → get good answers" — is genuinely excellent.
+
+If that core loop works reliably, there is something valuable here. If it's 80% there,
+it'll feel like a demo.
+
+---
+
 ## Architecture: Graph + Embeddings
 
 Knowledge is stored as a **graph** (nodes, edges, typed relationships) with **vector
@@ -539,13 +654,11 @@ wrong relationship or when the user explicitly asks to remove a connection.
 
 #### Edge uniqueness
 
-**Not yet enforced in code.** Design target:
-
-A relationship between two nodes is unique per type: two nodes can have multiple
-relationships, but only one per edge schema key. If the AI calls `create_edge` with a
-(from, to, key) triple that already exists, the knowledge service returns the existing
-edge instead of creating a duplicate. The AI can then use `update_edge` to modify its
-properties if needed.
+**Enforced.** `create_edge` uses `MERGE` (not `CREATE`) with `ON CREATE SET` / `ON MATCH
+SET` in Memgraph. A relationship between two nodes is unique per edge schema key: two nodes
+can have multiple relationships, but only one per key. If the AI calls `create_edge` with a
+(from, to, key) triple that already exists, Memgraph matches the existing edge and updates
+its properties (upsert). No duplicate edges are created.
 
 ### Session tools (all users)
 
@@ -773,7 +886,7 @@ GET  /sessions/{session_id}             → get session
 POST /sessions/{session_id}/close       → close session
 GET  /sessions/{session_id}/messages    → get messages
 
-GET  /graphs/{graph_id}/active-session  → get active session (or 404) ← NOT YET IMPLEMENTED
+GET  /graphs/{graph_id}/active-session  → get active session (or 204)
 POST /graphs/{graph_id}/chat            → SSE chat bridge (body: { session_id, content })
 ```
 
@@ -954,10 +1067,8 @@ See [Implementation Status](#implementation-status) for what's built vs what's n
 - **Implement missing tools** — `update_edge`, `remove_properties` (tool
   definitions + tool executor handlers + knowledge gRPC calls). `delete_node` and
   `delete_edge` are already implemented.
-- **Auto-assign schema colors** — when creating schemas, the backend should auto-assign
-  a distinct color from a palette. Currently schemas are created without colors, getting
-  defaults. No AI involvement needed — deterministic assignment based on the number of
-  existing schemas.
+- **Schema colors** — the AI already returns colors when creating schemas. No additional
+  work needed.
 - **Delete graph** — `DELETE /graphs/{graph_id}` endpoint. CASCADE delete in Postgres
   (removes schemas, sessions, accesses) + drop corresponding nodes/edges in Memgraph.
   Currently no way to delete a graph.

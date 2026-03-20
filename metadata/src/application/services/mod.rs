@@ -1,5 +1,6 @@
 mod access_service;
 mod ai_service;
+pub mod file_extraction;
 mod graph_service;
 mod session_service;
 mod user_service;

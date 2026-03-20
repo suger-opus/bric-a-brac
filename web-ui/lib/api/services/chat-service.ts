@@ -8,7 +8,7 @@ export type ChatEvent =
   | { type: "error"; message: string };
 
 /**
- * Send a chat message and stream back AI agent events via SSE.
+ * Send a chat message (with optional file) and stream back AI agent events via SSE.
  * Returns an AbortController so the caller can cancel the stream.
  */
 export function streamChat(
@@ -18,18 +18,23 @@ export function streamChat(
   onEvent: (event: ChatEvent) => void,
   onDone?: () => void,
   onError?: (error: Error) => void,
+  file?: File,
 ): AbortController {
   const controller = new AbortController();
 
   const url = `${config.env.API_URL}/graphs/${encodeURIComponent(graphId)}/chat`;
 
+  const formData = new FormData();
+  formData.append("session_id", sessionId);
+  if (content) formData.append("content", content);
+  if (file) formData.append("file", file);
+
   fetch(url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
       user_id: "019cfc3c-20c4-7aa2-a098-a547f9f13213",
     },
-    body: JSON.stringify({ session_id: sessionId, content }),
+    body: formData,
     signal: controller.signal,
   })
     .then(async (response) => {

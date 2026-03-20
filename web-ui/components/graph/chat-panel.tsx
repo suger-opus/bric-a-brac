@@ -8,6 +8,7 @@ import {
   BotIcon,
   ChevronDownIcon,
   LoaderIcon,
+  PaperclipIcon,
   SendIcon,
   WrenchIcon,
   XIcon,
@@ -85,10 +86,12 @@ const ChatPanel = () => {
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [input, setInput] = useState("");
+  const [file, setFile] = useState<File | null>(null);
 
   const streamingRef = useRef("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -188,11 +191,19 @@ const ChatPanel = () => {
   }, []);
 
   const sendMessage = useCallback(async () => {
-    if (!graphId || !input.trim() || isStreaming) return;
+    if (!graphId || (!input.trim() && !file) || isStreaming) return;
 
     const content = input.trim();
+    const currentFile = file;
     setInput("");
-    setItems((prev) => [...prev, { type: "user", content }]);
+    setFile(null);
+
+    const displayContent = currentFile
+      ? content
+        ? `📎 ${currentFile.name}\n${content}`
+        : `📎 ${currentFile.name}`
+      : content;
+    setItems((prev) => [...prev, { type: "user", content: displayContent }]);
     setIsStreaming(true);
     streamingRef.current = "";
     setStreamingText("");
@@ -211,7 +222,7 @@ const ChatPanel = () => {
           { type: "error", message: error.message },
         ]);
         setIsStreaming(false);
-      });
+      }, currentFile ?? undefined);
     } catch {
       setItems((prev) => [
         ...prev,
@@ -220,7 +231,7 @@ const ChatPanel = () => {
       toast.error("Failed to start chat");
       setIsStreaming(false);
     }
-  }, [graphId, input, isStreaming, sessionId, handleEvent]);
+  }, [graphId, input, file, isStreaming, sessionId, handleEvent]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -299,7 +310,40 @@ const ChatPanel = () => {
       </div>
 
       <div className="border-t p-3">
+        {file && (
+          <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground bg-muted rounded px-2 py-1">
+            <PaperclipIcon className="h-3 w-3 shrink-0" />
+            <span className="truncate">{file.name}</span>
+            <button
+              type="button"
+              onClick={() => setFile(null)}
+              className="ml-auto shrink-0 hover:text-foreground"
+            >
+              <XIcon className="h-3 w-3" />
+            </button>
+          </div>
+        )}
         <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.txt,application/pdf,text/plain"
+            className="hidden"
+            onChange={(e) => {
+              const selected = e.target.files?.[0];
+              if (selected) setFile(selected);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isStreaming || !graphId}
+            title="Attach a file"
+          >
+            <PaperclipIcon className="h-4 w-4" />
+          </Button>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -321,7 +365,7 @@ const ChatPanel = () => {
             <Button
               size="icon"
               onClick={sendMessage}
-              disabled={!input.trim() || !graphId}
+              disabled={!input.trim() && !file || !graphId}
             >
               <SendIcon className="h-4 w-4" />
             </Button>
