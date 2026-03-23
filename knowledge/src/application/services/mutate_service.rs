@@ -115,6 +115,22 @@ impl MutateService {
 
     #[tracing::instrument(
         level = "trace",
+        name = "mutate_service.delete_graph_data",
+        skip(self, graph_id, node_keys)
+    )]
+    pub async fn delete_graph_data(
+        &self,
+        graph_id: GraphIdDto,
+        node_keys: Vec<String>,
+    ) -> Result<(), AppError> {
+        self.repository
+            .delete_graph_data(&self.pool, graph_id.into(), node_keys)
+            .await?;
+        Ok(())
+    }
+
+    #[tracing::instrument(
+        level = "trace",
         name = "mutate_service.initialize_schema",
         skip(self, node_keys)
     )]

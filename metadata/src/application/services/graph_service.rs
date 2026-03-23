@@ -197,6 +197,31 @@ impl GraphService {
 
         Ok(schema.into())
     }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.delete_graph",
+        skip(self, graph_id)
+    )]
+    pub async fn delete_graph(&self, graph_id: GraphIdDto) -> Result<(), AppError> {
+        // Fetch node schema keys so we can drop vector indexes in Memgraph
+        let mut txn = self.pool.begin().await?;
+        let schema = self.repository.get_schema(&mut txn, graph_id.into()).await?;
+        let node_keys: Vec<String> = schema.nodes.iter().map(|n| n.key.clone()).collect();
+
+        // Delete all graph data from Memgraph (nodes, edges, vector indexes)
+        self.knowledge_client
+            .delete_graph(graph_id, node_keys)
+            .await?;
+
+        // Delete graph from Postgres (CASCADE handles schemas, sessions, accesses)
+        self.repository
+            .delete_graph(&mut txn, graph_id.into())
+            .await?;
+        txn.commit().await?;
+
+        Ok(())
+    }
 }
 
 /// Generate a random 8-character key matching pattern `^[a-zA-Z][a-zA-Z0-9]{7}$`

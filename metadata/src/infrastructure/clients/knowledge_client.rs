@@ -2,8 +2,8 @@ use crate::infrastructure::{config::KnowledgeServerConfig, errors::GrpcClientErr
 use bric_a_brac_protos::{
     common::GraphDataProto,
     knowledge::{
-        knowledge_client::KnowledgeClient as KnowledgeGrpcClient, InitializeSchemaRequest,
-        LoadGraphRequest,
+        knowledge_client::KnowledgeClient as KnowledgeGrpcClient, DeleteGraphRequest,
+        InitializeSchemaRequest, LoadGraphRequest,
     },
     with_retry, GrpcServiceKind,
 };
@@ -17,8 +17,8 @@ pub struct KnowledgeClient {
 
 impl KnowledgeClient {
     pub fn new(config: KnowledgeServerConfig) -> anyhow::Result<Self> {
-        let channel = tonic::transport::Endpoint::from_shared(config.url().to_string())?
-            .connect_lazy();
+        let channel =
+            tonic::transport::Endpoint::from_shared(config.url().to_string())?.connect_lazy();
         Ok(Self {
             client: KnowledgeGrpcClient::new(channel),
         })
@@ -58,6 +58,30 @@ impl KnowledgeClient {
                     node_keys: node_keys.clone(),
                 });
                 async move { c.initialize_schema(req).await }
+            },
+        )
+        .await
+        .map_err(GrpcClientError::from)?;
+        Ok(())
+    }
+
+    pub async fn delete_graph(
+        &self,
+        graph_id: impl std::fmt::Display,
+        node_keys: Vec<String>,
+    ) -> Result<(), GrpcClientError> {
+        let client = self.client.clone();
+        let graph_id = graph_id.to_string();
+        with_retry(
+            GrpcServiceKind::Knowledge,
+            "Failed to delete graph data",
+            || {
+                let mut c = client.clone();
+                let req = Request::new(DeleteGraphRequest {
+                    graph_id: graph_id.clone(),
+                    node_keys: node_keys.clone(),
+                });
+                async move { c.delete_graph(req).await }
             },
         )
         .await

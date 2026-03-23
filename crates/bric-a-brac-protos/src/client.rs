@@ -41,10 +41,7 @@ where
                     "{operation}: transient error, retrying"
                 );
 
-                tokio::time::sleep(Duration::from_millis(
-                    BASE_DELAY_MS * 2u64.pow(attempt),
-                ))
-                .await;
+                tokio::time::sleep(Duration::from_millis(BASE_DELAY_MS * 2u64.pow(attempt))).await;
             }
         }
     }

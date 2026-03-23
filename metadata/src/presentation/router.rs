@@ -32,6 +32,10 @@ pub fn build(state: ApiState) -> Router {
         .route("/graphs", get(graph_handler::get_all_metadata))
         .route("/graphs", post(graph_handler::create_graph))
         .route("/graphs/{graph_id}", get(graph_handler::get_metadata))
+        .route(
+            "/graphs/{graph_id}",
+            axum::routing::delete(graph_handler::delete_graph),
+        )
         .route("/graphs/{graph_id}/schema", get(graph_handler::get_schema))
         .route("/graphs/{graph_id}/data", get(graph_handler::get_data))
         .route("/accesses/graphs/{graph_id}", post(access_handler::create))

@@ -207,6 +207,33 @@ RETURNING
 
     #[tracing::instrument(
         level = "debug",
+        name = "graph_repository.delete_graph",
+        skip(self, connection, graph_id)
+    )]
+    pub async fn delete_graph(
+        &self,
+        connection: &mut PgConnection,
+        graph_id: GraphIdModel,
+    ) -> Result<(), DatabaseError> {
+        tracing::debug!(graph_id = ?graph_id);
+
+        let result = sqlx::query!(
+            "DELETE FROM graphs WHERE graph_id = $1",
+            graph_id as _,
+        )
+        .execute(connection)
+        .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(DatabaseError::UnexpectedState {
+                reason: "Graph not found".to_string(),
+            });
+        }
+        Ok(())
+    }
+
+    #[tracing::instrument(
+        level = "debug",
         name = "graph_repository.create_node_schema",
         skip(self, connection, create)
     )]

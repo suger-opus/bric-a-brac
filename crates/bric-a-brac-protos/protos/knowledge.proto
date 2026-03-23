@@ -16,6 +16,7 @@ service Knowledge {
     rpc GetNode(GetNodeRequest) returns (common.NodeDataProto);
     rpc GetNeighbors(GetNeighborsRequest) returns (GetNeighborsResponse);
     rpc FindPaths(FindPathsRequest) returns (FindPathsResponse);
+    rpc DeleteGraph(DeleteGraphRequest) returns (DeleteGraphResponse);
 }
 
 message LoadGraphRequest {
@@ -89,3 +90,9 @@ message FindPathsRequest {
 message FindPathsResponse {
     repeated common.PathProto paths = 1;
 }
+
+message DeleteGraphRequest {
+    string graph_id = 1;
+    repeated string node_keys = 2;
+}
+message DeleteGraphResponse {}

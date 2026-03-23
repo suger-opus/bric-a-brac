@@ -5,7 +5,8 @@ import type { GenericSchema, InferOutput } from "valibot";
 import { safeParse } from "valibot";
 
 const api = mande(config.env.API_URL);
-api.options.headers.user_id = "019d0c73-45c1-75d1-86a6-73fbeb28a85d";
+export const userId = "019d10e8-ae70-7790-94a5-04949de4adbe";
+api.options.headers.user_id = userId;
 
 function validate<T extends GenericSchema>(schema: T, data: unknown): InferOutput<T> {
   const result = safeParse(schema, data);
@@ -42,6 +43,15 @@ export async function post<T extends GenericSchema>(path: string, body: unknown,
     return validate(schema, data);
   } catch (error) {
     toast.error(`POST ${path} failed`);
+    throw error;
+  }
+}
+
+export async function del(path: string): Promise<void> {
+  try {
+    await api.delete(path);
+  } catch (error) {
+    toast.error(`DELETE ${path} failed`);
     throw error;
   }
 }

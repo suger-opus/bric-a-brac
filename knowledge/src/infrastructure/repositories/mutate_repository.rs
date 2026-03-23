@@ -215,6 +215,40 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
 
     #[tracing::instrument(
         level = "debug",
+        name = "mutate_repository.delete_graph_data",
+        skip(self, graph, graph_id, node_keys)
+    )]
+    pub async fn delete_graph_data(
+        &self,
+        graph: &neo4rs::Graph,
+        graph_id: GraphIdModel,
+        node_keys: Vec<String>,
+    ) -> Result<(), DatabaseError> {
+        // Delete all nodes (and their edges via DETACH) for this graph
+        graph
+            .run(
+                query("MATCH (n { graph_id: $gid }) DETACH DELETE n")
+                    .param("gid", graph_id.to_string()),
+            )
+            .await?;
+
+        // Drop vector indexes for each node schema key
+        for key in node_keys {
+            let cypher = format!("DROP INDEX ON :{}(embedding)", key);
+            match graph.run(query(&cypher)).await {
+                Ok(_) => {
+                    tracing::debug!(key = %key, "Vector index dropped");
+                }
+                Err(e) => {
+                    tracing::warn!(key = %key, error = ?e, "Failed to drop vector index (may not exist)");
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[tracing::instrument(
+        level = "debug",
         name = "mutate_repository.initialize_schema",
         skip(self, graph, node_keys)
     )]

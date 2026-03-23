@@ -1,4 +1,4 @@
-import { get, post } from "@/lib/api/client";
+import { del, get, post } from "@/lib/api/client";
 import { GraphDataDto, GraphMetadataDto, GraphSchemaDto } from "@/lib/api/dtos";
 import type { CreateGraph } from "@/types";
 import * as v from "valibot";
@@ -18,4 +18,7 @@ export const graphService = {
 
   createGraph: (body: CreateGraph) =>
     post("/graphs", body, GraphMetadataDto),
+
+  deleteGraph: (graphId: string) =>
+    del(`/graphs/${graphId}`),
 };

@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { userId } from "@/lib/api/client";
 
 export type ChatEvent =
   | { type: "text"; content: string }
@@ -32,7 +33,7 @@ export function streamChat(
   fetch(url, {
     method: "POST",
     headers: {
-      user_id: "019cfc3c-20c4-7aa2-a098-a547f9f13213",
+      user_id: userId,
     },
     body: formData,
     signal: controller.signal,

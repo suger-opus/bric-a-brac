@@ -9,7 +9,8 @@ use bric_a_brac_dtos::{
 use bric_a_brac_protos::{
     common::{EdgeDataProto, GraphDataProto, NodeDataProto, PathProto, SubgraphProto},
     knowledge::{
-        knowledge_server::Knowledge, DeleteEdgeRequest, DeleteEdgeResponse, DeleteNodeRequest,
+        knowledge_server::Knowledge, DeleteEdgeRequest, DeleteEdgeResponse,
+        DeleteGraphRequest, DeleteGraphResponse, DeleteNodeRequest,
         DeleteNodeResponse, FindPathsRequest,
         FindPathsResponse, GetNeighborsRequest, GetNeighborsResponse, GetNodeRequest,
         InitializeSchemaRequest, InitializeSchemaResponse, InsertEdgeRequest, InsertNodeRequest,
@@ -332,5 +333,24 @@ impl Knowledge for KnowledgeService {
         Ok(Response::new(FindPathsResponse {
             paths: paths.into_iter().map(PathProto::from).collect(),
         }))
+    }
+
+    async fn delete_graph(
+        &self,
+        request: Request<DeleteGraphRequest>,
+    ) -> Result<Response<DeleteGraphResponse>, Status> {
+        let req = request.into_inner();
+        tracing::debug!(graph_id = %req.graph_id, node_keys = ?req.node_keys);
+
+        self.mutate_service
+            .delete_graph_data(
+                req.graph_id
+                    .try_into()
+                    .map_err(|err| AppError::from(err))?,
+                req.node_keys,
+            )
+            .await?;
+
+        Ok(Response::new(DeleteGraphResponse {}))
     }
 }

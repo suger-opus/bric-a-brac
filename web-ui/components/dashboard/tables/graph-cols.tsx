@@ -4,10 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GraphMetadata, Role } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpRightIcon, BanIcon, BookmarkCheckIcon, HandHeartIcon } from "lucide-react";
+import { ArrowUpRightIcon, BanIcon, BookmarkCheckIcon, HandHeartIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
+import { graphService } from "@/lib/api/services/graph-service";
+import { toast } from "sonner";
 
-export const columns: ColumnDef<GraphMetadata>[] = [
+export const columns = (onRefresh: () => void): ColumnDef<GraphMetadata>[] => [
   {
     accessorKey: "name",
     header: () => {
@@ -183,19 +185,43 @@ export const columns: ColumnDef<GraphMetadata>[] = [
     id: "actions",
     cell: ({ row }) => {
       return (
-        <Link
-          href={`/graph/${row.original.graph_id}`}
-          className="flex items-center justify-center"
-        >
-          <Tooltip>
-            <TooltipTrigger className="cursor-pointer">
-              <ArrowUpRightIcon size={14} />
-            </TooltipTrigger>
-            <TooltipContent>
-              Manage graph {row.original.graph_id}
-            </TooltipContent>
-          </Tooltip>
-        </Link>
+        <div className="flex items-center gap-2 justify-center">
+          <Link
+            href={`/graph/${row.original.graph_id}`}
+            className="flex items-center justify-center"
+          >
+            <Tooltip>
+              <TooltipTrigger className="cursor-pointer">
+                <ArrowUpRightIcon size={14} />
+              </TooltipTrigger>
+              <TooltipContent>
+                Open graph
+              </TooltipContent>
+            </Tooltip>
+          </Link>
+          {row.original.user_role === Role.OWNER && (
+            <Tooltip>
+              <TooltipTrigger
+                className="cursor-pointer text-muted-foreground hover:text-destructive transition-colors"
+                onClick={async () => {
+                  if (!confirm(`Delete graph "${row.original.name}"? This cannot be undone.`)) return;
+                  try {
+                    await graphService.deleteGraph(row.original.graph_id);
+                    toast.success("Graph deleted");
+                    onRefresh();
+                  } catch {
+                    // toast already shown by client
+                  }
+                }}
+              >
+                <Trash2Icon size={14} />
+              </TooltipTrigger>
+              <TooltipContent>
+                Delete graph
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       );
     }
   }

@@ -114,7 +114,7 @@ const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
               </EmptyContent>
             </Empty>
           )
-          : <DataTable columns={columns} data={accessedGraphs} />}
+          : <DataTable columns={columns(getAccesses)} data={accessedGraphs} />}
       </CardContent>
       {accessedGraphs.length > 0 && (
         <CardFooter className="flex flex-col items-start space-y-4">

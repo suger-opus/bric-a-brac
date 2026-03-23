@@ -119,11 +119,17 @@ const ChatPanel = () => {
     return () => { cancelled = true; };
   }, [graphId]);
 
-  // Cleanup on unmount: abort streaming & close session
+  // Cleanup on unmount: abort any ongoing stream
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  // Close session on unmount or when session changes
   useEffect(() => {
     const sid = sessionId;
     return () => {
-      abortRef.current?.abort();
       if (sid) sessionService.close(sid).catch(() => {});
     };
   }, [sessionId]);

@@ -84,6 +84,7 @@ impl EmbeddingClient {
 
         let embedding_response: EmbeddingResponse =
             serde_json::from_str(&response_text).map_err(|err| {
+                tracing::error!(body = %response_text, "Failed to deserialize embedding response");
                 OpenRouterClientError::Deserialization {
                     message: "Failed to deserialize EmbeddingResponse".to_owned(),
                     source: err,
