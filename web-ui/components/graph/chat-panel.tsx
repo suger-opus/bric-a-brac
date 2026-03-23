@@ -11,27 +11,28 @@ import {
   PaperclipIcon,
   SendIcon,
   WrenchIcon,
-  XIcon,
+  XIcon
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
 import { toast } from "sonner";
 
 type ChatItem =
-  | { type: "user"; content: string }
-  | { type: "assistant"; content: string }
-  | { type: "tool"; name: string; arguments?: string; result?: string }
-  | { type: "error"; message: string };
+  | { type: "user"; content: string; }
+  | { type: "assistant"; content: string; }
+  | { type: "tool"; name: string; arguments?: string; result?: string; }
+  | { type: "error"; message: string; };
 
-type ToolChatItem = Extract<ChatItem, { type: "tool" }>;
+type ToolChatItem = Extract<ChatItem, { type: "tool"; }>;
 
 const ToolItem = ({
   item,
-  isError,
-}: { item: ToolChatItem; isError: boolean }) => {
+  isError
+}: { item: ToolChatItem; isError: boolean; }) => {
   const [expanded, setExpanded] = useState(false);
 
   const parsedArgs = (() => {
-    if (!item.arguments) return null;
+    if (!item.arguments) { return null; }
     try {
       return JSON.parse(item.arguments) as Record<string, unknown>;
     } catch {
@@ -48,14 +49,14 @@ const ToolItem = ({
       >
         <WrenchIcon className="h-3 w-3 shrink-0" />
         <span className="font-mono truncate">{item.name}</span>
-        {item.result &&
-          (isError ? (
-            <XIcon className="h-3 w-3 shrink-0 text-destructive" />
-          ) : (
-            <span className="text-green-600 shrink-0">✓</span>
-          ))}
+        {item.result
+          && (isError
+            ? <XIcon className="h-3 w-3 shrink-0 text-destructive" />
+            : <span className="text-green-600 shrink-0">✓</span>)}
         <ChevronDownIcon
-          className={`h-3 w-3 shrink-0 ml-auto transition-transform ${expanded ? "rotate-180" : ""}`}
+          className={`h-3 w-3 shrink-0 ml-auto transition-transform ${
+            expanded ? "rotate-180" : ""
+          }`}
         />
       </button>
       {expanded && (
@@ -67,7 +68,9 @@ const ToolItem = ({
           )}
           {item.result && (
             <pre
-              className={`rounded px-2 py-1 overflow-x-auto whitespace-pre-wrap break-all text-[11px] ${isError ? "bg-destructive/10 text-destructive" : "bg-muted"}`}
+              className={`rounded px-2 py-1 overflow-x-auto whitespace-pre-wrap break-all text-[11px] ${
+                isError ? "bg-destructive/10 text-destructive" : "bg-muted"
+              }`}
             >
               {item.result}
             </pre>
@@ -79,11 +82,22 @@ const ToolItem = ({
 };
 
 const ChatPanel = () => {
-  const { graphId, refetch } = useGraph();
+  const {
+    graphId,
+    schema,
+    refetch,
+    addNode,
+    addEdge,
+    updateNode,
+    updateEdge,
+    removeNode,
+    removeEdge
+  } = useGraph();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [items, setItems] = useState<ChatItem[]>([]);
   const [streamingText, setStreamingText] = useState("");
+  const [progressText, setProgressText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [input, setInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -92,31 +106,64 @@ const ChatPanel = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingToolCalls = useRef<Map<string, { name: string; arguments: string; }>>(new Map());
 
   // Auto-scroll to bottom
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el) { el.scrollTop = el.scrollHeight; }
   }, [items, streamingText]);
 
   // Recover active session on mount
   useEffect(() => {
-    if (!graphId) return;
+    if (!graphId) { return; }
     let cancelled = false;
 
     sessionService.getActiveSession(graphId).then((session) => {
-      if (cancelled || !session) return;
+      if (cancelled || !session) { return; }
       setSessionId(session.session_id);
       sessionService.getMessages(session.session_id).then((messages) => {
-        if (cancelled) return;
-        const restored: ChatItem[] = messages
-          .filter((m) => m.role === "user" || m.role === "assistant")
-          .map((m) => ({ type: m.role as "user" | "assistant", content: m.content }));
-        if (restored.length > 0) setItems(restored);
+        if (cancelled) { return; }
+        const restored: ChatItem[] = [];
+        let inChunkSequence = false;
+        for (let i = 0; i < messages.length; i++) {
+          const m = messages[i];
+          if (m.role === "user") {
+            // Skip chunk messages (chunk_index >= 1 means document chunk content)
+            if (m.chunk_index != null && m.chunk_index >= 1) {
+              inChunkSequence = true;
+              continue;
+            }
+            inChunkSequence = false;
+            // Show document name if the message has an attached document
+            let display = m.content;
+            if (m.document_name) {
+              const msgSep = display.indexOf("\n\n[User message]\n");
+              display = msgSep >= 0
+                ? `\uD83D\uDCCE ${m.document_name}\n${display.slice(msgSep + 16)}`
+                : `\uD83D\uDCCE ${m.document_name}\n${display}`;
+            }
+            restored.push({ type: "user", content: display });
+          } else if (m.role === "assistant" && m.content) {
+            // Skip intermediate assistant responses between chunks;
+            // only show the last one (final summary after all chunks)
+            if (inChunkSequence) {
+              const next = messages[i + 1];
+              if (
+                next?.role === "user" && next.chunk_index != null && next.chunk_index >= 1
+              ) { continue; }
+              inChunkSequence = false;
+            }
+            restored.push({ type: "assistant", content: m.content });
+          }
+        }
+        if (restored.length > 0) { setItems(restored); }
       }).catch(() => {});
     }).catch(() => {});
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [graphId]);
 
   // Cleanup on unmount: abort any ongoing stream
@@ -130,24 +177,118 @@ const ChatPanel = () => {
   useEffect(() => {
     const sid = sessionId;
     return () => {
-      if (sid) sessionService.close(sid).catch(() => {});
+      if (sid) { sessionService.close(sid).catch(() => {}); }
     };
   }, [sessionId]);
+
+  const applyGraphDelta = useCallback(
+    (toolName: string, argsJson: string, resultContent: string) => {
+      try {
+        switch (toolName) {
+          case "create_node": {
+            const result = JSON.parse(resultContent) as {
+              created?: boolean;
+              node_data_id?: string;
+              key?: string;
+              properties?: Record<string, string | number | boolean>;
+            };
+            if (result.created && result.node_data_id && result.key) {
+              const nodeSchema = schema?.nodes.find((n) => n.key === result.key);
+              addNode({
+                id: result.node_data_id,
+                key: result.key,
+                color: nodeSchema?.color ?? "#888888",
+                properties: result.properties ?? {}
+              });
+            }
+            break;
+          }
+          case "create_edge": {
+            const args = JSON.parse(argsJson) as {
+              edge_key?: string;
+              from_node_data_id?: string;
+              to_node_data_id?: string;
+              properties?: Record<string, string | number | boolean>;
+            };
+            if (args.edge_key && args.from_node_data_id && args.to_node_data_id) {
+              // Result is a plain string, not JSON — no edge ID returned.
+              // Use a deterministic temp ID; refetch on "done" will reconcile.
+              const edgeSchema = schema?.edges.find((e) => e.key === args.edge_key);
+              addEdge({
+                id: `temp-${args.from_node_data_id}-${args.edge_key}-${args.to_node_data_id}`,
+                source: args.from_node_data_id,
+                target: args.to_node_data_id,
+                key: args.edge_key,
+                color: edgeSchema?.color ?? "#888888",
+                properties: args.properties ?? {}
+              });
+            }
+            break;
+          }
+          case "delete_node": {
+            const args = JSON.parse(argsJson) as { node_data_id?: string; };
+            if (args.node_data_id && !resultContent.startsWith("Error")) {
+              removeNode(args.node_data_id);
+            }
+            break;
+          }
+          case "delete_edge": {
+            const args = JSON.parse(argsJson) as { edge_data_id?: string; };
+            if (args.edge_data_id && !resultContent.startsWith("Error")) {
+              removeEdge(args.edge_data_id);
+            }
+            break;
+          }
+          case "update_node": {
+            const result = JSON.parse(resultContent) as {
+              node_data_id?: string;
+              properties?: Record<string, string | number | boolean>;
+            };
+            if (result.node_data_id && result.properties) {
+              updateNode(result.node_data_id, result.properties);
+            }
+            break;
+          }
+          case "update_edge": {
+            const result = JSON.parse(resultContent) as {
+              edge_data_id?: string;
+              properties?: Record<string, string | number | boolean>;
+            };
+            if (result.edge_data_id && result.properties) {
+              updateEdge(result.edge_data_id, result.properties);
+            }
+            break;
+          }
+        }
+      } catch {
+        // Non-critical: refetch on "done" will reconcile
+      }
+    },
+    [schema, addNode, addEdge, updateNode, updateEdge, removeNode, removeEdge]
+  );
 
   const handleEvent = useCallback(
     (event: ChatEvent) => {
       switch (event.type) {
+        case "progress":
+          setProgressText(event.content);
+          break;
         case "text":
+          setProgressText("");
           streamingRef.current += event.content;
           setStreamingText(streamingRef.current);
           break;
         case "tool_call":
+          pendingToolCalls.current.set(event.tool_call_id, {
+            name: event.name,
+            arguments: event.arguments
+          });
           setItems((prev) => [
             ...prev,
-            { type: "tool", name: event.name, arguments: event.arguments },
+            { type: "tool", name: event.name, arguments: event.arguments }
           ]);
           break;
-        case "tool_result":
+        case "tool_result": {
           setItems((prev) => {
             const updated = [...prev];
             for (let i = updated.length - 1; i >= 0; i--) {
@@ -159,17 +300,26 @@ const ChatPanel = () => {
             }
             return updated;
           });
+
+          // Apply incremental graph update
+          const call = pendingToolCalls.current.get(event.tool_call_id);
+          if (call) {
+            pendingToolCalls.current.delete(event.tool_call_id);
+            applyGraphDelta(call.name, call.arguments, event.content);
+          }
           break;
+        }
         case "done": {
           const finalContent = streamingRef.current || event.summary;
           if (finalContent) {
             setItems((prev) => [
               ...prev,
-              { type: "assistant", content: finalContent },
+              { type: "assistant", content: finalContent }
             ]);
           }
           streamingRef.current = "";
           setStreamingText("");
+          setProgressText("");
           setIsStreaming(false);
           refetch();
           break;
@@ -177,27 +327,29 @@ const ChatPanel = () => {
         case "error":
           setItems((prev) => [
             ...prev,
-            { type: "error", message: event.message },
+            { type: "error", message: event.message }
           ]);
           toast.error(event.message);
           streamingRef.current = "";
           setStreamingText("");
+          setProgressText("");
           setIsStreaming(false);
           break;
       }
     },
-    [refetch],
+    [refetch, applyGraphDelta]
   );
 
   const cancelStreaming = useCallback(() => {
     abortRef.current?.abort();
     streamingRef.current = "";
     setStreamingText("");
+    setProgressText("");
     setIsStreaming(false);
   }, []);
 
   const sendMessage = useCallback(async () => {
-    if (!graphId || (!input.trim() && !file) || isStreaming) return;
+    if (!graphId || (!input.trim() && !file) || isStreaming) { return; }
 
     const content = input.trim();
     const currentFile = file;
@@ -225,14 +377,14 @@ const ChatPanel = () => {
       abortRef.current = streamChat(graphId, sid, content, handleEvent, undefined, (error) => {
         setItems((prev) => [
           ...prev,
-          { type: "error", message: error.message },
+          { type: "error", message: error.message }
         ]);
         setIsStreaming(false);
       }, currentFile ?? undefined);
     } catch {
       setItems((prev) => [
         ...prev,
-        { type: "error", message: "Failed to start chat" },
+        { type: "error", message: "Failed to start chat" }
       ]);
       toast.error("Failed to start chat");
       setIsStreaming(false);
@@ -274,15 +426,14 @@ const ChatPanel = () => {
               case "assistant":
                 return (
                   <div key={key} className="flex justify-start">
-                    <div className="bg-muted rounded-lg px-3 py-2 max-w-[85%] text-sm whitespace-pre-wrap">
-                      {item.content}
+                    <div className="bg-muted rounded-lg px-3 py-2 max-w-[85%] text-sm prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 max-w-none">
+                      <Markdown>{item.content}</Markdown>
                     </div>
                   </div>
                 );
               case "tool": {
-                const isError =
-                  item.result?.startsWith("Error") ||
-                  item.result?.startsWith("error");
+                const isError = item.result?.startsWith("Error")
+                  || item.result?.startsWith("error");
                 return <ToolItem key={key} item={item} isError={!!isError} />;
               }
               case "error":
@@ -299,8 +450,8 @@ const ChatPanel = () => {
 
           {isStreaming && streamingText && (
             <div className="flex justify-start">
-              <div className="bg-muted rounded-lg px-3 py-2 max-w-[85%] text-sm whitespace-pre-wrap">
-                {streamingText}
+              <div className="bg-muted rounded-lg px-3 py-2 max-w-[85%] text-sm prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 max-w-none">
+                <Markdown>{streamingText}</Markdown>
                 <span className="animate-pulse">▍</span>
               </div>
             </div>
@@ -309,7 +460,7 @@ const ChatPanel = () => {
           {isStreaming && !streamingText && items.at(-1)?.type !== "tool" && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
               <LoaderIcon className="h-4 w-4 animate-spin" />
-              Thinking...
+              {progressText || "Thinking..."}
             </div>
           )}
         </div>
@@ -337,7 +488,7 @@ const ChatPanel = () => {
             className="hidden"
             onChange={(e) => {
               const selected = e.target.files?.[0];
-              if (selected) setFile(selected);
+              if (selected) { setFile(selected); }
               e.target.value = "";
             }}
           />
@@ -359,23 +510,25 @@ const ChatPanel = () => {
             rows={1}
             className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
-          {isStreaming ? (
-            <Button
-              size="icon"
-              variant="destructive"
-              onClick={cancelStreaming}
-            >
-              <XIcon className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              size="icon"
-              onClick={sendMessage}
-              disabled={!input.trim() && !file || !graphId}
-            >
-              <SendIcon className="h-4 w-4" />
-            </Button>
-          )}
+          {isStreaming
+            ? (
+              <Button
+                size="icon"
+                variant="destructive"
+                onClick={cancelStreaming}
+              >
+                <XIcon className="h-4 w-4" />
+              </Button>
+            )
+            : (
+              <Button
+                size="icon"
+                onClick={sendMessage}
+                disabled={!input.trim() && !file || !graphId}
+              >
+                <SendIcon className="h-4 w-4" />
+              </Button>
+            )}
         </div>
       </div>
     </div>

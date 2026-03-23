@@ -2,13 +2,13 @@ use crate::infrastructure::{config::KnowledgeServerConfig, errors::GrpcClientErr
 use bric_a_brac_protos::{
     common::{
         InsertEdgeDataProto, InsertNodeDataProto, NodeDataProto, NodeSummaryProto, PathProto,
-        SubgraphProto, UpdateNodeDataProto,
+        SubgraphProto, UpdateEdgeDataProto, UpdateNodeDataProto,
     },
     knowledge::{
         knowledge_client::KnowledgeClient as KnowledgeGrpcClient, DeleteEdgeRequest,
-        DeleteNodeRequest,
-        FindPathsRequest, GetNeighborsRequest, GetNodeRequest, InsertEdgeRequest,
-        InsertNodeRequest, SearchNodesRequest, UpdateNodeRequest,
+        DeleteNodeRequest, FindPathsRequest, GetNeighborsRequest, GetNodeRequest,
+        InsertEdgeRequest, InsertNodeRequest, SearchNodesRequest, UpdateEdgeRequest,
+        UpdateNodeRequest,
     },
     with_retry, GrpcServiceKind,
 };
@@ -22,13 +22,19 @@ pub struct KnowledgeClient {
 
 impl KnowledgeClient {
     pub fn new(config: KnowledgeServerConfig) -> anyhow::Result<Self> {
-        let channel = tonic::transport::Endpoint::from_shared(config.url().to_string())?
-            .connect_lazy();
+        let channel =
+            tonic::transport::Endpoint::from_shared(config.url().to_string())?.connect_lazy();
         Ok(Self {
             client: KnowledgeGrpcClient::new(channel),
         })
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.insert_node",
+        skip(self, graph_id, node),
+        err
+    )]
     pub async fn insert_node(
         &self,
         graph_id: &str,
@@ -48,6 +54,12 @@ impl KnowledgeClient {
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.update_node",
+        skip(self, graph_id, node),
+        err
+    )]
     pub async fn update_node(
         &self,
         graph_id: &str,
@@ -67,6 +79,12 @@ impl KnowledgeClient {
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.delete_node",
+        skip(self, graph_id, node_data_id),
+        err
+    )]
     pub async fn delete_node(
         &self,
         graph_id: &str,
@@ -88,6 +106,12 @@ impl KnowledgeClient {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.delete_edge",
+        skip(self, graph_id, edge_data_id),
+        err
+    )]
     pub async fn delete_edge(
         &self,
         graph_id: &str,
@@ -109,6 +133,12 @@ impl KnowledgeClient {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.insert_edge",
+        skip(self, graph_id, edge),
+        err
+    )]
     pub async fn insert_edge(
         &self,
         graph_id: &str,
@@ -129,6 +159,37 @@ impl KnowledgeClient {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.update_edge",
+        skip(self, graph_id, edge),
+        err
+    )]
+    pub async fn update_edge(
+        &self,
+        graph_id: &str,
+        edge: UpdateEdgeDataProto,
+    ) -> Result<bric_a_brac_protos::common::EdgeDataProto, GrpcClientError> {
+        let client = self.client.clone();
+        let graph_id = graph_id.to_owned();
+        with_retry(GrpcServiceKind::Knowledge, "Failed to update edge", || {
+            let mut c = client.clone();
+            let req = Request::new(UpdateEdgeRequest {
+                graph_id: graph_id.clone(),
+                edge: Some(edge.clone()),
+            });
+            async move { c.update_edge(req).await }
+        })
+        .await
+        .map_err(Into::into)
+    }
+
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.search_nodes",
+        skip(self, graph_id, node_key, query_embedding, limit),
+        err
+    )]
     pub async fn search_nodes(
         &self,
         graph_id: &str,
@@ -138,25 +199,27 @@ impl KnowledgeClient {
     ) -> Result<Vec<NodeSummaryProto>, GrpcClientError> {
         let client = self.client.clone();
         let graph_id = graph_id.to_owned();
-        let response = with_retry(
-            GrpcServiceKind::Knowledge,
-            "Failed to search nodes",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(SearchNodesRequest {
-                    graph_id: graph_id.clone(),
-                    node_key: node_key.clone(),
-                    query_embedding: query_embedding.clone(),
-                    limit,
-                });
-                async move { c.search_nodes(req).await }
-            },
-        )
+        let response = with_retry(GrpcServiceKind::Knowledge, "Failed to search nodes", || {
+            let mut c = client.clone();
+            let req = Request::new(SearchNodesRequest {
+                graph_id: graph_id.clone(),
+                node_key: node_key.clone(),
+                query_embedding: query_embedding.clone(),
+                limit,
+            });
+            async move { c.search_nodes(req).await }
+        })
         .await
         .map_err(GrpcClientError::from)?;
         Ok(response.nodes)
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.get_node",
+        skip(self, graph_id, node_data_id),
+        err
+    )]
     pub async fn get_node(
         &self,
         graph_id: &str,
@@ -177,6 +240,12 @@ impl KnowledgeClient {
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.get_neighbors",
+        skip(self, graph_id, node_data_id, edge_key, depth),
+        err
+    )]
     pub async fn get_neighbors(
         &self,
         graph_id: &str,
@@ -203,17 +272,21 @@ impl KnowledgeClient {
         )
         .await
         .map_err(GrpcClientError::from)?;
-        response
-            .subgraph
-            .ok_or_else(|| {
-                GrpcClientError::Base(bric_a_brac_protos::BaseGrpcClientError::Request {
-                    service: GrpcServiceKind::Knowledge,
-                    message: "get_neighbors: missing subgraph in response".to_owned(),
-                    source: tonic::Status::internal("missing subgraph field"),
-                })
+        response.subgraph.ok_or_else(|| {
+            GrpcClientError::Base(bric_a_brac_protos::BaseGrpcClientError::Request {
+                service: GrpcServiceKind::Knowledge,
+                message: "get_neighbors: missing subgraph in response".to_owned(),
+                source: tonic::Status::internal("missing subgraph field"),
             })
+        })
     }
 
+    #[tracing::instrument(
+        level = "debug",
+        name = "knowledge_client.find_paths",
+        skip(self, graph_id, from_node_data_id, to_node_data_id, max_depth),
+        err
+    )]
     pub async fn find_paths(
         &self,
         graph_id: &str,
@@ -225,20 +298,16 @@ impl KnowledgeClient {
         let graph_id = graph_id.to_owned();
         let from_node_data_id = from_node_data_id.to_owned();
         let to_node_data_id = to_node_data_id.to_owned();
-        let response = with_retry(
-            GrpcServiceKind::Knowledge,
-            "Failed to find paths",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(FindPathsRequest {
-                    graph_id: graph_id.clone(),
-                    from_node_data_id: from_node_data_id.clone(),
-                    to_node_data_id: to_node_data_id.clone(),
-                    max_depth,
-                });
-                async move { c.find_paths(req).await }
-            },
-        )
+        let response = with_retry(GrpcServiceKind::Knowledge, "Failed to find paths", || {
+            let mut c = client.clone();
+            let req = Request::new(FindPathsRequest {
+                graph_id: graph_id.clone(),
+                from_node_data_id: from_node_data_id.clone(),
+                to_node_data_id: to_node_data_id.clone(),
+                max_depth,
+            });
+            async move { c.find_paths(req).await }
+        })
         .await
         .map_err(GrpcClientError::from)?;
         Ok(response.paths)

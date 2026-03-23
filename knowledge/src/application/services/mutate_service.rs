@@ -1,7 +1,7 @@
 use crate::{
     domain::models::{
         EdgeDataModel, InsertEdgeDataModel, InsertNodeDataModel, NodeDataModel,
-        UpdateNodeDataModel,
+        UpdateEdgeDataModel, UpdateNodeDataModel,
     },
     infrastructure::repositories::MutateRepository,
     application::errors::AppError,
@@ -23,7 +23,8 @@ impl MutateService {
     #[tracing::instrument(
         level = "trace",
         name = "mutate_service.insert_node",
-        skip(self, graph_id, data)
+        skip(self, graph_id, data),
+        err
     )]
     pub async fn insert_node(
         &self,
@@ -42,7 +43,8 @@ impl MutateService {
     #[tracing::instrument(
         level = "trace",
         name = "mutate_service.update_node",
-        skip(self, graph_id, data)
+        skip(self, graph_id, data),
+        err
     )]
     pub async fn update_node(
         &self,
@@ -61,7 +63,8 @@ impl MutateService {
     #[tracing::instrument(
         level = "trace",
         name = "mutate_service.insert_edge",
-        skip(self, graph_id, data)
+        skip(self, graph_id, data),
+        err
     )]
     pub async fn insert_edge(
         &self,
@@ -79,8 +82,29 @@ impl MutateService {
 
     #[tracing::instrument(
         level = "trace",
+        name = "mutate_service.update_edge",
+        skip(self, graph_id, data),
+        err
+    )]
+    pub async fn update_edge(
+        &self,
+        graph_id: GraphIdDto,
+        data: UpdateEdgeDataModel,
+    ) -> Result<EdgeDataModel, AppError> {
+        let mut txn = self.pool.start_txn().await?;
+        let edge = self
+            .repository
+            .update_edge(&mut txn, graph_id.into(), data)
+            .await?;
+        txn.commit().await?;
+        Ok(edge)
+    }
+
+    #[tracing::instrument(
+        level = "trace",
         name = "mutate_service.delete_node",
-        skip(self, graph_id, node_data_id)
+        skip(self, graph_id, node_data_id),
+        err
     )]
     pub async fn delete_node(
         &self,
@@ -98,7 +122,8 @@ impl MutateService {
     #[tracing::instrument(
         level = "trace",
         name = "mutate_service.delete_edge",
-        skip(self, graph_id, edge_data_id)
+        skip(self, graph_id, edge_data_id),
+        err
     )]
     pub async fn delete_edge(
         &self,
@@ -116,7 +141,8 @@ impl MutateService {
     #[tracing::instrument(
         level = "trace",
         name = "mutate_service.delete_graph_data",
-        skip(self, graph_id, node_keys)
+        skip(self, graph_id, node_keys),
+        err
     )]
     pub async fn delete_graph_data(
         &self,
@@ -132,7 +158,8 @@ impl MutateService {
     #[tracing::instrument(
         level = "trace",
         name = "mutate_service.initialize_schema",
-        skip(self, node_keys)
+        skip(self, node_keys),
+        err
     )]
     pub async fn initialize_schema(&self, node_keys: Vec<String>) -> Result<(), AppError> {
         self.repository

@@ -80,6 +80,11 @@ message UpdateNodeDataProto {
     repeated float embedding = 3;
 }
 
+message UpdateEdgeDataProto {
+    string edge_data_id = 1;
+    map<string, PropertyValueProto> properties = 2;
+}
+
 message NodeSummaryProto {
     string node_data_id = 1;
     string key = 2;

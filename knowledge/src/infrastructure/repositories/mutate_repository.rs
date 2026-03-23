@@ -2,7 +2,7 @@ use crate::{
     domain::models::{
         EdgeDataIdModel, EdgeDataModel,
         GraphIdModel, InsertEdgeDataModel, InsertNodeDataModel, NodeDataIdModel,
-        NodeDataModel, UpdateNodeDataModel,
+        NodeDataModel, UpdateEdgeDataModel, UpdateNodeDataModel,
     },
     infrastructure::errors::DatabaseError,
 };
@@ -19,7 +19,8 @@ impl MutateRepository {
     #[tracing::instrument(
         level = "debug",
         name = "mutate_repository.insert_node",
-        skip(self, connection, graph_id, data)
+        skip(self, connection, graph_id, data),
+        err
     )]
     pub async fn insert_node(
         &self,
@@ -65,7 +66,8 @@ impl MutateRepository {
     #[tracing::instrument(
         level = "debug",
         name = "mutate_repository.update_node",
-        skip(self, connection, graph_id, data)
+        skip(self, connection, graph_id, data),
+        err
     )]
     pub async fn update_node(
         &self,
@@ -103,7 +105,8 @@ impl MutateRepository {
     #[tracing::instrument(
         level = "debug",
         name = "mutate_repository.insert_edge",
-        skip(self, connection, graph_id, data)
+        skip(self, connection, graph_id, data),
+        err
     )]
     pub async fn insert_edge(
         &self,
@@ -153,8 +156,49 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
 
     #[tracing::instrument(
         level = "debug",
+        name = "mutate_repository.update_edge",
+        skip(self, connection, graph_id, data),
+        err
+    )]
+    pub async fn update_edge(
+        &self,
+        connection: &mut neo4rs::Txn,
+        graph_id: GraphIdModel,
+        data: UpdateEdgeDataModel,
+    ) -> Result<EdgeDataModel, DatabaseError> {
+        let props: HashMap<BoltString, BoltType> = data.properties.try_into()?;
+
+        let mut result = connection
+            .execute(
+                query(
+                    "MATCH ({ graph_id: $gid })-[r { edge_data_id: $eid }]->({ graph_id: $gid }) \
+                     SET r += $props \
+                     RETURN r, startNode(r).node_data_id AS from_node_data_id, endNode(r).node_data_id AS to_node_data_id"
+                )
+                    .param("eid", data.edge_data_id.to_string())
+                    .param("gid", graph_id.to_string())
+                    .param("props", BoltType::Map(BoltMap { value: props })),
+            )
+            .await?;
+
+        let row = result
+            .next(&mut *connection)
+            .await?
+            .ok_or(DatabaseError::NoneRow())?;
+        let neo_edge: neo4rs::Relation = row.get("r")?;
+        let from_node_data_id = NodeDataIdModel::from_str(row.get("from_node_data_id")?)?;
+        let to_node_data_id = NodeDataIdModel::from_str(row.get("to_node_data_id")?)?;
+        let mut edge_data = EdgeDataModel::try_from(neo_edge)?;
+        edge_data.from_node_data_id = from_node_data_id;
+        edge_data.to_node_data_id = to_node_data_id;
+        Ok(edge_data)
+    }
+
+    #[tracing::instrument(
+        level = "debug",
         name = "mutate_repository.delete_node",
-        skip(self, connection, graph_id, node_data_id)
+        skip(self, connection, graph_id, node_data_id),
+        err
     )]
     pub async fn delete_node(
         &self,
@@ -184,7 +228,8 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
     #[tracing::instrument(
         level = "debug",
         name = "mutate_repository.delete_edge",
-        skip(self, connection, graph_id, edge_data_id)
+        skip(self, connection, graph_id, edge_data_id),
+        err
     )]
     pub async fn delete_edge(
         &self,
@@ -216,7 +261,8 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
     #[tracing::instrument(
         level = "debug",
         name = "mutate_repository.delete_graph_data",
-        skip(self, graph, graph_id, node_keys)
+        skip(self, graph, graph_id, node_keys),
+        err
     )]
     pub async fn delete_graph_data(
         &self,
@@ -250,7 +296,8 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
     #[tracing::instrument(
         level = "debug",
         name = "mutate_repository.initialize_schema",
-        skip(self, graph, node_keys)
+        skip(self, graph, node_keys),
+        err
     )]
     pub async fn initialize_schema(
         &self,

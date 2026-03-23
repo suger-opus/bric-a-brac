@@ -19,8 +19,11 @@ pub async fn run(config: &Config) -> anyhow::Result<()> {
     tracing::info!(http_addr = %http_addr, "Metadata REST API starting");
 
     // gRPC server
-    let grpc_service =
-        MetadataGrpcService::new(state.session_service.clone(), state.graph_service.clone());
+    let grpc_service = MetadataGrpcService::new(
+        state.session_service.clone(),
+        state.graph_service.clone(),
+        state.document_service.clone(),
+    );
     let grpc_addr = config.metadata_server().grpc_url();
     tracing::info!(grpc_addr = %grpc_addr, "Metadata gRPC server starting");
 

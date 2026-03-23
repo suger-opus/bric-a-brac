@@ -11,6 +11,7 @@ service Knowledge {
     rpc UpdateNode(UpdateNodeRequest) returns (common.NodeDataProto);
     rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
     rpc InsertEdge(InsertEdgeRequest) returns (common.EdgeDataProto);
+    rpc UpdateEdge(UpdateEdgeRequest) returns (common.EdgeDataProto);
     rpc DeleteEdge(DeleteEdgeRequest) returns (DeleteEdgeResponse);
     rpc SearchNodes(SearchNodesRequest) returns (SearchNodesResponse);
     rpc GetNode(GetNodeRequest) returns (common.NodeDataProto);
@@ -48,6 +49,11 @@ message DeleteNodeResponse {}
 message InsertEdgeRequest {
     string graph_id = 1;
     common.InsertEdgeDataProto edge = 2;
+}
+
+message UpdateEdgeRequest {
+    string graph_id = 1;
+    common.UpdateEdgeDataProto edge = 2;
 }
 
 message DeleteEdgeRequest {

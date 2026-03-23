@@ -14,13 +14,14 @@ impl AiService {
         Self { client }
     }
 
-    #[tracing::instrument(level = "trace", name = "ai_service.chat", skip(self, session_id, content))]
+    #[tracing::instrument(level = "trace", name = "ai_service.chat", skip(self, session_id, content, document_id), err)]
     pub async fn chat(
         &self,
         session_id: String,
         content: String,
+        document_id: Option<String>,
     ) -> Result<impl Stream<Item = AgentEventDto>, AppError> {
-        let stream = self.client.send_message(session_id, content).await?;
+        let stream = self.client.send_message(session_id, content, document_id).await?;
 
         Ok(stream.map(|result| match result {
             Ok(event) => AgentEventDto::from(event.event),

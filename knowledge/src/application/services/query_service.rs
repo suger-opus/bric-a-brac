@@ -21,7 +21,8 @@ impl QueryService {
     #[tracing::instrument(
         level = "trace",
         name = "query_service.load_graph",
-        skip(self, graph_id)
+        skip(self, graph_id),
+        err
     )]
     pub async fn load_graph(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, AppError> {
         let mut txn = self.pool.start_txn().await?;
@@ -37,7 +38,8 @@ impl QueryService {
     #[tracing::instrument(
         level = "trace",
         name = "query_service.get_node",
-        skip(self, graph_id, node_data_id)
+        skip(self, graph_id, node_data_id),
+        err
     )]
     pub async fn get_node(
         &self,
@@ -56,7 +58,8 @@ impl QueryService {
     #[tracing::instrument(
         level = "trace",
         name = "query_service.search_nodes",
-        skip(self, graph_id, embedding)
+        skip(self, graph_id, embedding),
+        err
     )]
     pub async fn search_nodes(
         &self,
@@ -77,7 +80,8 @@ impl QueryService {
     #[tracing::instrument(
         level = "trace",
         name = "query_service.get_neighbors",
-        skip(self, graph_id, node_data_id)
+        skip(self, graph_id, node_data_id),
+        err
     )]
     pub async fn get_neighbors(
         &self,
@@ -105,7 +109,8 @@ impl QueryService {
     #[tracing::instrument(
         level = "trace",
         name = "query_service.find_paths",
-        skip(self, graph_id, from_id, to_id)
+        skip(self, graph_id, from_id, to_id),
+        err
     )]
     pub async fn find_paths(
         &self,

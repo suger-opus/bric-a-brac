@@ -9,6 +9,7 @@ pub enum AgentEventDto {
     ToolResult { tool_call_id: String, content: String },
     Done { summary: String },
     Error { message: String },
+    Progress { content: String },
 }
 
 impl AgentEventDto {
@@ -19,6 +20,7 @@ impl AgentEventDto {
             AgentEventDto::ToolResult { .. } => "tool_result",
             AgentEventDto::Done { .. } => "done",
             AgentEventDto::Error { .. } => "error",
+            AgentEventDto::Progress { .. } => "progress",
         }
     }
 }
@@ -38,6 +40,7 @@ impl From<Option<agent_event_proto::Event>> for AgentEventDto {
             },
             Some(agent_event_proto::Event::Done(d)) => AgentEventDto::Done { summary: d.summary },
             Some(agent_event_proto::Event::Error(e)) => AgentEventDto::Error { message: e.message },
+            Some(agent_event_proto::Event::Progress(p)) => AgentEventDto::Progress { content: p.content },
             None => AgentEventDto::Error { message: "empty event".to_string() },
         }
     }

@@ -399,6 +399,8 @@ CREATE TABLE session_messages (
     content       TEXT NOT NULL DEFAULT '',
     tool_calls    JSONB,
     tool_call_id  VARCHAR,
+    document_id   UUID REFERENCES session_documents(document_id) ON DELETE SET NULL,
+    chunk_index   INTEGER,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT message_role_check CHECK (role IN ('system', 'user', 'assistant', 'tool')),
     CONSTRAINT unique_session_position UNIQUE (session_id, position)
@@ -408,8 +410,59 @@ CREATE TABLE session_messages (
 Each message is a row. This allows pagination, selective loading (last N messages for context
 window management), and clean queries.
 
+The `document_id` column is a nullable FK to `session_documents`. Only user messages that
+had an attached file will have this set. On session recovery, the LLM sees the user's text
+message plus a reference to the document (filename + ID). The document content is available
+on demand via the `read_document` tool.
+
+The `chunk_index` column is a nullable integer. When a document is chunked:
+
+| `document_id` | `chunk_index` | Meaning |
+|---|---|---|
+| `NULL` | `NULL` | Regular message (text chat, tool call, assistant response) |
+| `some-uuid` | `NULL` | User message that uploaded the document |
+| `some-uuid` | `1` | Chunk 1 of that document (role: `user`) |
+| `some-uuid` | `2` | Chunk 2, etc. |
+
+Every message the LLM sees during processing is persisted — chunk user messages, intermediate
+assistant responses, tool calls/results during chunking, and the final summary. No in-memory-only
+messages exist.
+
 The user's role is not stored on the session — it's derived from the `accesses` table via
 a JOIN when loading the session.
+
+### `session_documents` table
+
+Documents uploaded during a session are stored separately from messages:
+
+```sql
+CREATE TABLE session_documents (
+    document_id   UUID PRIMARY KEY NOT NULL,
+    session_id    UUID NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+    filename      TEXT NOT NULL,
+    content_hash  VARCHAR(64) NOT NULL,
+    content       TEXT NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+- **`filename`**: Original filename (e.g. "SpaceX_Report.pdf") — displayed in the UI.
+- **`content_hash`**: SHA-256 of the raw file bytes — enables deduplication.
+- **`content`**: Extracted text from the file.
+- **CASCADE on `session_id`**: Closing/deleting a session automatically cleans up documents.
+
+#### Document lifecycle
+
+1. User uploads a file via the chat endpoint.
+2. Metadata service extracts text, computes hash, saves to `session_documents`.
+3. The user message is saved with `document_id` referencing the document (no chunk content).
+4. The AI chunks the document and processes each chunk sequentially. Every message is
+   persisted: chunk user messages (with `chunk_index`), assistant responses, tool calls,
+   tool results.
+5. On session recovery, the context window builder replaces raw chunk content with short
+   references (`"[Chunk 3/8 — already processed]"`) to save tokens. The LLM can call
+   `read_document` if it needs the full text.
+6. When the session is closed/deleted, CASCADE deletes the documents.
 
 ### Lifecycle
 
@@ -425,9 +478,12 @@ The frontend sends **only the new user message**. The server:
 1. Loads existing history from `session_messages` (via metadata gRPC)
 2. Loads current schemas from metadata (via metadata gRPC)
 3. Builds the system prompt
-4. Runs the agent loop
-5. Persists all new messages (user message + assistant responses + tool results) via metadata gRPC
-6. Streams events to the client throughout
+4. **Builds the context window** — trims loaded history to fit within ~500K chars
+   (replaces chunk content with references, collapses old tool sequences if needed)
+5. Runs the agent loop
+6. Persists **all** new messages (user message + chunks + assistant responses + tool results)
+   via metadata gRPC — every message the LLM sees is stored
+7. Streams events to the client throughout
 
 ### Session concurrency enforcement
 
@@ -462,9 +518,10 @@ When the user sends a new message, the frontend tries to create a new session, w
 3. If no active session exists, the frontend proceeds normally (lazy creation on first
    message).
 
-**Not yet implemented.** Currently the frontend does not recover sessions on page load. If
-a page refresh happens during an active session, the user must wait for the session to
-expire or be cleaned up manually. This is the next feature to implement.
+**Not yet implemented.** Currently the frontend does recover sessions on page load — it
+calls `GET /graphs/{graph_id}/active-session` on mount and loads the message history if
+an active session exists. Messages with attached documents display `📎 filename` using the
+`document_name` field from the API. Session close is handled on component unmount.
 
 ---
 
@@ -601,9 +658,14 @@ or create sessions with write access.
 | `get_node` | `node_id` (string) | Full node with all properties |
 | `get_neighbors` | `node_id` (string), `edge_key?` (string), `depth?` (int, default 1) | Subgraph: connected nodes + edges |
 | `find_paths` | `from_id` (string), `to_id` (string), `max_depth?` (int, default 5) | `Path[]` — sequences of nodes and edges |
+| `read_document` | `document_id` (string) | Full document text |
 
 `search_nodes` uses **vector search** (embeddings). When `node_key` is omitted, it searches
 across all node schemas in the graph and merges results by distance.
+
+`read_document` loads a document from `session_documents` by ID. The LLM calls this when it
+needs to re-read document content during a conversation (e.g. on session recovery, or when
+the user asks a question about a previously uploaded file). Returns the full extracted text.
 
 ### Write tools (write-role users only)
 
@@ -614,14 +676,14 @@ across all node schemas in the graph and merges results by distance.
 | `create_node` | `node_key` (string), `properties` (object), `force?` (boolean) | Node or similar-node candidates | **Implemented** |
 | `create_edge` | `edge_key` (string), `from_id` (string), `to_id` (string), `properties?` (object) | Edge | **Implemented** |
 | `update_node` | `node_id` (string), `properties` (object) | Updated node | **Implemented** |
-| `update_edge` | `edge_id` (string), `properties` (object) | Updated edge | **Not implemented** |
+| `update_edge` | `edge_id` (string), `properties` (object) | Updated edge | **Implemented** |
 | `remove_properties` | `element_id` (string), `keys` (string[]) | Updated node or edge | **Not implemented** |
 | `delete_node` | `node_id` (string) | Confirmation (detach-deletes edges) | **Implemented** |
 | `delete_edge` | `edge_data_id` (string) | Confirmation | **Implemented** |
 
 #### `update_node` / `update_edge` semantics
 
-**Merge, not replace.** `update_node` is implemented. `update_edge` is not yet implemented.
+**Merge, not replace.** Both `update_node` and `update_edge` are implemented.
 
 For each key in the provided `properties` object:
 - If the key exists on the node/edge → override the value.
@@ -698,11 +760,14 @@ Why validate in the AI service:
 
 | Mode | How it works |
 |---|---|
-| **From a document** | User sends document text in `SendMessage` → agent analyzes schemas needed → creates schemas if missing → extracts entities and relationships → creates nodes and edges |
+| **From a document** | User uploads a file → metadata saves to `session_documents` → AI receives document_id + user text → loads document content → chunks it (~8K chars, paragraph boundaries) → agent processes each chunk sequentially → creates schemas + nodes + edges |
 | **From model knowledge** | User asks "add what you know about Albert Einstein" → agent uses parametric knowledge → creates schemas + nodes + edges |
 | **Question answering** | Agent calls `search_nodes`, `get_neighbors`, `find_paths` → reasons over results → responds in text |
 
-Document text is sent **inline in the gRPC request**. No file upload, no object storage.
+Document content is stored in `session_documents` (metadata Postgres). The AI service loads
+it by document ID and chunks it in-memory for sequential LLM processing. Each chunk is
+processed as a separate turn within the same agent loop — the LLM sees its own prior
+tool calls and schema creations across chunks.
 
 ---
 
@@ -985,7 +1050,7 @@ schema colors onto nodes and edges.
 | Batch inserts | Start single, measure, then decide |
 | Session ownership | Metadata service (Postgres) |
 | Message storage | One row per message in `session_messages` |
-| Document delivery | Text inline in `SendMessage` request |
+| Document delivery | File uploaded via multipart → saved to `session_documents` → AI chunked in-memory |
 | LLM-generated queries | **Never** — predefined parameterized templates |
 | Edge vector indexes | No — edge dedup is structural (unique per type between two nodes) |
 | Edge uniqueness | One edge per (from, to, edge_key) triple — upsert on conflict |
@@ -1022,13 +1087,15 @@ What's **built and compiles** vs what's **design-only** (documented above but no
   vector index management. `cargo check` clean.
 - **AI service** — gRPC server, agent loop, system prompt builder, tool executor, streaming,
   LLM semaphore, HTTP retry, gRPC retry. `cargo check` clean.
-- **12 tools**: `search_nodes`, `get_node`, `get_neighbors`, `find_paths`, `create_schema`,
-  `create_edge_schema`, `create_node`, `create_edge`, `update_node`, `delete_node`,
-  `delete_edge`, `done`.
+- **13 tools**: `search_nodes`, `get_node`, `get_neighbors`, `find_paths`, `read_document`,
+  `create_schema`, `create_edge_schema`, `create_node`, `create_edge`, `update_node`,
+  `update_edge`, `delete_node`, `delete_edge`, `done`.
 - **`delete_node` tool** — full pipeline: tool definition, tool executor handler, AI gRPC
   client, knowledge gRPC handler, repository (`DETACH DELETE`).
 - **`delete_edge` tool** — full pipeline: tool definition, tool executor handler, AI gRPC
   client, knowledge gRPC handler, repository (`DELETE r` by `edge_data_id`).
+- **`update_edge` tool** — full pipeline: merge semantics (same as `update_node`), does
+  not recompute embeddings (edges have no vector index).
 - **Entity resolution** — pre-check in `create_node`: similar nodes block creation and
   return candidates with neighbor context. `force=true` to override.
 - **Edge uniqueness enforcement** — `create_edge` uses `MERGE` with `ON CREATE SET` /
@@ -1043,20 +1110,32 @@ What's **built and compiles** vs what's **design-only** (documented above but no
   SSE connection and resets streaming state.
 - **Chat history recovery** — on page load, if an active session exists, previous messages
   are loaded from `GET /sessions/{id}/messages` and displayed in the chat panel.
+  Messages with attached documents display `📎 filename` (from `document_name` field).
 - **Web UI** — dashboard, graph page (3D force graph), sidebar with Chat + Schema tabs,
   SSE streaming chat, toast notifications. `tsc --noEmit` clean.
 - **Role-based tool filtering** — read-only vs write tools based on user role.
 - **Tool executor guard** — defense-in-depth role check before executing write tools.
 - **Schema validation** — node_key/edge_key validated against metadata before tool execution.
+- **File upload** — PDF + TXT via multipart `POST /graphs/{graph_id}/chat` (50MB limit).
+  Text extraction with null-byte sanitization.
+- **Document chunking** — paragraph-boundary splitting (~8K char chunks), sequential
+  processing within the agent loop, multi-chunk summary.
+- **Session documents** — `session_documents` table, `read_document` tool, `document_id`
+  FK on messages, `document_name` derived via JOIN for UI display.
+- **Incremental graph updates** — optimistic UI via `tool_result` SSE events: nodes and
+  edges appear on the 3D graph in real-time as the AI creates them.
+- **Delete graph** — full stack: `DELETE /graphs/{graph_id}` with CASCADE in Postgres
+  (schemas, sessions, accesses, documents) + Memgraph cleanup (drop all nodes/edges
+  by graph_id, drop vector indexes).
+- **Schema proposal** — Rule #1 in the system prompt: AI proposes schemas and extraction
+  plan in plain language before extracting, waits for user confirmation.
 
 ### Not yet implemented
 
-- **2 tools**: `update_edge`, `remove_properties` — designed above but not
-  yet in `tools.rs` or `tool_executor.rs`.
+- **1 tool**: `remove_properties` — designed above but not yet in `tools.rs`
+  or `tool_executor.rs`.
 - **Authentication** — OAuth2 login. Currently `user_id` is hardcoded / passed as a header.
 - **Loading skeletons** — skeleton loaders for dashboard cards and graph page.
-- **Incremental graph updates** — update the 3D graph from `tool_result` events in real
-  time instead of waiting for "done".
 
 ---
 
@@ -1064,24 +1143,16 @@ What's **built and compiles** vs what's **design-only** (documented above but no
 
 See [Implementation Status](#implementation-status) for what's built vs what's not.
 
-- **Implement missing tools** — `update_edge`, `remove_properties` (tool
-  definitions + tool executor handlers + knowledge gRPC calls). `delete_node` and
-  `delete_edge` are already implemented.
-- **Schema colors** — the AI already returns colors when creating schemas. No additional
-  work needed.
-- **Delete graph** — `DELETE /graphs/{graph_id}` endpoint. CASCADE delete in Postgres
-  (removes schemas, sessions, accesses) + drop corresponding nodes/edges in Memgraph.
-  Currently no way to delete a graph.
-- **Incremental graph updates** — optionally update 3D graph from `tool_result` events
-  instead of waiting for "done" (optimistic updates)
+- **Implement `remove_properties` tool** — tool definition + tool executor handler +
+  knowledge gRPC call. The AI can currently work around this (delete + recreate), so
+  this is low priority.
+- **Authentication** — OAuth2 login. Currently `user_id` is hardcoded / passed as a header.
+- **Loading skeletons** — skeleton loaders for dashboard cards and graph page.
 
 ---
 
 ## Future Work
 
-- **Two-phase extraction** — separate "free extraction" LLM call before graph-mapping,
-  for better entity coverage on complex documents
-- **Token truncation** — summarize older messages when history exceeds context window
 - **Vector index cleanup** — reconcile existing indexes against current schemas, drop orphans
 - **Branch/diff system** — session writes as a reviewable branch before merging
 - **Web search tools** — `web_search` + `fetch_page` for info beyond training cutoff
@@ -1095,61 +1166,90 @@ See [Implementation Status](#implementation-status) for what's built vs what's n
 
 ---
 
-## Future: Document Chunking Pipeline
+## Document Chunking
 
-**Problem:** Currently, documents are sent inline as a single user message. This works for
-small-to-medium documents but will fail for large ones (token limits, degraded extraction
-quality on long contexts, cost).
+Large documents are split into chunks and processed sequentially within a single agent
+session. This is **implemented** — not a future pipeline.
 
-### Proposed Architecture
+### How it works
 
-**Two-stage approach: chunk → extract per chunk → deduplicate**
+1. User uploads a file (PDF or TXT) via `POST /graphs/{graph_id}/chat` (multipart, 50MB limit).
+2. Metadata service extracts text (`lopdf` + manual text extraction for PDFs),
+   computes SHA-256 hash, saves to `session_documents`.
+3. The user message is saved with the `document_id` FK (no document content in the message).
+   The AI service receives `document_id` + user text.
+4. AI service loads the document content via `get_session_document` gRPC.
+5. The content is split into chunks (~8K characters) at paragraph boundaries
+   (double newlines). If no good paragraph boundary exists within the target range,
+   falls back to splitting at the nearest single newline or whitespace.
+6. Each chunk is prepended with `[Document content — Part N/M]` and processed as a
+   separate user turn within the same agent loop iteration.
+7. **Every message is persisted** — chunk user messages (with `document_id` + `chunk_index`),
+   assistant responses, tool calls, and tool results. No in-memory-only messages.
+8. The LLM accumulates context across chunks — it sees its own schema creations,
+   tool calls, and results from earlier chunks. Entity resolution catches cross-chunk
+   duplicates via the standard `create_node` pre-check.
+9. For multi-chunk documents, after all chunks are processed, the LLM generates a
+   final summary that is streamed to the user and persisted.
+10. For single-chunk documents (or plain text messages with no file), the agent loop
+    runs normally — no chunking.
 
-#### Stage 1 — Chunking (AI service, before agent loop)
+### Why not two-phase extraction
 
-Split the incoming document into overlapping chunks:
+A two-phase approach ("free extraction" summary → graph mapping) was considered and rejected:
+- **Lossy.** Any intermediate summary loses detail — entity names get paraphrased,
+  relationships get merged, nuance disappears. The LLM working directly on raw text
+  produces better graph output.
+- **Extra cost.** Two LLM calls per chunk instead of one.
+- **No clear benefit.** The current single-pass approach with schema proposal (Rule #1
+  in the system prompt) already handles schema planning before extraction.
 
-- **Chunk size:** ~2000 tokens (configurable)
-- **Overlap:** ~200 tokens (10%) to avoid splitting entities at boundaries
-- **Strategy:** Prefer splitting at paragraph/section boundaries when possible
-  (detect markdown headers, double newlines). Fall back to token-based splitting.
-- Each `Chunk` carries `text`, `index`, and `byte_range` for traceability.
+### Document storage
 
-Token counting should use a lightweight tokenizer (e.g., `tiktoken-rs`) rather than
-character-based heuristics.
+Documents are **first-class entities** in `session_documents`, not embedded in message
+content. This separation means:
+- Document content is not duplicated across chunked messages.
+- The LLM can re-read any document via `read_document` tool (e.g. on session recovery).
+- Message content stays small — only the user's text + a document reference.
+- `document_name` (original filename) is available on each message for UI display,
+  derived via JOIN from `session_documents.filename`.
 
-#### Stage 2 — Per-chunk extraction (agent loop, modified)
+### Context Window Management
 
-For each chunk, run the agent loop with the chunk as the user message. The system prompt
-instructs the LLM that this is chunk N of M and to extract entities/relationships.
+GPT-4.1 has a 1M token context window, but quality degrades on very long contexts. A
+**500K character budget** (~125K tokens) is enforced when building the LLM message history.
 
-Two options for execution:
-1. **Sequential chunks** — simpler, chunks processed one after another in the same session.
-   The LLM accumulates context (sees its own schema creations from earlier chunks).
-2. **Parallel chunks** — faster, each chunk processed independently in a `tokio::JoinSet`.
-   Schema creation is done in a pre-processing step (first chunk or a dedicated schema
-   inference pass). Subsequent chunks use the fixed schema.
+The `build_context` function in the AI service trims loaded history to fit:
 
-**Recommended:** Sequential for correctness (option 1). The LLM can build the schema
-incrementally and resolve entities across chunks because it sees the full message history.
-Parallel extraction is a later optimization.
+**Budget calculation:**
+```
+available = 500K - system_prompt_size - current_message_size
+```
 
-#### Stage 3 — Cross-chunk entity resolution (post-processing)
+**Trimming rules (applied in order):**
 
-After all chunks are processed, run a deduplication pass:
-1. For each node created during the session, search for similar nodes (by embedding).
-2. Present candidate duplicates to the LLM in a final "resolution" pass.
-3. The LLM decides: merge (update_node) or keep separate.
+1. **Replace chunk user messages** — messages where `chunk_index IS NOT NULL` and
+   `role = 'user'` are replaced with a short reference:
+   `"[Chunk 3/8 of document.pdf — already processed]"` (~50 chars instead of ~8K).
+   This alone saves massive space.
 
-This can reuse the existing entity resolution logic in `create_node` but as a batch
-post-processing step over all session-created nodes.
+2. **Collapse old tool call/result sequences** — starting from the oldest messages,
+   replace `(assistant with tool_calls → tool result → tool result → ...)` sequences
+   with a summary: `"[N tool calls executed: create_node, create_edge, ...]"`. Tool
+   results from the current iteration are always kept.
 
-### Open Questions
+3. **Drop oldest messages entirely** — if still over budget, remove the oldest messages
+   (except those that are never trimmed).
 
-- Should raw chunk text be stored as nodes in the graph? (Enables "show source" UX)
-- Should the chunker be configurable per-graph or global?
-- Should very small documents (< 1 chunk) skip the chunking pipeline entirely? (Yes, likely)
-- Should the deduplication pass be automatic or user-triggered?
+**Never trimmed:**
+- System prompt
+- The original user message (first message of the session — explains intent)
+- Messages from the current chunk iteration (tool calls in progress)
+- The last assistant message (continuity)
+
+**Why character-based, not token-based:** 1 token ≈ 4 chars for English. A 500K char
+budget ≈ 125K tokens. The imprecision is absorbed by the large margin between the budget
+and the actual 1M token limit. No tokenizer dependency needed.
 
 ---
 

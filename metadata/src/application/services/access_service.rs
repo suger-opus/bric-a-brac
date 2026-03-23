@@ -17,7 +17,8 @@ impl AccessService {
     #[tracing::instrument(
         level = "trace",
         name = "access_service.create",
-        skip(self, graph_id, create_access_dto)
+        skip(self, graph_id, create_access_dto),
+        err
     )]
     pub async fn create(
         &self,

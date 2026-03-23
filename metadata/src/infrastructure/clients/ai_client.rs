@@ -24,6 +24,7 @@ impl AiClient {
         &self,
         session_id: String,
         content: String,
+        document_id: Option<String>,
     ) -> Result<Streaming<AgentEventProto>, GrpcClientError> {
         let client = self.client.clone();
         with_retry(
@@ -34,6 +35,7 @@ impl AiClient {
                 let req = Request::new(SendMessageRequest {
                     session_id: session_id.clone(),
                     content: content.clone(),
+                    document_id: document_id.clone(),
                 });
                 async move { c.send_message(req).await }
             },

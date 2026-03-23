@@ -6,7 +6,8 @@ export type ChatEvent =
   | { type: "tool_call"; tool_call_id: string; name: string; arguments: string }
   | { type: "tool_result"; tool_call_id: string; content: string }
   | { type: "done"; summary: string }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "progress"; content: string };
 
 /**
  * Send a chat message (with optional file) and stream back AI agent events via SSE.
@@ -103,6 +104,9 @@ export function streamChat(
                 break;
               case "error":
                 onEvent({ type: "error", message: parsed.message ?? "" });
+                break;
+              case "progress":
+                onEvent({ type: "progress", content: parsed.content ?? "" });
                 break;
             }
           } catch {

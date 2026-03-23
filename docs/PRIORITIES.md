@@ -6,60 +6,16 @@ Core loop: talk to AI → graph grows → graph is useful → ask questions → 
 
 ---
 
-## P0 — Core loop quality
+## P0 — Phase 1: Make the chat loop excellent
 
-### File upload
+### 1. E2E testing round
 
-The product currently accepts text inline only. For real E2E testing with varied document
-types (PDF, DOCX, research papers, legal contracts, meeting notes), users need to upload
-files. This is the prerequisite for meaningful testing.
-
-**Scope:**
-- Frontend: file picker in ChatPanel (drag & drop or button)
-- Backend: accept file in the chat endpoint, extract text server-side
-- Text extraction: PDF → text, DOCX → text (lightweight, no OCR needed initially)
-- Pass extracted text to the AI agent as usual (inline in SendMessage)
-- No object storage needed — extract text, discard the file
-
-**Open questions:**
-- Which Rust crates for extraction? (`pdf-extract`, `docx-rs`, or call an external tool?)
-- Should we store the original file for "show source" later?
-- Max file size limit?
-
-### Delete graph
-
-`DELETE /graphs/{graph_id}` endpoint. CASCADE delete in Postgres (removes schemas, sessions,
-accesses) + drop corresponding nodes/edges in Memgraph. Currently no way to delete a graph —
-essential for iterating during testing.
-
-### E2E testing round
-
-After file upload works: feed the system diverse real documents and stress-test the full
-loop. Focus areas:
+Feed the system 5+ real PDFs and stress-test the full loop. Focus areas:
 - Extraction quality (does the AI create sensible schemas and nodes?)
 - Entity resolution (does pre-check catch duplicates correctly?)
 - Question answering (can the AI retrieve and reason over stored knowledge?)
 - Edge cases (very short docs, docs with tables, docs with ambiguous entities)
-
----
-
-## P1 — The "wow" moment (demo-ready)
-
-### Incremental graph updates
-
-Watch nodes appear on the 3D graph in real-time as the AI processes a document. Currently
-the graph refreshes all at once on "done." Live building is the most compelling demo moment.
-
-**Scope:** Parse `tool_result` SSE events in the frontend, optimistically add nodes/edges
-to the 3D graph as they're created.
-
-### Document chunking pipeline
-
-Without this, the product only works for small documents. A user with a 20-page PDF will
-hit token limits. See AI_AGENT_DESIGN.md "Future: Document Chunking Pipeline" for the
-design.
-
-**Depends on:** file upload (P0).
+- Chunking quality (do cross-chunk entities merge correctly?)
 
 ---
 
@@ -84,7 +40,7 @@ to see disconnected nodes.
 
 ## Can wait
 
-- `update_edge` / `remove_properties` tools — AI can work around (delete + recreate)
+- `remove_properties` tool — AI can work around (delete + recreate)
 - Token truncation — only matters for very long sessions
 - Branch/diff system — future feature
 - MCP exposure — future feature
@@ -105,3 +61,13 @@ to see disconnected nodes.
 - [x] Chat history recovery
 - [x] Role-based tool filtering + executor guard
 - [x] Schema validation
+- [x] File upload (PDF + TXT, multipart endpoint, 50MB limit)
+- [x] Delete graph (full stack, CASCADE + Memgraph cleanup)
+- [x] Document chunking (paragraph-boundary splitting, ~8K char chunks, multi-chunk summary)
+- [x] Incremental graph updates (optimistic UI via tool_result SSE events)
+- [x] update_edge tool (full pipeline)
+- [x] Session documents (session_documents table, read_document tool, document_id on messages)
+- [x] Schema proposal prompts (Rule #1 in system prompt, proposal before extraction)
+- [x] Document name in messages (document_name derived via JOIN, displayed as 📎 filename)
+- [x] Chunk persistence (chunk_index on session_messages, all chunks persisted to DB)
+- [x] Context window management (500K char budget, chunk compression, old message trimming)

@@ -15,7 +15,8 @@ impl UserRepository {
     #[tracing::instrument(
         level = "debug",
         name = "user_repository.create",
-        skip(self, connection, create_user)
+        skip(self, connection, create_user),
+        err
     )]
     pub async fn create(
         &self,
@@ -49,7 +50,8 @@ RETURNING
     #[tracing::instrument(
         level = "debug",
         name = "user_repository.get",
-        skip(self, connection, user_id)
+        skip(self, connection, user_id),
+        err
     )]
     pub async fn get(
         &self,

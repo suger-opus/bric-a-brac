@@ -70,9 +70,12 @@ pub fn extract_text(
 }
 
 fn extract_pdf(bytes: &[u8]) -> Result<String, RequestError> {
-    pdf_extract::extract_text_from_mem(bytes).map_err(|e| RequestError::InvalidFile {
-        issue: format!("Failed to extract text from PDF: {e}"),
-    })
+    let text =
+        pdf_extract::extract_text_from_mem(bytes).map_err(|e| RequestError::InvalidFile {
+            issue: format!("Failed to extract text from PDF: {e}"),
+        })?;
+    // PDF extraction can produce null bytes that PostgreSQL rejects in text columns.
+    Ok(text.replace('\0', ""))
 }
 
 fn extract_plain_text(bytes: &[u8]) -> Result<String, RequestError> {

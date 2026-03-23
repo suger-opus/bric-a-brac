@@ -18,6 +18,7 @@ pub fn read_tools() -> Vec<ToolDefinition> {
         get_node_tool(),
         get_neighbors_tool(),
         find_paths_tool(),
+        read_document_tool(),
     ]
 }
 
@@ -28,6 +29,7 @@ pub fn write_tools() -> Vec<ToolDefinition> {
         create_node_tool(),
         create_edge_tool(),
         update_node_tool(),
+        update_edge_tool(),
         delete_node_tool(),
         delete_edge_tool(),
     ]
@@ -128,6 +130,25 @@ fn find_paths_tool() -> ToolDefinition {
                 }
             },
             "required": ["from_node_data_id", "to_node_data_id"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn read_document_tool() -> ToolDefinition {
+    tool(
+        "read_document",
+        "Retrieve the full text of a document previously uploaded to this session. \
+         Use this when you need to re-read a document whose content is no longer in the conversation history.",
+        json!({
+            "type": "object",
+            "properties": {
+                "document_id": {
+                    "type": "string",
+                    "description": "The unique ID of the document to retrieve"
+                }
+            },
+            "required": ["document_id"],
             "additionalProperties": false
         }),
     )
@@ -274,6 +295,35 @@ fn update_node_tool() -> ToolDefinition {
                 }
             },
             "required": ["node_data_id", "properties"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn update_edge_tool() -> ToolDefinition {
+    tool(
+        "update_edge",
+        "Update the properties of an existing edge (relationship). Merges with existing properties.",
+        json!({
+            "type": "object",
+            "properties": {
+                "edge_data_id": {
+                    "type": "string",
+                    "description": "The ID of the edge to update"
+                },
+                "properties": {
+                    "type": "object",
+                    "description": "The properties to set on the edge. Keys are property names, values are strings, numbers, or booleans.",
+                    "additionalProperties": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "number"},
+                            {"type": "boolean"}
+                        ]
+                    }
+                }
+            },
+            "required": ["edge_data_id", "properties"],
             "additionalProperties": false
         }),
     )

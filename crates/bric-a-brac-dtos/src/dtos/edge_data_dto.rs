@@ -1,7 +1,7 @@
 use super::{KeyDto, NodeDataIdDto, PropertiesDataDto};
 use crate::DtosConversionError;
 use bric_a_brac_id::id;
-use bric_a_brac_protos::common::{EdgeDataProto, InsertEdgeDataProto};
+use bric_a_brac_protos::common::{EdgeDataProto, InsertEdgeDataProto, UpdateEdgeDataProto};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use utoipa::ToSchema;
@@ -89,6 +89,23 @@ impl TryFrom<InsertEdgeDataProto> for InsertEdgeDataDto {
             to_node_data_id: proto.to_node_data_id.try_into()?,
             properties: proto.properties.try_into()?,
             session_id: proto.session_id,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateEdgeDataDto {
+    pub edge_data_id: EdgeDataIdDto,
+    pub properties: PropertiesDataDto,
+}
+
+impl TryFrom<UpdateEdgeDataProto> for UpdateEdgeDataDto {
+    type Error = DtosConversionError;
+
+    fn try_from(proto: UpdateEdgeDataProto) -> Result<Self, Self::Error> {
+        Ok(Self {
+            edge_data_id: proto.edge_data_id.try_into()?,
+            properties: proto.properties.try_into()?,
         })
     }
 }

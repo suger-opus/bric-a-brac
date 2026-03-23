@@ -4,7 +4,7 @@ use crate::{
 };
 use bric_a_brac_dtos::{
     EdgeDataDto, InsertEdgeDataDto, InsertNodeDataDto, KeyDto, NodeDataDto,
-    UpdateNodeDataDto,
+    UpdateEdgeDataDto, UpdateNodeDataDto,
 };
 use bric_a_brac_protos::{
     common::{EdgeDataProto, GraphDataProto, NodeDataProto, PathProto, SubgraphProto},
@@ -14,7 +14,8 @@ use bric_a_brac_protos::{
         DeleteNodeResponse, FindPathsRequest,
         FindPathsResponse, GetNeighborsRequest, GetNeighborsResponse, GetNodeRequest,
         InitializeSchemaRequest, InitializeSchemaResponse, InsertEdgeRequest, InsertNodeRequest,
-        LoadGraphRequest, SearchNodesRequest, SearchNodesResponse, UpdateNodeRequest,
+        LoadGraphRequest, SearchNodesRequest, SearchNodesResponse, UpdateEdgeRequest,
+        UpdateNodeRequest,
     },
 };
 use tonic::{Request, Response, Status};
@@ -39,7 +40,8 @@ impl Knowledge for KnowledgeService {
     #[tracing::instrument(
         level = "trace",
         name = "knowledge_service.load_graph",
-        skip(self, request)
+        skip(self, request),
+        err
     )]
     async fn load_graph(
         &self,
@@ -203,6 +205,35 @@ impl Knowledge for KnowledgeService {
         let edge = self
             .mutate_service
             .insert_edge(
+                req.graph_id
+                    .try_into()
+                    .map_err(|err| AppError::from(err))?,
+                edge_dto.into(),
+            )
+            .await?;
+
+        let dto: EdgeDataDto = edge.into();
+        Ok(Response::new(dto.into()))
+    }
+
+    async fn update_edge(
+        &self,
+        request: Request<UpdateEdgeRequest>,
+    ) -> Result<Response<EdgeDataProto>, Status> {
+        let req = request.into_inner();
+        tracing::debug!(graph_id = %req.graph_id);
+
+        let edge_dto: UpdateEdgeDataDto = req
+            .edge
+            .ok_or_else(|| AppError::InvalidInput {
+                reason: "Missing edge field".to_string(),
+            })?
+            .try_into()
+            .map_err(AppError::from)?;
+
+        let edge = self
+            .mutate_service
+            .update_edge(
                 req.graph_id
                     .try_into()
                     .map_err(|err| AppError::from(err))?,

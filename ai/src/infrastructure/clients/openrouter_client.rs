@@ -204,7 +204,8 @@ impl OpenRouterClient {
     #[tracing::instrument(
         level = "debug",
         name = "openrouter_client.chat",
-        skip(self, messages, schema)
+        skip(self, messages, schema),
+        err
     )]
     pub async fn chat(
         &self,
@@ -308,7 +309,8 @@ impl OpenRouterClient {
     #[tracing::instrument(
         level = "debug",
         name = "openrouter_client.chat_stream",
-        skip(self, messages, tools)
+        skip(self, messages, tools),
+        err
     )]
     pub async fn chat_stream(
         &self,

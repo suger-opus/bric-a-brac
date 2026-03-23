@@ -5,6 +5,7 @@ use super::{
     tracing::http_tracing_layer,
 };
 use axum::{
+    extract::DefaultBodyLimit,
     routing::{get, post},
     Json, Router,
 };
@@ -50,7 +51,10 @@ pub fn build(state: ApiState) -> Router {
             "/sessions/{session_id}/messages",
             get(session_handler::get_messages),
         )
-        .route("/graphs/{graph_id}/chat", post(chat_handler::chat))
+        .route(
+            "/graphs/{graph_id}/chat",
+            post(chat_handler::chat).layer(DefaultBodyLimit::max(50 * 1024 * 1024)),
+        )
         .layer(http_tracing_layer());
     router.layer(CorsLayer::permissive()).with_state(state)
 }

@@ -1,4 +1,4 @@
-use super::SessionIdModel;
+use super::{SessionDocumentIdModel, SessionIdModel};
 use bric_a_brac_id::id;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -48,6 +48,9 @@ pub struct SessionMessageModel {
     pub content: String,
     pub tool_calls: Option<serde_json::Value>,
     pub tool_call_id: Option<String>,
+    pub document_id: Option<SessionDocumentIdModel>,
+    pub document_name: Option<String>,
+    pub chunk_index: Option<i32>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -58,4 +61,6 @@ pub struct CreateSessionMessageModel {
     pub content: String,
     pub tool_calls: Option<serde_json::Value>,
     pub tool_call_id: Option<String>,
+    pub document_id: Option<SessionDocumentIdModel>,
+    pub chunk_index: Option<i32>,
 }

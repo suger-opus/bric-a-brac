@@ -20,7 +20,8 @@ impl GraphRepository {
     #[tracing::instrument(
         level = "debug",
         name = "graph_repository.get_all_metadata",
-        skip(self, connection, user_id)
+        skip(self, connection, user_id),
+        err
     )]
     pub async fn get_all_metadata(
         &self,
@@ -64,7 +65,8 @@ JOIN users u ON owner_access.user_id = u.user_id
     #[tracing::instrument(
         level = "debug",
         name = "graph_repository.get_metadata",
-        skip(self, connection, graph_id, user_id)
+        skip(self, connection, graph_id, user_id),
+        err
     )]
     pub async fn get_metadata(
         &self,
@@ -111,7 +113,8 @@ WHERE g.graph_id = $2
     #[tracing::instrument(
         level = "debug",
         name = "graph_repository.get_schema",
-        skip(self, connection, graph_id)
+        skip(self, connection, graph_id),
+        err
     )]
     pub async fn get_schema(
         &self,
@@ -169,7 +172,8 @@ WHERE graph_id = $1
     #[tracing::instrument(
         level = "debug",
         name = "graph_repository.create_graph",
-        skip(self, connection, create_graph)
+        skip(self, connection, create_graph),
+        err
     )]
     pub async fn create_graph(
         &self,
@@ -208,7 +212,8 @@ RETURNING
     #[tracing::instrument(
         level = "debug",
         name = "graph_repository.delete_graph",
-        skip(self, connection, graph_id)
+        skip(self, connection, graph_id),
+        err
     )]
     pub async fn delete_graph(
         &self,
@@ -235,7 +240,8 @@ RETURNING
     #[tracing::instrument(
         level = "debug",
         name = "graph_repository.create_node_schema",
-        skip(self, connection, create)
+        skip(self, connection, create),
+        err
     )]
     pub async fn create_node_schema(
         &self,
@@ -275,7 +281,8 @@ RETURNING
     #[tracing::instrument(
         level = "debug",
         name = "graph_repository.create_edge_schema",
-        skip(self, connection, create)
+        skip(self, connection, create),
+        err
     )]
     pub async fn create_edge_schema(
         &self,

@@ -40,7 +40,8 @@ impl EmbeddingClient {
     #[tracing::instrument(
         level = "debug",
         name = "embedding_client.embed",
-        skip(self, texts)
+        skip(self, texts),
+        err
     )]
     pub async fn embed(
         &self,
@@ -102,7 +103,8 @@ impl EmbeddingClient {
     #[tracing::instrument(
         level = "debug",
         name = "embedding_client.embed_one",
-        skip(self, text)
+        skip(self, text),
+        err
     )]
     pub async fn embed_one(
         &self,

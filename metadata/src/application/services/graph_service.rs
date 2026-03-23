@@ -41,7 +41,8 @@ impl GraphService {
     #[tracing::instrument(
         level = "trace",
         name = "graph_service.get_all_metadata",
-        skip(self, user_id)
+        skip(self, user_id),
+        err
     )]
     pub async fn get_all_metadata(
         &self,
@@ -60,7 +61,8 @@ impl GraphService {
     #[tracing::instrument(
         level = "trace",
         name = "graph_service.create_graph",
-        skip(self, user_id, create_graph)
+        skip(self, user_id, create_graph),
+        err
     )]
     pub async fn create_graph(
         &self,
@@ -92,7 +94,8 @@ impl GraphService {
     #[tracing::instrument(
         level = "trace",
         name = "graph_service.get_metadata",
-        skip(self, graph_id, user_id)
+        skip(self, graph_id, user_id),
+        err
     )]
     pub async fn get_metadata(
         &self,
@@ -112,7 +115,8 @@ impl GraphService {
     #[tracing::instrument(
         level = "trace",
         name = "graph_service.get_schema",
-        skip(self, graph_id)
+        skip(self, graph_id),
+        err
     )]
     pub async fn get_schema(&self, graph_id: GraphIdDto) -> Result<GraphSchemaDto, AppError> {
         let mut txn = self.pool.begin().await?;
@@ -125,7 +129,7 @@ impl GraphService {
         Ok(schema.into())
     }
 
-    #[tracing::instrument(level = "trace", name = "graph_service.get_data", skip(self, graph_id))]
+    #[tracing::instrument(level = "trace", name = "graph_service.get_data", skip(self, graph_id), err)]
     pub async fn get_data(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, AppError> {
         let proto = self.knowledge_client.load_graph(graph_id).await?;
         proto
@@ -136,7 +140,8 @@ impl GraphService {
     #[tracing::instrument(
         level = "trace",
         name = "graph_service.create_node_schema",
-        skip(self, graph_id, label, description)
+        skip(self, graph_id, label, description),
+        err
     )]
     pub async fn create_node_schema(
         &self,
@@ -171,7 +176,8 @@ impl GraphService {
     #[tracing::instrument(
         level = "trace",
         name = "graph_service.create_edge_schema",
-        skip(self, graph_id, label, description)
+        skip(self, graph_id, label, description),
+        err
     )]
     pub async fn create_edge_schema(
         &self,
@@ -201,7 +207,8 @@ impl GraphService {
     #[tracing::instrument(
         level = "trace",
         name = "graph_service.delete_graph",
-        skip(self, graph_id)
+        skip(self, graph_id),
+        err
     )]
     pub async fn delete_graph(&self, graph_id: GraphIdDto) -> Result<(), AppError> {
         // Fetch node schema keys so we can drop vector indexes in Memgraph

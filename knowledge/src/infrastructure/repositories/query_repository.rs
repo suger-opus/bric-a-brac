@@ -18,7 +18,8 @@ impl QueryRepository {
     #[tracing::instrument(
         level = "debug",
         name = "query_repository.load_graph",
-        skip(self, connection, graph_id)
+        skip(self, connection, graph_id),
+        err
     )]
     pub async fn load_graph(
         &self,
@@ -36,7 +37,8 @@ impl QueryRepository {
     #[tracing::instrument(
         level = "trace",
         name = "query_repository.load_graph_nodes",
-        skip(self, connection, graph_id)
+        skip(self, connection, graph_id),
+        err
     )]
     async fn load_graph_nodes(
         &self,
@@ -59,7 +61,8 @@ impl QueryRepository {
     #[tracing::instrument(
         level = "trace",
         name = "query_repository.load_graph_edges",
-        skip(self, connection, graph_id)
+        skip(self, connection, graph_id),
+        err
     )]
     async fn load_graph_edges(
         &self,
@@ -96,7 +99,8 @@ RETURN
     #[tracing::instrument(
         level = "debug",
         name = "query_repository.get_node",
-        skip(self, connection, graph_id, node_data_id)
+        skip(self, connection, graph_id, node_data_id),
+        err
     )]
     pub async fn get_node(
         &self,
@@ -123,7 +127,8 @@ RETURN
     #[tracing::instrument(
         level = "debug",
         name = "query_repository.search_nodes",
-        skip(self, connection, graph_id, embedding)
+        skip(self, connection, graph_id, embedding),
+        err
     )]
     pub async fn search_nodes(
         &self,
@@ -200,7 +205,8 @@ RETURN node, distance"#,
     #[tracing::instrument(
         level = "debug",
         name = "query_repository.get_neighbors",
-        skip(self, connection, graph_id, node_data_id)
+        skip(self, connection, graph_id, node_data_id),
+        err
     )]
     pub async fn get_neighbors(
         &self,
@@ -280,7 +286,8 @@ RETURN DISTINCT r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_nod
     #[tracing::instrument(
         level = "debug",
         name = "query_repository.find_paths",
-        skip(self, connection, graph_id, from_id, to_id)
+        skip(self, connection, graph_id, from_id, to_id),
+        err
     )]
     pub async fn find_paths(
         &self,

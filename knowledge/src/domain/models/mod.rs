@@ -3,7 +3,7 @@ mod graph_data_model;
 mod node_data_model;
 mod property_data_model;
 
-pub use edge_data_model::{EdgeDataIdModel, EdgeDataModel, InsertEdgeDataModel};
+pub use edge_data_model::{EdgeDataIdModel, EdgeDataModel, InsertEdgeDataModel, UpdateEdgeDataModel};
 pub use graph_data_model::{GraphDataModel, GraphIdModel};
 pub use node_data_model::{
     InsertNodeDataModel, NodeDataIdModel, NodeDataModel, NodeSummaryModel,

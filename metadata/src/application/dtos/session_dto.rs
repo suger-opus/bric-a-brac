@@ -65,6 +65,9 @@ pub struct SessionMessageDto {
     pub content: String,
     pub tool_calls: Option<serde_json::Value>,
     pub tool_call_id: Option<String>,
+    pub document_id: Option<String>,
+    pub document_name: Option<String>,
+    pub chunk_index: Option<i32>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -78,6 +81,9 @@ impl From<SessionMessageModel> for SessionMessageDto {
             content: model.content,
             tool_calls: model.tool_calls,
             tool_call_id: model.tool_call_id,
+            document_id: model.document_id.map(|id| id.to_string()),
+            document_name: model.document_name,
+            chunk_index: model.chunk_index,
             created_at: model.created_at,
         }
     }
@@ -89,6 +95,8 @@ pub struct CreateSessionMessageDto {
     pub content: String,
     pub tool_calls: Option<String>,
     pub tool_call_id: Option<String>,
+    pub document_id: Option<String>,
+    pub chunk_index: Option<i32>,
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +127,9 @@ impl From<SessionMessageDto> for SessionMessageProto {
             content: dto.content,
             tool_calls: dto.tool_calls.map(|v| v.to_string()),
             tool_call_id: dto.tool_call_id,
+            document_id: dto.document_id,
+            document_name: dto.document_name,
+            chunk_index: dto.chunk_index,
             created_at: Option::<Timestamp>::from_chrono(dto.created_at),
         }
     }

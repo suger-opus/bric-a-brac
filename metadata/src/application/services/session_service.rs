@@ -7,7 +7,8 @@ use crate::{
         errors::{AppError, RequestError},
     },
     domain::models::{
-        CreateSessionMessageModel, CreateSessionModel, SessionMessageRoleModel,
+        CreateSessionMessageModel, CreateSessionModel, SessionDocumentIdModel,
+        SessionMessageRoleModel,
     },
     infrastructure::{errors::DatabaseError, repositories::SessionRepository},
 };
@@ -28,7 +29,8 @@ impl SessionService {
     #[tracing::instrument(
         level = "trace",
         name = "session_service.create_session",
-        skip(self, create, user_id)
+        skip(self, create, user_id),
+        err
     )]
     pub async fn create_session(
         &self,
@@ -63,7 +65,8 @@ impl SessionService {
     #[tracing::instrument(
         level = "trace",
         name = "session_service.get_active_session",
-        skip(self, graph_id, user_id)
+        skip(self, graph_id, user_id),
+        err
     )]
     pub async fn get_active_session(
         &self,
@@ -83,7 +86,8 @@ impl SessionService {
     #[tracing::instrument(
         level = "trace",
         name = "session_service.get_session",
-        skip(self, session_id)
+        skip(self, session_id),
+        err
     )]
     pub async fn get_session(
         &self,
@@ -102,7 +106,8 @@ impl SessionService {
     #[tracing::instrument(
         level = "trace",
         name = "session_service.close_session",
-        skip(self, session_id, status)
+        skip(self, session_id, status),
+        err
     )]
     pub async fn close_session(
         &self,
@@ -129,7 +134,8 @@ impl SessionService {
     #[tracing::instrument(
         level = "trace",
         name = "session_service.get_messages",
-        skip(self, session_id)
+        skip(self, session_id),
+        err
     )]
     pub async fn get_messages(
         &self,
@@ -148,7 +154,8 @@ impl SessionService {
     #[tracing::instrument(
         level = "trace",
         name = "session_service.append_messages",
-        skip(self, session_id, messages)
+        skip(self, session_id, messages),
+        err
     )]
     pub async fn append_messages(
         &self,
@@ -188,6 +195,15 @@ impl SessionService {
                     content: dto.content,
                     tool_calls,
                     tool_call_id: dto.tool_call_id,
+                    document_id: dto
+                        .document_id
+                        .map(|id| id.parse::<SessionDocumentIdModel>())
+                        .transpose()
+                        .map_err(|_| RequestError::InvalidInput {
+                            field: "document_id".to_string(),
+                            issue: "Invalid document_id".to_string(),
+                        })?,
+                    chunk_index: dto.chunk_index,
                 })
             })
             .collect::<Result<Vec<_>, RequestError>>()?;

@@ -1,7 +1,7 @@
 "use client";
 
 import { graphService } from "@/lib/api/services/graph-service";
-import type { GraphData, GraphMetadata, GraphSchema, ProcessedGraphData } from "@/types";
+import type { GraphData, GraphMetadata, GraphSchema, ProcessedEdgeData, ProcessedGraphData, ProcessedNodeData } from "@/types";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -19,6 +19,12 @@ type GraphContextType = {
   focusEdge: string | null;
   setFocusEdge: (edgeId: string | null) => void;
   refetch: () => void;
+  addNode: (node: ProcessedNodeData) => void;
+  addEdge: (edge: ProcessedEdgeData) => void;
+  updateNode: (nodeId: string, properties: Record<string, string | number | boolean>) => void;
+  updateEdge: (edgeId: string, properties: Record<string, string | number | boolean>) => void;
+  removeNode: (nodeId: string) => void;
+  removeEdge: (edgeId: string) => void;
 };
 
 const GraphContext = createContext<GraphContextType | undefined>(undefined);
@@ -62,6 +68,59 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
   const [fetchTrigger, setFetchTrigger] = useState(0);
 
   const refetch = useCallback(() => setFetchTrigger((n) => n + 1), []);
+
+  const addNode = useCallback((node: ProcessedNodeData) => {
+    setProcessedData((prev) => {
+      if (!prev) return prev;
+      if (prev.nodes.some((n) => n.id === node.id)) return prev;
+      return { ...prev, nodes: [...prev.nodes, node] };
+    });
+  }, []);
+
+  const addEdge = useCallback((edge: ProcessedEdgeData) => {
+    setProcessedData((prev) => {
+      if (!prev) return prev;
+      if (prev.links.some((l) => l.id === edge.id)) return prev;
+      return { ...prev, links: [...prev.links, edge] };
+    });
+  }, []);
+
+  const updateNode = useCallback((nodeId: string, properties: Record<string, string | number | boolean>) => {
+    setProcessedData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        nodes: prev.nodes.map((n) => n.id === nodeId ? { ...n, properties } : n),
+      };
+    });
+  }, []);
+
+  const updateEdge = useCallback((edgeId: string, properties: Record<string, string | number | boolean>) => {
+    setProcessedData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        links: prev.links.map((l) => l.id === edgeId ? { ...l, properties } : l),
+      };
+    });
+  }, []);
+
+  const removeNode = useCallback((nodeId: string) => {
+    setProcessedData((prev) => {
+      if (!prev) return prev;
+      return {
+        nodes: prev.nodes.filter((n) => n.id !== nodeId),
+        links: prev.links.filter((l) => l.source !== nodeId && l.target !== nodeId),
+      };
+    });
+  }, []);
+
+  const removeEdge = useCallback((edgeId: string) => {
+    setProcessedData((prev) => {
+      if (!prev) return prev;
+      return { ...prev, links: prev.links.filter((l) => l.id !== edgeId) };
+    });
+  }, []);
 
   useEffect(() => {
     if (!graphId) {
@@ -112,6 +171,7 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
         focusNode, setFocusNode,
         focusEdge, setFocusEdge,
         refetch,
+        addNode, addEdge, updateNode, updateEdge, removeNode, removeEdge,
       }}
     >
       {children}

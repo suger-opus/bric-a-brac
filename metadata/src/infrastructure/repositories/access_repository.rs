@@ -15,7 +15,8 @@ impl AccessRepository {
     #[tracing::instrument(
         level = "debug",
         name = "access_repository.create",
-        skip(self, connection, create_access)
+        skip(self, connection, create_access),
+        err
     )]
     pub async fn create(
         &self,

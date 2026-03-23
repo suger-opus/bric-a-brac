@@ -14,5 +14,8 @@ export const SessionMessageDto = v.object({
   role: v.string(),
   content: v.string(),
   tool_calls: v.optional(v.nullable(v.any())),
+  document_id: v.optional(v.nullable(v.string())),
+  document_name: v.optional(v.nullable(v.string())),
+  chunk_index: v.optional(v.nullable(v.number())),
   created_at: v.pipe(v.string(), v.isoTimestamp()),
 });

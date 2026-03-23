@@ -5,7 +5,7 @@ import type { GenericSchema, InferOutput } from "valibot";
 import { safeParse } from "valibot";
 
 const api = mande(config.env.API_URL);
-export const userId = "019d10e8-ae70-7790-94a5-04949de4adbe";
+export const userId = "019d1bf7-4227-7083-a55a-064a5f144473";
 api.options.headers.user_id = userId;
 
 function validate<T extends GenericSchema>(schema: T, data: unknown): InferOutput<T> {

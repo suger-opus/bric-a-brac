@@ -91,6 +91,15 @@ CREATE TABLE sessions (
 
 CREATE INDEX idx_sessions_graph_id ON sessions(graph_id);
 
+CREATE TABLE session_documents (
+    document_id         UUID PRIMARY KEY                NOT NULL,
+    session_id          UUID                            NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+    filename            TEXT                            NOT NULL,
+    content_hash        VARCHAR(64)                     NOT NULL,
+    content             TEXT                            NOT NULL,
+    created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE session_messages (
     message_id          UUID PRIMARY KEY                NOT NULL,
     session_id          UUID                            NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
@@ -99,6 +108,8 @@ CREATE TABLE session_messages (
     content             TEXT                            NOT NULL DEFAULT '',
     tool_calls          JSONB,
     tool_call_id        VARCHAR,
+    document_id         UUID                            REFERENCES session_documents(document_id) ON DELETE SET NULL,
+    chunk_index         INTEGER,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT message_role_check                       CHECK (role IN ('system', 'user', 'assistant', 'tool')),
     CONSTRAINT unique_session_position                  UNIQUE (session_id, position)

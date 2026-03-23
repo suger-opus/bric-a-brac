@@ -61,3 +61,8 @@ pub struct InsertEdgeDataModel {
     pub session_id: Option<String>,
 }
 
+pub struct UpdateEdgeDataModel {
+    pub edge_data_id: EdgeDataIdModel,
+    pub properties: PropertiesDataModel,
+}
+

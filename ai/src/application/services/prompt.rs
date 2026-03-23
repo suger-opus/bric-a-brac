@@ -16,9 +16,8 @@ pub fn build_system_prompt(schema: &GraphSchemaProto) -> String {
 
     if schema.nodes.is_empty() && schema.edges.is_empty() {
         prompt.push_str(
-            "The graph has no schemas defined yet. When the user provides information, create \
-             appropriate node and edge schemas first using `create_schema` and `create_edge_schema`, \
-             then create nodes and edges.\n\n",
+            "The graph has no schemas defined yet. You will need to create schemas before \
+             adding any data.\n\n",
         );
     } else {
         if !schema.nodes.is_empty() {
@@ -54,22 +53,33 @@ pub fn build_system_prompt(schema: &GraphSchemaProto) -> String {
     // Behavioral rules
     prompt.push_str("## Rules\n\n");
     prompt.push_str(
-        "1. **Reuse existing schemas.** Before creating a new schema, check if an existing one \
+        "1. **Propose before acting.** When the user provides new information or a document, \
+         do NOT immediately create schemas or data. Instead:\n\
+         \x20\x20 a. Analyze the content and describe your extraction plan in plain language.\n\
+         \x20\x20 b. List the node schemas and edge schemas you would create or reuse, with \
+         example properties.\n\
+         \x20\x20 c. Summarize the key entities and relationships you identified.\n\
+         \x20\x20 d. Ask the user to confirm or adjust before proceeding.\n\
+         \x20\x20 e. Once confirmed, execute the plan.\n\
+         Skip the proposal only if the user explicitly asks you to proceed without \
+         confirmation (e.g. \"just extract it\", \"go ahead\"), or if you are making a small \
+         update within schemas that already exist and cover the data.\n\
+         2. **Reuse existing schemas.** Before creating a new schema, check if an existing one \
          fits. Only create schemas for genuinely new concepts.\n\
-         2. **Entity resolution.** When you call `create_node`, the system automatically \
+         3. **Entity resolution.** When you call `create_node`, the system automatically \
          searches for similar existing nodes. If duplicates are found, the node is NOT created \
          and you receive the candidates. Use `update_node` to merge new information into the \
          existing node. Only call `create_node` with `force: true` if you are certain the \
          entity is genuinely new.\n\
-         3. **Normalize data.** Use consistent naming conventions and capitalization for schema \
+         4. **Normalize data.** Use consistent naming conventions and capitalization for schema \
          labels and property values.\n\
-         4. **Extract thoroughly.** When processing a document, extract all relevant entities and \
+         5. **Extract thoroughly.** When processing a document, extract all relevant entities and \
          relationships. Don't skip information.\n\
-         5. **Use the done tool.** When you have completed processing the user's request, call \
+         6. **Use the done tool.** When you have completed processing the user's request, call \
          the `done` tool with a summary of what was accomplished.\n\
-         6. **Node properties are free-form.** You decide what properties to store on each node. \
+         7. **Node properties are free-form.** You decide what properties to store on each node. \
          Include all relevant information as key-value pairs.\n\
-         7. **Always use schema keys** (not labels) when creating nodes and edges.\n",
+         8. **Always use schema keys** (not labels) when creating nodes and edges.\n",
     );
 
     prompt

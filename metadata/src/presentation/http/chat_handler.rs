@@ -1,5 +1,6 @@
 use crate::{
     application::{
+        dtos::CreateSessionDocumentDto,
         errors::RequestError,
         services::file_extraction,
     },
@@ -11,6 +12,7 @@ use axum::{
 };
 use bric_a_brac_dtos::GraphIdDto;
 use futures_util::StreamExt;
+use sha2::{Digest, Sha256};
 use std::convert::Infallible;
 
 #[tracing::instrument(
@@ -30,6 +32,7 @@ pub async fn chat(
     let mut session_id: Option<String> = None;
     let mut content: Option<String> = None;
     let mut file_text: Option<String> = None;
+    let mut file_name: Option<String> = None;
 
     while let Some(field) = multipart
         .next_field()
@@ -63,8 +66,8 @@ pub async fn chat(
                 );
             }
             "file" => {
+                file_name = field.file_name().map(ToString::to_string);
                 let content_type = field.content_type().map(ToString::to_string);
-                let filename = field.file_name().map(ToString::to_string);
                 let bytes =
                     field
                         .bytes()
@@ -76,7 +79,7 @@ pub async fn chat(
                 let extracted = file_extraction::extract_text(
                     &bytes,
                     content_type.as_deref(),
-                    filename.as_deref(),
+                    file_name.as_deref(),
                 )?;
                 file_text = Some(extracted);
             }
@@ -89,23 +92,42 @@ pub async fn chat(
         issue: "session_id is required".to_string(),
     })?;
 
-    // Build the final content: combine user message and file text
-    let final_content = match (content.filter(|s| !s.is_empty()), file_text) {
-        (Some(msg), Some(doc)) => format!("[Document content]\n{doc}\n\n[User message]\n{msg}"),
-        (None, Some(doc)) => format!("[Document content]\n{doc}"),
-        (Some(msg), None) => msg,
-        (None, None) => {
-            return Err(RequestError::InvalidInput {
-                field: "content".to_string(),
-                issue: "At least one of 'content' or 'file' must be provided".to_string(),
-            }
-            .into());
-        }
+    let user_content = content.filter(|s| !s.is_empty());
+
+    // If a file was uploaded, save it as a session document and pass its ID.
+    // The AI service will load the content on its own.
+    let document_id = if let Some(ref doc_text) = file_text {
+        let content_hash = format!("{:x}", Sha256::digest(doc_text.as_bytes()));
+        let filename = file_name.unwrap_or_else(|| "upload".to_string());
+
+        let doc = state
+            .document_service
+            .create_document(CreateSessionDocumentDto {
+                session_id: session_id.clone(),
+                filename,
+                content_hash,
+                content: doc_text.clone(),
+            })
+            .await?;
+
+        Some(doc.document_id.to_string())
+    } else {
+        None
     };
+
+    let final_content = user_content.unwrap_or_default();
+
+    if final_content.is_empty() && document_id.is_none() {
+        return Err(RequestError::InvalidInput {
+            field: "content".to_string(),
+            issue: "At least one of 'content' or 'file' must be provided".to_string(),
+        }
+        .into());
+    }
 
     let stream = state
         .ai_service
-        .chat(session_id, final_content)
+        .chat(session_id, final_content, document_id)
         .await?;
 
     let sse_stream = stream.map(|dto| {

@@ -1,8 +1,8 @@
 use crate::{
     domain::models::{
-        CreateSessionMessageModel, CreateSessionModel, GraphIdModel, RoleModel, SessionIdModel,
-        SessionMessageIdModel, SessionMessageModel, SessionMessageRoleModel, SessionModel,
-        SessionStatusModel, UserIdModel,
+        CreateSessionMessageModel, CreateSessionModel, GraphIdModel, RoleModel,
+        SessionDocumentIdModel, SessionIdModel, SessionMessageIdModel, SessionMessageModel,
+        SessionMessageRoleModel, SessionModel, SessionStatusModel, UserIdModel,
     },
     infrastructure::errors::DatabaseError,
 };
@@ -20,7 +20,8 @@ impl SessionRepository {
     #[tracing::instrument(
         level = "debug",
         name = "session_repository.has_active_session",
-        skip(self, connection, graph_id)
+        skip(self, connection, graph_id),
+        err
     )]
     pub async fn has_active_session(
         &self,
@@ -42,7 +43,8 @@ impl SessionRepository {
     #[tracing::instrument(
         level = "debug",
         name = "session_repository.get_active_session",
-        skip(self, connection, graph_id, user_id)
+        skip(self, connection, graph_id, user_id),
+        err
     )]
     pub async fn get_active_session(
         &self,
@@ -80,7 +82,8 @@ LIMIT 1
     #[tracing::instrument(
         level = "debug",
         name = "session_repository.create_session",
-        skip(self, connection, create_session)
+        skip(self, connection, create_session),
+        err
     )]
     pub async fn create_session(
         &self,
@@ -121,7 +124,8 @@ LEFT JOIN accesses a ON i.user_id = a.user_id AND i.graph_id = a.graph_id
     #[tracing::instrument(
         level = "debug",
         name = "session_repository.get_session",
-        skip(self, connection, session_id)
+        skip(self, connection, session_id),
+        err
     )]
     pub async fn get_session(
         &self,
@@ -156,7 +160,8 @@ WHERE s.session_id = $1
     #[tracing::instrument(
         level = "debug",
         name = "session_repository.close_session",
-        skip(self, connection, session_id, status)
+        skip(self, connection, session_id, status),
+        err
     )]
     pub async fn close_session(
         &self,
@@ -198,7 +203,8 @@ LEFT JOIN accesses a ON u.user_id = a.user_id AND u.graph_id = a.graph_id
     #[tracing::instrument(
         level = "debug",
         name = "session_repository.get_messages",
-        skip(self, connection, session_id)
+        skip(self, connection, session_id),
+        err
     )]
     pub async fn get_messages(
         &self,
@@ -211,17 +217,21 @@ LEFT JOIN accesses a ON u.user_id = a.user_id AND u.graph_id = a.graph_id
             SessionMessageRow,
             r#"
 SELECT
-    message_id,
-    session_id,
-    position,
-    role AS "role!:_",
-    content,
-    tool_calls,
-    tool_call_id,
-    created_at
-FROM session_messages
-WHERE session_id = $1
-ORDER BY position ASC
+    sm.message_id,
+    sm.session_id,
+    sm.position,
+    sm.role AS "role!:_",
+    sm.content,
+    sm.tool_calls,
+    sm.tool_call_id,
+    sm.document_id,
+    sd.filename AS "document_name?",
+    sm.chunk_index,
+    sm.created_at
+FROM session_messages sm
+LEFT JOIN session_documents sd ON sm.document_id = sd.document_id
+WHERE sm.session_id = $1
+ORDER BY sm.position ASC
             "#,
             session_id as _,
         )
@@ -234,7 +244,8 @@ ORDER BY position ASC
     #[tracing::instrument(
         level = "debug",
         name = "session_repository.get_max_position",
-        skip(self, connection, session_id)
+        skip(self, connection, session_id),
+        err
     )]
     pub async fn get_max_position(
         &self,
@@ -256,7 +267,8 @@ ORDER BY position ASC
     #[tracing::instrument(
         level = "debug",
         name = "session_repository.append_messages",
-        skip(self, connection, messages)
+        skip(self, connection, messages),
+        err
     )]
     pub async fn append_messages(
         &self,
@@ -269,17 +281,25 @@ ORDER BY position ASC
             let row = sqlx::query_as!(
                 SessionMessageRow,
                 r#"
-INSERT INTO session_messages (message_id, session_id, position, role, content, tool_calls, tool_call_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING
-    message_id,
-    session_id,
-    position,
-    role AS "role!:_",
-    content,
-    tool_calls,
-    tool_call_id,
-    created_at
+WITH inserted AS (
+INSERT INTO session_messages (message_id, session_id, position, role, content, tool_calls, tool_call_id, document_id, chunk_index)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING *
+)
+SELECT
+    i.message_id,
+    i.session_id,
+    i.position,
+    i.role AS "role!:_",
+    i.content,
+    i.tool_calls,
+    i.tool_call_id,
+    i.document_id,
+    sd.filename AS "document_name?",
+    i.chunk_index,
+    i.created_at
+FROM inserted i
+LEFT JOIN session_documents sd ON i.document_id = sd.document_id
                 "#,
                 SessionMessageIdModel::new() as _,
                 msg.session_id as _,
@@ -288,6 +308,8 @@ RETURNING
                 msg.content,
                 msg.tool_calls,
                 msg.tool_call_id,
+                msg.document_id as _,
+                msg.chunk_index,
             )
             .fetch_one(&mut *connection)
             .await?;
@@ -335,6 +357,9 @@ struct SessionMessageRow {
     content: String,
     tool_calls: Option<serde_json::Value>,
     tool_call_id: Option<String>,
+    document_id: Option<uuid::Uuid>,
+    document_name: Option<String>,
+    chunk_index: Option<i32>,
     created_at: DateTime<Utc>,
 }
 
@@ -348,6 +373,9 @@ impl From<SessionMessageRow> for SessionMessageModel {
             content: row.content,
             tool_calls: row.tool_calls,
             tool_call_id: row.tool_call_id,
+            document_id: row.document_id.map(SessionDocumentIdModel::from),
+            document_name: row.document_name,
+            chunk_index: row.chunk_index,
             created_at: row.created_at,
         }
     }

@@ -11,7 +11,7 @@ service Metadata {
     rpc CloseSession(CloseSessionRequest) returns (SessionProto);
     rpc GetSessionMessages(GetSessionMessagesRequest) returns (GetSessionMessagesResponse);
     rpc AppendSessionMessages(AppendSessionMessagesRequest) returns (AppendSessionMessagesResponse);
-
+    rpc GetSessionDocument(GetSessionDocumentRequest) returns (SessionDocumentProto);
     rpc CreateNodeSchema(CreateNodeSchemaRequest) returns (common.NodeSchemaProto);
     rpc CreateEdgeSchema(CreateEdgeSchemaRequest) returns (common.EdgeSchemaProto);
     rpc GetSchema(GetSchemaRequest) returns (common.GraphSchemaProto);
@@ -38,6 +38,9 @@ message SessionMessageProto {
     optional string tool_calls = 6;
     optional string tool_call_id = 7;
     google.protobuf.Timestamp created_at = 8;
+    optional string document_id = 9;
+    optional string document_name = 10;
+    optional int32 chunk_index = 11;
 }
 
 // --- Session RPCs ---
@@ -74,9 +77,27 @@ message NewSessionMessageProto {
     string content = 2;
     optional string tool_calls = 3;
     optional string tool_call_id = 4;
+    optional string document_id = 5;
+    optional string document_name = 6;
+    optional int32 chunk_index = 7;
 }
 
 message AppendSessionMessagesResponse {}
+
+// --- Session Documents ---
+
+message SessionDocumentProto {
+    string document_id = 1;
+    string session_id = 2;
+    string filename = 3;
+    string content_hash = 4;
+    string content = 5;
+    google.protobuf.Timestamp created_at = 6;
+}
+
+message GetSessionDocumentRequest {
+    string document_id = 1;
+}
 
 // --- Schema RPCs ---
 

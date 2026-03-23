@@ -34,7 +34,7 @@ impl Ai for AiService {
 
         // Spawn the agent loop (sends events to agent_tx)
         self.agent_service
-            .send_message(req.session_id, req.content, agent_tx);
+            .send_message(req.session_id, req.content, req.document_id, agent_tx);
 
         // Forward agent events as Ok(event) to the gRPC stream
         tokio::spawn(async move {

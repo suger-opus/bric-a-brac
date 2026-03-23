@@ -11,6 +11,7 @@ service Ai {
 message SendMessageRequest {
     string session_id = 1;
     string content = 2;
+    optional string document_id = 3;
 }
 
 message AgentEventProto {
@@ -20,6 +21,7 @@ message AgentEventProto {
         AgentToolResultProto tool_result = 3;
         AgentDoneProto done = 4;
         AgentErrorProto error = 5;
+        AgentProgressProto progress = 6;
     }
 }
 
@@ -44,4 +46,8 @@ message AgentDoneProto {
 
 message AgentErrorProto {
     string message = 1;
+}
+
+message AgentProgressProto {
+    string content = 1;
 }

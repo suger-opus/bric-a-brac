@@ -3,6 +3,7 @@ mod edge_schema_model;
 mod graph_model;
 mod graph_schema_model;
 mod node_schema_model;
+mod session_document_model;
 mod session_message_model;
 mod session_model;
 mod user_model;
@@ -14,6 +15,9 @@ pub use graph_model::{
 };
 pub use graph_schema_model::GraphSchemaModel;
 pub use node_schema_model::{CreateNodeSchemaModel, NodeSchemaIdModel, NodeSchemaModel};
+pub use session_document_model::{
+    CreateSessionDocumentModel, SessionDocumentIdModel, SessionDocumentModel,
+};
 pub use session_message_model::{
     CreateSessionMessageModel, SessionMessageIdModel, SessionMessageModel,
     SessionMessageRoleModel,

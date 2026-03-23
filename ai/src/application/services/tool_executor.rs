@@ -1,7 +1,7 @@
 use crate::infrastructure::clients::{EmbeddingClient, KnowledgeClient, MetadataClient};
 use bric_a_brac_protos::common::{
     GraphSchemaProto, InsertEdgeDataProto, InsertNodeDataProto, PropertyValueProto,
-    UpdateNodeDataProto,
+    UpdateEdgeDataProto, UpdateNodeDataProto,
 };
 use serde_json::Value;
 use std::collections::HashMap;
@@ -30,6 +30,7 @@ const WRITE_TOOLS: &[&str] = &[
     "create_node",
     "create_edge",
     "update_node",
+    "update_edge",
     "delete_node",
     "delete_edge",
 ];
@@ -82,6 +83,7 @@ impl ToolExecutor {
             "get_node" => self.exec_get_node(arguments, graph_id).await,
             "get_neighbors" => self.exec_get_neighbors(arguments, graph_id).await,
             "find_paths" => self.exec_find_paths(arguments, graph_id).await,
+            "read_document" => self.exec_read_document(arguments).await,
             "create_schema" => {
                 return self.exec_create_schema(arguments, graph_id).await;
             }
@@ -97,6 +99,7 @@ impl ToolExecutor {
                     .await
             }
             "update_node" => self.exec_update_node(arguments, graph_id).await,
+            "update_edge" => self.exec_update_edge(arguments, graph_id).await,
             "delete_node" => self.exec_delete_node(arguments, graph_id).await,
             "delete_edge" => self.exec_delete_edge(arguments, graph_id).await,
             "done" => return self.exec_done(arguments),
@@ -255,6 +258,25 @@ impl ToolExecutor {
                 })
             })
             .collect();
+
+        serde_json::to_string_pretty(&result).map_err(|e| format!("Serialization failed: {e}"))
+    }
+
+    async fn exec_read_document(&self, arguments: &str) -> Result<String, String> {
+        let args: Value = parse_args(arguments)?;
+        let document_id = get_str(&args, "document_id")?;
+
+        let doc = self
+            .metadata_client
+            .get_session_document(document_id)
+            .await
+            .map_err(|e| format!("Failed to get document: {e}"))?;
+
+        let result = serde_json::json!({
+            "document_id": doc.document_id,
+            "filename": doc.filename,
+            "content": doc.content,
+        });
 
         serde_json::to_string_pretty(&result).map_err(|e| format!("Serialization failed: {e}"))
     }
@@ -516,6 +538,40 @@ impl ToolExecutor {
             "node_data_id": node.node_data_id,
             "key": node.key,
             "properties": proto_properties_to_json(&node.properties),
+        });
+
+        serde_json::to_string_pretty(&result).map_err(|e| format!("Serialization failed: {e}"))
+    }
+
+    async fn exec_update_edge(
+        &self,
+        arguments: &str,
+        graph_id: &str,
+    ) -> Result<String, String> {
+        let args: Value = parse_args(arguments)?;
+        let edge_data_id = get_str(&args, "edge_data_id")?;
+        let properties = get_properties(&args)?;
+
+        let proto_properties = json_properties_to_proto(&properties);
+
+        let edge = self
+            .knowledge_client
+            .update_edge(
+                graph_id,
+                UpdateEdgeDataProto {
+                    edge_data_id: edge_data_id.to_owned(),
+                    properties: proto_properties,
+                },
+            )
+            .await
+            .map_err(|e| format!("Failed to update edge: {e}"))?;
+
+        let result = serde_json::json!({
+            "edge_data_id": edge.edge_data_id,
+            "key": edge.key,
+            "from_node_data_id": edge.from_node_data_id,
+            "to_node_data_id": edge.to_node_data_id,
+            "properties": proto_properties_to_json(&edge.properties),
         });
 
         serde_json::to_string_pretty(&result).map_err(|e| format!("Serialization failed: {e}"))
