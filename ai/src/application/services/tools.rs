@@ -28,6 +28,8 @@ pub fn write_tools() -> Vec<ToolDefinition> {
         create_edge_schema_tool(),
         create_node_tool(),
         create_edge_tool(),
+        create_nodes_tool(),
+        create_edges_tool(),
         update_node_tool(),
         update_edge_tool(),
         delete_node_tool(),
@@ -237,7 +239,7 @@ fn create_node_tool() -> ToolDefinition {
 fn create_edge_tool() -> ToolDefinition {
     tool(
         "create_edge",
-        "Create a new edge (relationship) between two nodes in the graph.",
+        "Create or merge an edge (relationship) between two nodes. Edges are unique per (edge_key, source, target): if the same edge already exists, its properties are merged with the new ones instead of creating a duplicate. Use this both for new relationships and to add properties to existing ones.",
         json!({
             "type": "object",
             "properties": {
@@ -266,6 +268,101 @@ fn create_edge_tool() -> ToolDefinition {
                 }
             },
             "required": ["edge_key", "from_node_data_id", "to_node_data_id"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn create_nodes_tool() -> ToolDefinition {
+    tool(
+        "create_nodes",
+        "Create multiple nodes in a single batch (up to 50). Embeddings are generated in one \
+         call and entity resolution runs for each node. Prefer this over repeated create_node \
+         calls when you have several entities to store.",
+        json!({
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "description": "Array of nodes to create (max 50).",
+                    "maxItems": 50,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "node_key": {
+                                "type": "string",
+                                "description": "The schema key identifying the node type"
+                            },
+                            "properties": {
+                                "type": "object",
+                                "description": "Free-form properties for the node.",
+                                "additionalProperties": {
+                                    "oneOf": [
+                                        {"type": "string"},
+                                        {"type": "number"},
+                                        {"type": "boolean"}
+                                    ]
+                                }
+                            },
+                            "force": {
+                                "type": "boolean",
+                                "description": "If true, skip duplicate check for this node. Default: false."
+                            }
+                        },
+                        "required": ["node_key", "properties"]
+                    }
+                }
+            },
+            "required": ["nodes"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn create_edges_tool() -> ToolDefinition {
+    tool(
+        "create_edges",
+        "Create multiple edges in a single batch (up to 50). Each edge is merged if it \
+         already exists. Prefer this over repeated create_edge calls.",
+        json!({
+            "type": "object",
+            "properties": {
+                "edges": {
+                    "type": "array",
+                    "description": "Array of edges to create (max 50).",
+                    "maxItems": 50,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "edge_key": {
+                                "type": "string",
+                                "description": "The schema key identifying the edge type"
+                            },
+                            "from_node_data_id": {
+                                "type": "string",
+                                "description": "The ID of the source node"
+                            },
+                            "to_node_data_id": {
+                                "type": "string",
+                                "description": "The ID of the target node"
+                            },
+                            "properties": {
+                                "type": "object",
+                                "description": "Optional free-form properties for the edge.",
+                                "additionalProperties": {
+                                    "oneOf": [
+                                        {"type": "string"},
+                                        {"type": "number"},
+                                        {"type": "boolean"}
+                                    ]
+                                }
+                            }
+                        },
+                        "required": ["edge_key", "from_node_data_id", "to_node_data_id"]
+                    }
+                }
+            },
+            "required": ["edges"],
             "additionalProperties": false
         }),
     )

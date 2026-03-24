@@ -25,6 +25,11 @@ type GraphContextType = {
   updateEdge: (edgeId: string, properties: Record<string, string | number | boolean>) => void;
   removeNode: (nodeId: string) => void;
   removeEdge: (edgeId: string) => void;
+  /** All distinct property keys found per schema key (node + edge). */
+  availableProperties: Record<string, string[]>;
+  /** Which property to display on the graph per schema key. null = none. */
+  displayProperty: Record<string, string | null>;
+  setDisplayProperty: (schemaKey: string, property: string | null) => void;
 };
 
 const GraphContext = createContext<GraphContextType | undefined>(undefined);
@@ -35,6 +40,7 @@ function processGraphData(graphData: GraphData, graphSchema: GraphSchema): Proce
     return {
       id: node.node_data_id,
       key: node.key,
+      label: schema?.label ?? node.key,
       color: schema?.color ?? "#888888",
       properties: node.properties,
     };
@@ -47,12 +53,31 @@ function processGraphData(graphData: GraphData, graphSchema: GraphSchema): Proce
       source: edge.from_node_data_id,
       target: edge.to_node_data_id,
       key: edge.key,
+      label: schema?.label ?? edge.key,
       color: schema?.color ?? "#888888",
       properties: edge.properties,
     };
   });
 
   return { nodes, links };
+}
+
+/** Collect all distinct property keys per schema key from nodes and edges. */
+function collectAvailableProperties(processed: ProcessedGraphData): Record<string, string[]> {
+  const propSets: Record<string, Set<string>> = {};
+  for (const node of processed.nodes) {
+    const set = propSets[node.key] ?? (propSets[node.key] = new Set());
+    for (const key of Object.keys(node.properties ?? {})) set.add(key);
+  }
+  for (const link of processed.links) {
+    const set = propSets[link.key] ?? (propSets[link.key] = new Set());
+    for (const key of Object.keys(link.properties ?? {})) set.add(key);
+  }
+  const result: Record<string, string[]> = {};
+  for (const [key, set] of Object.entries(propSets)) {
+    result[key] = [...set].sort();
+  }
+  return result;
 }
 
 export const GraphProvider = ({ graphId, children }: { graphId: string | null; children: React.ReactNode }) => {
@@ -66,6 +91,12 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
   const [focusNode, setFocusNode] = useState<string | null>(null);
   const [focusEdge, setFocusEdge] = useState<string | null>(null);
   const [fetchTrigger, setFetchTrigger] = useState(0);
+  const [availableProperties, setAvailableProperties] = useState<Record<string, string[]>>({});
+  const [displayProperty, setDisplayPropertyState] = useState<Record<string, string | null>>({});
+
+  const setDisplayProperty = useCallback((schemaKey: string, property: string | null) => {
+    setDisplayPropertyState((prev) => ({ ...prev, [schemaKey]: property }));
+  }, []);
 
   const refetch = useCallback(() => setFetchTrigger((n) => n + 1), []);
 
@@ -73,7 +104,9 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
     setProcessedData((prev) => {
       if (!prev) return prev;
       if (prev.nodes.some((n) => n.id === node.id)) return prev;
-      return { ...prev, nodes: [...prev.nodes, node] };
+      const next = { ...prev, nodes: [...prev.nodes, node] };
+      setAvailableProperties(collectAvailableProperties(next));
+      return next;
     });
   }, []);
 
@@ -81,7 +114,9 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
     setProcessedData((prev) => {
       if (!prev) return prev;
       if (prev.links.some((l) => l.id === edge.id)) return prev;
-      return { ...prev, links: [...prev.links, edge] };
+      const next = { ...prev, links: [...prev.links, edge] };
+      setAvailableProperties(collectAvailableProperties(next));
+      return next;
     });
   }, []);
 
@@ -147,7 +182,9 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
         setMetadata(metadataRes);
         setSchema(schemaRes);
         setData(dataRes);
-        setProcessedData(processGraphData(dataRes, schemaRes));
+        const processed = processGraphData(dataRes, schemaRes);
+        setProcessedData(processed);
+        setAvailableProperties(collectAvailableProperties(processed));
         setIsLoaded(true);
       } catch {
         if (cancelled) return;
@@ -172,6 +209,7 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
         focusEdge, setFocusEdge,
         refetch,
         addNode, addEdge, updateNode, updateEdge, removeNode, removeEdge,
+        availableProperties, displayProperty, setDisplayProperty,
       }}
     >
       {children}

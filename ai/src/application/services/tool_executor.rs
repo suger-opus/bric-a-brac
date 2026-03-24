@@ -29,6 +29,8 @@ const WRITE_TOOLS: &[&str] = &[
     "create_edge_schema",
     "create_node",
     "create_edge",
+    "create_nodes",
+    "create_edges",
     "update_node",
     "update_edge",
     "delete_node",
@@ -96,6 +98,14 @@ impl ToolExecutor {
             }
             "create_edge" => {
                 self.exec_create_edge(arguments, graph_id, session_id, schema)
+                    .await
+            }
+            "create_nodes" => {
+                self.exec_create_nodes(arguments, graph_id, session_id, schema)
+                    .await
+            }
+            "create_edges" => {
+                self.exec_create_edges(arguments, graph_id, session_id, schema)
                     .await
             }
             "update_node" => self.exec_update_node(arguments, graph_id).await,
@@ -502,6 +512,236 @@ impl ToolExecutor {
         ))
     }
 
+    /// Batch create up to 50 nodes. Embeddings are generated in a single API call.
+    /// Entity resolution still runs per-node (N calls to knowledge service).
+    // NOTE: This generates O(N) calls to the knowledge service for entity resolution
+    // (search_nodes + get_neighbors per node). A future optimisation would be to add
+    // a batch entity-resolution endpoint to the knowledge service.
+    async fn exec_create_nodes(
+        &self,
+        arguments: &str,
+        graph_id: &str,
+        session_id: &str,
+        schema: &GraphSchemaProto,
+    ) -> Result<String, String> {
+        let args: Value = parse_args(arguments)?;
+        let nodes_arr = args
+            .get("nodes")
+            .and_then(|v| v.as_array())
+            .ok_or("Missing required field: nodes")?;
+
+        if nodes_arr.len() > 50 {
+            return Err("Maximum 50 nodes per batch".to_owned());
+        }
+        if nodes_arr.is_empty() {
+            return Err("nodes array is empty".to_owned());
+        }
+
+        // Parse all entries and validate schemas upfront
+        let mut entries: Vec<(&str, HashMap<String, Value>, bool)> = Vec::with_capacity(nodes_arr.len());
+        for (i, item) in nodes_arr.iter().enumerate() {
+            let node_key = item
+                .get("node_key")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("nodes[{i}]: missing node_key"))?;
+            validate_node_key(schema, node_key)?;
+            let properties = get_properties(item)?;
+            let force = item.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
+            entries.push((node_key, properties, force));
+        }
+
+        // Batch embed all nodes in a single API call
+        let texts: Vec<String> = entries
+            .iter()
+            .map(|(_, props, _)| properties_to_text(props))
+            .collect();
+        let embeddings = self
+            .embedding_client
+            .embed(texts)
+            .await
+            .map_err(|e| format!("Batch embedding failed: {e}"))?;
+
+        if embeddings.len() != entries.len() {
+            return Err(format!(
+                "Embedding count mismatch: got {} for {} nodes",
+                embeddings.len(),
+                entries.len()
+            ));
+        }
+
+        // Process each node: entity resolution then create
+        let mut results: Vec<Value> = Vec::with_capacity(entries.len());
+        for (i, ((node_key, properties, force), embedding)) in
+            entries.into_iter().zip(embeddings).enumerate()
+        {
+            // Entity resolution (unless forced)
+            if !force {
+                let similar_nodes = self
+                    .knowledge_client
+                    .search_nodes(
+                        graph_id,
+                        Some(node_key.to_owned()),
+                        embedding.clone(),
+                        ENTITY_RESOLUTION_LIMIT,
+                    )
+                    .await
+                    .map_err(|e| format!("nodes[{i}]: entity resolution failed: {e}"))?;
+
+                let close_matches: Vec<_> = similar_nodes
+                    .into_iter()
+                    .filter(|n| n.distance < SIMILARITY_THRESHOLD)
+                    .collect();
+
+                if !close_matches.is_empty() {
+                    let candidates: Vec<Value> = close_matches
+                        .iter()
+                        .map(|c| {
+                            serde_json::json!({
+                                "node_data_id": c.node_data_id,
+                                "key": c.key,
+                                "properties": proto_properties_to_json(&c.properties),
+                                "distance": c.distance,
+                            })
+                        })
+                        .collect();
+
+                    results.push(serde_json::json!({
+                        "index": i,
+                        "created": false,
+                        "reason": "Similar node already exists",
+                        "similar_nodes": candidates,
+                    }));
+                    continue;
+                }
+            }
+
+            // Create the node
+            let node_data_id = uuid::Uuid::now_v7().to_string();
+            let proto_properties = json_properties_to_proto(&properties);
+
+            match self
+                .knowledge_client
+                .insert_node(
+                    graph_id,
+                    InsertNodeDataProto {
+                        node_data_id: node_data_id.clone(),
+                        key: node_key.to_owned(),
+                        properties: proto_properties,
+                        embedding,
+                        session_id: Some(session_id.to_owned()),
+                    },
+                )
+                .await
+            {
+                Ok(node) => {
+                    results.push(serde_json::json!({
+                        "index": i,
+                        "created": true,
+                        "node_data_id": node.node_data_id,
+                        "key": node.key,
+                        "properties": proto_properties_to_json(&node.properties),
+                    }));
+                }
+                Err(e) => {
+                    results.push(serde_json::json!({
+                        "index": i,
+                        "created": false,
+                        "error": format!("{e}"),
+                    }));
+                }
+            }
+        }
+
+        serde_json::to_string_pretty(&results)
+            .map_err(|e| format!("Serialization failed: {e}"))
+    }
+
+    /// Batch create up to 50 edges. Each edge is merged if it already exists.
+    // NOTE: This generates O(N) insert_edge calls to the knowledge service.
+    // A future optimisation would be a batch insert endpoint.
+    async fn exec_create_edges(
+        &self,
+        arguments: &str,
+        graph_id: &str,
+        session_id: &str,
+        schema: &GraphSchemaProto,
+    ) -> Result<String, String> {
+        let args: Value = parse_args(arguments)?;
+        let edges_arr = args
+            .get("edges")
+            .and_then(|v| v.as_array())
+            .ok_or("Missing required field: edges")?;
+
+        if edges_arr.len() > 50 {
+            return Err("Maximum 50 edges per batch".to_owned());
+        }
+        if edges_arr.is_empty() {
+            return Err("edges array is empty".to_owned());
+        }
+
+        let mut results: Vec<Value> = Vec::with_capacity(edges_arr.len());
+
+        for (i, item) in edges_arr.iter().enumerate() {
+            let edge_key = item
+                .get("edge_key")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("edges[{i}]: missing edge_key"))?;
+            let from_id = item
+                .get("from_node_data_id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("edges[{i}]: missing from_node_data_id"))?;
+            let to_id = item
+                .get("to_node_data_id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("edges[{i}]: missing to_node_data_id"))?;
+
+            validate_edge_key(schema, edge_key)?;
+
+            let properties = item
+                .get("properties")
+                .and_then(|v| v.as_object())
+                .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect::<HashMap<_, _>>())
+                .unwrap_or_default();
+
+            let proto_properties = json_properties_to_proto(&properties);
+
+            match self
+                .knowledge_client
+                .insert_edge(
+                    graph_id,
+                    InsertEdgeDataProto {
+                        from_node_data_id: from_id.to_owned(),
+                        to_node_data_id: to_id.to_owned(),
+                        key: edge_key.to_owned(),
+                        properties: proto_properties,
+                        session_id: Some(session_id.to_owned()),
+                    },
+                )
+                .await
+            {
+                Ok(_) => {
+                    results.push(serde_json::json!({
+                        "index": i,
+                        "created": true,
+                        "edge_key": edge_key,
+                        "from_node_data_id": from_id,
+                        "to_node_data_id": to_id,
+                    }));
+                }
+                Err(e) => {
+                    results.push(serde_json::json!({
+                        "index": i,
+                        "created": false,
+                        "error": format!("{e}"),
+                    }));
+                }
+            }
+        }
+
+        serde_json::to_string_pretty(&results)
+            .map_err(|e| format!("Serialization failed: {e}"))
+    }
+
     async fn exec_update_node(
         &self,
         arguments: &str,
@@ -636,17 +876,31 @@ fn get_str<'a>(args: &'a Value, field: &str) -> Result<&'a str, String> {
 }
 
 fn get_properties(args: &Value) -> Result<HashMap<String, Value>, String> {
+    // Keys that are tool parameters, not user-facing properties
+    const NON_PROPERTY_KEYS: &[&str] = &[
+        "node_key",
+        "edge_key",
+        "node_data_id",
+        "source_node_data_id",
+        "target_node_data_id",
+        "edge_data_id",
+        "force",
+    ];
+
     // Try nested "properties" key first (correct schema)
     if let Some(obj) = args.get("properties").and_then(|v| v.as_object()) {
-        return Ok(obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
+        return Ok(obj
+            .iter()
+            .filter(|(k, _)| !NON_PROPERTY_KEYS.contains(&k.as_str()))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect());
     }
 
     // Fallback: LLM sometimes puts properties at top level instead of nesting
     let obj = args.as_object().ok_or("Missing required field: properties")?;
-    let skip_keys = ["node_key", "edge_key", "node_data_id"];
     let props: HashMap<String, Value> = obj
         .iter()
-        .filter(|(k, _)| !skip_keys.contains(&k.as_str()))
+        .filter(|(k, _)| !NON_PROPERTY_KEYS.contains(&k.as_str()))
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
 

@@ -1,92 +1,116 @@
 # Bric-à-brac
 
-## As a user I want to ...
+A conversational AI agent that builds and queries knowledge graphs from unstructured
+documents. Upload a PDF, chat with the AI, and watch it extract entities, resolve
+duplicates, and connect concepts into a navigable 3D graph — in real time.
 
-### Auth
+<!-- TODO: Add a GIF/screenshot of the demo here -->
 
-- [ ] (un-auth user) sign up using gmail
-- [ ] (un-auth user) sign up using reddit
-- [ ] (un-auth user) sign in using gmail
-- [ ] (un-auth user) sign in using reddit
-- [ ] sign out from my account
+## Architecture
 
-### Builder view
+```
+┌─────────────┐      HTTP + SSE       ┌──────────────────┐
+│   Next.js   │ ◄──────────────────── │    Metadata       │
+│   Web UI    │ ──────────────────► │  (Rust + Axum)    │
+│             │                       │  :8080 HTTP       │
+│  • 3D graph │                       │  :50052 gRPC      │
+│  • AI chat  │                       │  PostgreSQL       │
+│  • Schema   │                       └────┬────────┬─────┘
+│    browser  │                            │ gRPC   │ gRPC
+└─────────────┘                            ▼        ▼
+                                   ┌───────────┐  ┌───────────────┐
+                                   │ Knowledge  │  │      AI       │
+                                   │  (Rust)    │  │   (Rust)      │
+                                   │  :50051    │  │   :50053      │
+                                   │  Memgraph  │  │   Stateless   │
+                                   └───────────┘  └───────┬───────┘
+                                                          │
+                                                    OpenRouter API
+                                                   (GPT-4.1 + embeddings)
+```
 
-- [ ] create a graph
-- [ ] (if admin) update the title of a graph
-- [ ] (if admin) update the description of a graph
-- [ ] (if admin) make a graph public and attach one subreddit
-- [ ] (if admin) make a graph private
-- [ ] (if admin) delete a graph
-- [ ] (if admin) share a graph to another user, selecting the role
-- [ ] (if admin) edit the role of a another user of a graph
-- [ ] (if admin) delete the role of a another user of a graph
-- [ ] (if admin or writer) add a node to the schema of a graph
-- [ ] (if admin or writer) update a node of the schema of a graph
-- [ ] (if admin or writer) delete a node of the schema of a graph
-- [ ] (if admin or writer) add a relationship to the schema of a graph
-- [ ] (if admin or writer) update a relationship of the schema of a graph
-- [ ] (if admin or writer) delete a relationship of the schema of a graph
-- [ ] (if admin or writer) add a node to a graph
-- [ ] (if admin or writer) update a node of a graph
-- [ ] (if admin or writer) delete a node of a graph
-- [ ] (if admin or writer) add a relationship to a graph
-- [ ] (if admin or writer) update a relationship of a graph
-- [ ] (if admin or writer) delete a relationship of a graph
-- [ ] list the graphs I'm admin of
-- [ ] list the graphs I'm writer of
-- [ ] list the graphs I'm reader of
-- [ ] access a specific graph I'm admin of
-- [ ] access a specific graph I'm writer of
-- [ ] access a specific graph I'm reader of
+**3 Rust microservices** communicating over gRPC, a Next.js frontend, and two databases:
 
-### Explorer view
+| Service | Role | Stack |
+|---------|------|-------|
+| **Metadata** | Control plane — users, graphs, schemas, sessions, chat SSE bridge | Rust, Axum, SQLx, PostgreSQL |
+| **Knowledge** | Data plane — graph storage, vector search, embeddings | Rust, Tonic, neo4rs, Memgraph |
+| **AI** | Agent loop — LLM tool calling, entity resolution, document chunking | Rust, Tonic, OpenRouter (GPT-4.1) |
+| **Web UI** | Dashboard, 3D graph visualization, AI chat panel | Next.js 16, React 19, react-force-graph-3d |
 
-- [ ] (un-auth user) search for a public graph using a keyword
-- [ ] (un-auth user) access a specific public graph
-- [ ] (un-auth user) see the subreddit attached to a public graph
-- [ ] (un-auth user) join the subreddit attached to a public graph
-- [ ] bookmark a public graph
-- [ ] un-bookmark a public graph
-- [ ] list the public graphs I bookmarked 
-- [ ] cheer a public graph
-- [ ] un-cheer a public graph
-- [ ] list the public graphs I cheered
+## Key Features
 
-## TODO
+- **AI-powered extraction** — upload a PDF or paste text, the AI proposes entity types,
+  extracts structured data, and builds the graph autonomously
+- **Entity resolution** — automatic duplicate detection via vector similarity search +
+  neighbor context. The AI decides whether to merge or create
+- **15 agent tools** — search, create, update, delete nodes/edges/schemas, batch operations
+  (up to 50 per call), path finding, document reading
+- **Real-time streaming** — SSE streams every token, tool call, and result. Nodes appear on
+  the 3D graph as the AI creates them
+- **5-phase workflow** — structured extraction: propose → create schemas → store entities →
+  connect → done. Prevents the common failure of creating data before schemas exist
+- **Document chunking** — large documents split at paragraph boundaries (~8K chars),
+  processed sequentially with cross-chunk entity resolution
+- **Context window management** — 500K char budget with smart trimming (chunk compression,
+  old tool call collapsing)
+- **Defense-in-depth security** — role-based tool filtering + executor guard + graph
+  isolation. No LLM-generated queries — all Cypher/SQL is parameterized templates
 
-### Don't forget to ...
+## Tech Stack
 
-- [ ] create reddit account & subreddit (to explain this project and the roadmap)
+**Backend:** Rust, Tokio, Tonic (gRPC), Axum (HTTP), SQLx (Postgres), neo4rs (Memgraph),
+Protocol Buffers
 
-### and to think about ...
+**Frontend:** Next.js 16, React 19, TypeScript, TailwindCSS v4, shadcn/ui, Valibot,
+react-force-graph-3d, three.js
 
-- branches collaboration (like github)
-- real time collaboration on same branche
-- link subreddit to specific node (comments on graph)
-- integration with x
-- integration with discord
-- integration with linkedin
-- integration with medium
-- integration with github
-- integration with youtube
-- integration wih social medias ?
-- (if admin) archive a graph
-- sort graphs lists by title
-- sort graphs lists by cheers
-- sort graphs lists by creation date
-- sort graphs lists by update date
-- sort graphs lists by nb of node
-- sort graphs lists by nb of relationships
-- sort graphs lists by nb of subreddit discussions
-- graph topics
-- list graphs people like
-- propose graphs based on what user likes
-- user profiles
-- change username
-- organisations (for entreprises, schools, ...)
-- pay to use features / ratings/limits (plans, pricing, pay)
-- analytics
-- Not only web app, also PWA
-- MCP server
-- separate database per project (very very large graphs - enterprise plan)
+**AI:** GPT-4.1 via OpenRouter, text-embedding-3-small (1536 dims), tool-calling agent loop
+with streaming
+
+**Infrastructure:** PostgreSQL, Memgraph (graph DB + vector indexes), Docker Compose, mise
+
+## Getting Started
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) + Docker Compose
+- [mise](https://mise.jdx.dev/) (or manually set env vars)
+- [Node.js](https://nodejs.org/) 22+ and pnpm
+- An [OpenRouter](https://openrouter.ai/) API key
+
+### Setup
+
+```bash
+# Clone
+git clone https://github.com/your-username/bric-a-brac.git
+cd bric-a-brac
+
+# Configure environment
+# Copy example configs and fill in your OpenRouter API key:
+cp ai/mise.local.example.toml ai/mise.local.toml
+cp knowledge/mise.local.example.toml knowledge/mise.local.toml
+cp metadata/mise.local.example.toml metadata/mise.local.toml
+
+# Start all services
+docker compose up -d
+
+# Start the web UI
+cd web-ui
+pnpm install
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Design Documentation
+
+See [docs/AI_AGENT_DESIGN.md](docs/AI_AGENT_DESIGN.md) for the full technical design:
+agent architecture, entity resolution strategy, system prompt design, streaming protocol,
+security model, and engineering decisions.
+
+See [docs/PRIORITIES.md](docs/PRIORITIES.md) for the current roadmap.
+
+## License
+
+MIT

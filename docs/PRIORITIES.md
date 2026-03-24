@@ -1,51 +1,151 @@
 # Priorities
 
-Organizing principle: **make the core loop undeniable before adding anything else.**
+**Goal: make bric-a-brac a portfolio-ready demo in 12 days.**
 
-Core loop: talk to AI → graph grows → graph is useful → ask questions → get good answers.
+A recruiter or engineer should be able to: clone the repo, read a clear README, run one
+command, see a polished UI, and watch the AI build a knowledge graph live. Everything below
+serves that goal.
 
 ---
 
-## P0 — Phase 1: Make the chat loop excellent
+## Tier 1 — Must-have (blocks "wow" demo)
 
 ### 1. E2E testing round
+Feed 3-5 real PDFs and stress-test the full loop. Fix every bug found. This is the
+foundation — nothing else matters if the core loop is broken.
+- Extraction quality (sensible schemas and nodes?)
+- Entity resolution (duplicates caught?)
+- Question answering (retrieval + reasoning?)
+- Chunking (cross-chunk entities merge?)
 
-Feed the system 5+ real PDFs and stress-test the full loop. Focus areas:
-- Extraction quality (does the AI create sensible schemas and nodes?)
-- Entity resolution (does pre-check catch duplicates correctly?)
-- Question answering (can the AI retrieve and reason over stored knowledge?)
-- Edge cases (very short docs, docs with tables, docs with ambiguous entities)
-- Chunking quality (do cross-chunk entities merge correctly?)
+### 2. Dead code removal
+Delete all code for features that won't ship. Not hide — delete. Dead code signals an
+unfinished project.
+- **Search card** — component, API stubs, empty results array
+- **Bookmarks card** — component, API stubs, bookmark toggle logic
+- **Cheers card** — component, API stubs
+- **Reddit / subreddit** — any references in code or config
+- **Settings card dead buttons** — Log Out, Delete Account, Copy ID, Edit Username (none
+  wired). Either wire them or remove them.
+- **Empty forms folder** (`components/graph/forms/`) — delete if unused
+- **Alice/Bob/Acme sample graph** in `data.ts` — remove the hardcoded placeholder
+
+### 3. Code cleanup
+Make the codebase presentation-ready. A reviewer will read the code, not just run the demo.
+- Remove all `TODO`, `FIXME`, `HACK` comments (either do them or delete them)
+- Remove `console.log`
+- Remove commented-out code (e.g. dead CSS vars in `globals.css`)
+- Remove unused imports and dead utility functions
+- Ensure `cargo clippy` is clean across all crates
+- Ensure `npx tsc --noEmit` + `npx eslint .` are clean
+
+### 4. Gmail authentication
+A real product needs login. Hardcoded `user_id` is the single most obvious "this is a
+prototype" signal.
+- OAuth2 with Google (Gmail) — standard authorization code flow
+- On first login, create a `users` row in metadata Postgres
+- Session token (cookie or JWT) on subsequent requests
+- Wrap metadata HTTP endpoints with auth middleware that resolves `user_id` from token
+- Settings card: show user email/name from Google profile, working Log Out button
+- Remove the hardcoded `user_id` from `client.ts`
+- Auth across micro-services
+
+### 5. Dashboard cleanup
+The dashboard is the first thing a visitor sees.
+- After dead code removal: only "Your Graphs" card remains + "Create Graph" CTA
+- Replace `mx-40` with responsive padding (`max-w-5xl mx-auto px-4` or similar)
+- Clean layout that showcases the graph list
+
+### 6. Small screen gate
+The 3D graph doesn't work on phones/tablets. Instead of a broken experience, show a
+friendly message.
+- Detect viewport width (e.g. `< 1024px`)
+- Show a centered message: "Bric-à-brac is designed for desktop. Please use a larger
+  screen." with the logo
+- Apply to all pages, not just the graph
+
+### 7. Branding & navigation
+No header, no logo, no navigation. Feels like a dev build.
+- Add a minimal top bar: logo/name on the left, user avatar/email on the right (from
+  Gmail auth), breadcrumbs on graph pages
+- Pick a name treatment for "bric-a-brac" — simple text logo is fine
+- Set a favicon + proper `<title>` per page
+
+### 8. One-command local setup
+Currently 6+ manual steps across 3 directories. Create a root `docker-compose.yaml` that
+starts everything (Memgraph, Postgres, knowledge, metadata, ai). Add a
+`mise.local.example.toml` (or `.env.example`) with placeholders. The README "Getting
+Started" should be: clone → copy env → `docker compose up` → open browser.
+
+### 9. Documentation
+Everything a reviewer or contributor needs to understand the project.
+
+**Root README** (already rewritten — needs screenshots/GIF after demo recording):
+- Product description, architecture diagram, tech stack, getting started, design doc link
+
+**Per-service READMEs** (ai, knowledge, metadata):
+- What the service does (one paragraph)
+- Environment variables reference (what goes in `mise.local.toml`)
+- How to run locally (with and without Docker)
+- Key entry points (main.rs, important modules)
+
+**Shared crate READMEs** (bric-a-brac-protos, bric-a-brac-dtos, bric-a-brac-id):
+- What the crate provides
+- How it's used by the services
+- For protos: how to regenerate (build.rs, proto files)
+
+**Design doc** (AI_AGENT_DESIGN.md):
+- Add a 10-line TL;DR at the top
+- Make sure it reads as a design document, not a changelog
+
+### 10. Rotate OpenRouter API key
+The key in `ai/mise.local.toml` may be in git history. Rotate it on OpenRouter. Verify
+with `git log --all -p -- '*/mise.local.toml'` that it's not committed.
+
+### 11. Product presentation
+The project needs a way to show what it does without running it.
+- A short product page or landing section (can be a dedicated route in the Next.js app,
+  or a standalone page) with: tagline, 3-4 feature highlights with visuals, architecture
+  overview, "Get Started" CTA
+- Alternatively: a polished README with embedded GIF + screenshots is the minimum
+- Consider a brief slide deck (PDF or Google Slides) for sharing in applications — 5-6
+  slides: problem, solution, demo screenshots, architecture, tech stack
 
 ---
 
-## P2 — Minimum viable product
+## Tier 2 — Should-have (makes it feel polished, not just functional)
 
-### Authentication
+### 12. Loading skeletons
+Replace spinners with skeleton loaders on the dashboard and graph sidebar. The difference
+between "prototype" and "product."
 
-OAuth2 with Google. Currently `user_id` is hardcoded. Can't put this in front of anyone
-without login.
+### 13. Graph page polish
+- `confirm()` for graph delete looks raw — use a styled dialog
+- Hover states, transitions, micro-interactions where they matter
 
-### Loading skeletons
-
-Skeleton loaders for dashboard cards and graph page. The difference between "prototype" and
-"product."
-
-### Graph hygiene basics
-
-Orphan node detection at minimum. Graphs will get messy during testing and users need a way
-to see disconnected nodes.
+### 14. Demo recording
+Record a 2-minute screen recording: create a graph, upload a PDF, watch the AI extract
+entities, ask a question. This goes in the README and can be shared standalone.
 
 ---
 
-## Can wait
+## Tier 3 — Nice-to-have (if time permits)
 
-- `remove_properties` tool — AI can work around (delete + recreate)
-- Token truncation — only matters for very long sessions
-- Branch/diff system — future feature
-- MCP exposure — future feature
-- Multi-session concurrency — future feature
-- Auto-assign schema colors — AI already returns colors when creating schemas
+- 404 page
+- Dark mode toggle (CSS vars already exist, just not wired)
+- Graph background color match theme
+- `remove_properties` tool
+- Orphan node detection
+
+---
+
+## Won't do (explicitly descoped)
+
+- Search / Bookmarks / Cheers features — code deleted
+- Reddit integration — code deleted
+- Branch/diff system, MCP exposure, multi-session concurrency
+- Knowledge service batch endpoints
+- Mobile/tablet support (gated instead)
 
 ---
 
@@ -56,7 +156,6 @@ to see disconnected nodes.
 - [x] Edge uniqueness (MERGE upsert)
 - [x] Pre-check entity resolution
 - [x] Active session recovery
-- [x] Session close on unmount
 - [x] Streaming cancel button
 - [x] Chat history recovery
 - [x] Role-based tool filtering + executor guard
@@ -67,7 +166,13 @@ to see disconnected nodes.
 - [x] Incremental graph updates (optimistic UI via tool_result SSE events)
 - [x] update_edge tool (full pipeline)
 - [x] Session documents (session_documents table, read_document tool, document_id on messages)
-- [x] Schema proposal prompts (Rule #1 in system prompt, proposal before extraction)
+- [x] Schema proposal prompts (Phase 1 of 5-phase workflow)
 - [x] Document name in messages (document_name derived via JOIN, displayed as 📎 filename)
 - [x] Chunk persistence (chunk_index on session_messages, all chunks persisted to DB)
 - [x] Context window management (500K char budget, chunk compression, old message trimming)
+- [x] Batch tools (create_nodes, create_edges — up to 50 per call, single batch embed)
+- [x] 5-phase workflow prompt (propose → create categories → store → connect → done)
+- [x] Property display selection (sidebar eye toggle, graph context displayProperty)
+- [x] Human-readable property names (prompt rule: "Founded Date" not "founded_date")
+- [x] Force property fix (tool params filtered from stored properties)
+- [x] Simplified node labels (removed zoom-based property levels)

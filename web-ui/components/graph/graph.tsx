@@ -2,7 +2,7 @@
 
 import { useGraph } from "@/contexts/graph-context";
 import { sampleProcessedGraphData } from "@/lib/api/data";
-import type { ProcessedNodeData } from "@/types";
+import type { ProcessedEdgeData, ProcessedNodeData } from "@/types";
 import dynamic from "next/dynamic";
 import { useCallback, useRef } from "react";
 import SpriteText from "three-spritetext";
@@ -15,6 +15,16 @@ type GraphProps = {
   dimensions: { width: number; height: number };
 };
 
+/** Build a node label from the user-selected display property, or fall back to label. */
+function buildNodeLabel(
+  node: ProcessedNodeData,
+  displayProperty: Record<string, string | null>,
+): string {
+  const selected = displayProperty[node.key] ?? null;
+  const mainValue = selected ? node.properties?.[selected] : null;
+  return mainValue != null ? String(mainValue) : node.label;
+}
+
 const Graph = ({ dimensions }: GraphProps) => {
   const {
     isLoaded,
@@ -23,6 +33,7 @@ const Graph = ({ dimensions }: GraphProps) => {
     setFocusEdge,
     focusNode,
     focusEdge,
+    displayProperty,
   } = useGraph();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,6 +60,8 @@ const Graph = ({ dimensions }: GraphProps) => {
     );
   }, []);
 
+
+
   return (
     <ForceGraph3D
       ref={graphRef}
@@ -63,13 +76,37 @@ const Graph = ({ dimensions }: GraphProps) => {
       nodeThreeObjectExtend={isLoaded}
       nodeThreeObject={isLoaded
         ? (node: ProcessedNodeData) => {
-          const sprite = new SpriteText(node.key);
+          const text = buildNodeLabel(node, displayProperty);
+          const sprite = new SpriteText(text);
           sprite.color = node.color;
-          sprite.textHeight = 4;
-          sprite.offsetY = -12;
+          sprite.textHeight = 3;
+          sprite.backgroundColor = "rgba(255,255,255,0.6)";
+          sprite.padding = 1;
+          sprite.borderRadius = 2;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (sprite as any).position.set(0, -12, 0);
           return sprite;
         }
         : undefined}
+      linkThreeObjectExtend
+      linkThreeObject={(link: ProcessedEdgeData) => {
+        const sprite = new SpriteText(link.label);
+        sprite.color = link.color ?? "#94a3b8";
+        sprite.textHeight = 2;
+        sprite.backgroundColor = "rgba(255,255,255,0.6)";
+        sprite.padding = 0.5;
+        sprite.borderRadius = 1;
+        return sprite;
+      }}
+      linkPositionUpdate={(sprite, { start, end }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const obj = sprite as any;
+        obj.position.set(
+          (start.x + end.x) / 2,
+          (start.y + end.y) / 2,
+          (start.z + end.z) / 2,
+        );
+      }}
       linkWidth={1}
     />
   );

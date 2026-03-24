@@ -321,6 +321,49 @@ context (properties + neighbors) and decides.
 
 ---
 
+## Batch Tools
+
+The agent has `create_nodes` (up to 50) and `create_edges` (up to 50) batch tools for
+bulk extraction. Instead of 50 LLM round-trips to create 50 entities one by one, the agent
+can submit all of them in a single tool call. The system prompt instructs the agent to
+prefer these over the singular variants.
+
+### Batch node creation flow
+
+1. Parse and validate all entries upfront (schema keys, properties).
+2. **Single batch embedding call** — all N property texts are embedded in one API request
+   to OpenRouter. This is the main latency win.
+3. **Per-node entity resolution** — for each node, run `search_nodes` against the knowledge
+   service (unless `force: true`). If similar nodes are found, the node is flagged as a
+   duplicate (not created) and the candidates are returned for that index.
+4. **Per-node insert** — nodes that pass entity resolution are inserted individually.
+5. Return an array of results, one per input index.
+
+### Batch edge creation flow
+
+1. Parse and validate all entries upfront.
+2. **Per-edge insert** — each edge is inserted (or merged via `MERGE`) individually.
+3. Return an array of results.
+
+### Known limitation: knowledge service call volume
+
+Batch tools reduce LLM round-trips but **do not reduce knowledge service gRPC calls**.
+Creating N nodes still generates O(N) `search_nodes` calls (entity resolution) plus O(N)
+`insert_node` calls. Creating N edges generates O(N) `insert_edge` calls.
+
+For a batch of 50 nodes, worst case: 50 search + 50 insert = 100 gRPC calls to the
+knowledge service. This is sequential today.
+
+**Future optimisation:** Add batch endpoints to the knowledge service:
+- `batch_search_nodes(embeddings[])` — run multiple vector searches in one call
+- `batch_insert_nodes(nodes[])` — insert multiple nodes in a single Cypher transaction
+- `batch_insert_edges(edges[])` — insert multiple edges in a single transaction
+
+This would reduce the 100 calls to 2 calls. Not blocking for MVP — the knowledge service
+is co-located (sub-millisecond latency per call), but will matter at scale.
+
+---
+
 ## Graph Normalization (prompt-guided)
 
 No hard property limits. The system prompt teaches the AI to think in graph terms:
@@ -518,10 +561,11 @@ When the user sends a new message, the frontend tries to create a new session, w
 3. If no active session exists, the frontend proceeds normally (lazy creation on first
    message).
 
-**Not yet implemented.** Currently the frontend does recover sessions on page load — it
-calls `GET /graphs/{graph_id}/active-session` on mount and loads the message history if
-an active session exists. Messages with attached documents display `📎 filename` using the
-`document_name` field from the API. Session close is handled on component unmount.
+**Implemented.** The frontend recovers sessions on page load — `ChatPanel` calls
+`GET /graphs/{graph_id}/active-session` on mount and loads the message history if an active
+session exists. Messages with attached documents display `📎 filename` using the
+`document_name` field from the API. Sessions persist across page navigation — no auto-close
+on unmount (the user explicitly closes sessions or they are cleaned up by admin/inactivity).
 
 ---
 
@@ -674,7 +718,9 @@ the user asks a question about a previously uploaded file). Returns the full ext
 | `create_schema` | `name` (string), `description` (string) | Schema with generated key | **Implemented** |
 | `create_edge_schema` | `name` (string), `description` (string) | Schema with generated key | **Implemented** |
 | `create_node` | `node_key` (string), `properties` (object), `force?` (boolean) | Node or similar-node candidates | **Implemented** |
+| `create_nodes` | `nodes` (array of up to 50: `node_key`, `properties`, `force?`) | Array of results per node | **Implemented** |
 | `create_edge` | `edge_key` (string), `from_id` (string), `to_id` (string), `properties?` (object) | Edge | **Implemented** |
+| `create_edges` | `edges` (array of up to 50: `edge_key`, `source_node_data_id`, `target_node_data_id`, `properties?`) | Array of results per edge | **Implemented** |
 | `update_node` | `node_id` (string), `properties` (object) | Updated node | **Implemented** |
 | `update_edge` | `edge_id` (string), `properties` (object) | Updated edge | **Implemented** |
 | `remove_properties` | `element_id` (string), `keys` (string[]) | Updated node or edge | **Not implemented** |
@@ -848,39 +894,56 @@ It is **built dynamically** at the start of each message processing.
 
 ### Structure
 
+The prompt has five sections, built in `prompt.rs`:
+
 ```
 [Identity]
-You are a knowledge graph assistant. You help users build and query their knowledge graph
-by reading documents, extracting information, and answering questions.
+You are a knowledge assistant. Communication style: concise, action-oriented, domain-expert
+friendly. No graph jargon (nodes, edges, schemas) — use "types", "connections", "details",
+"categories". Bullet points over paragraphs.
 
-[Schemas — injected fresh each message]
-The graph has the following schemas:
+[Current Categories — injected fresh each message]
+Entity types:
+- Person (key: `ESVhRs9k`): "Any human individual mentioned..."
+- Company (key: `dudFcexv`): "Organizations, corporations..."
 
-Node schemas:
-- Person (key: ESVhRs9k): "Any human individual mentioned, including indirect references"
-- Company (key: dudFcexv): "Organizations, corporations, and businesses"
+Connection types:
+- WorksAt (key: `xR4kLm2p`): "Employment, contract work..."
 
-Edge schemas:
-- WorksAt (key: xR4kLm2p): "Employment, contract work, or affiliation"
+[How to Store Information — 5-phase workflow]
+Phase 1 — Understand & Propose: Summarize content, propose new categories, ask to confirm.
+          Skip if user says "go ahead" or all categories exist.
+Phase 2 — Create Categories: create_schema + create_edge_schema for ALL needed types.
+          Note returned keys. Do NOT proceed until every key exists.
+Phase 3 — Store Entities: create_nodes (batch, up to 50). Use schema keys from Phase 2.
+          Handle duplicates via update_node. Note node_data_ids.
+Phase 4 — Connect Entities: create_edges (batch, up to 50). Use edge keys + node_data_ids.
+Phase 5 — Done: Call done with a brief summary.
 
-[Capabilities — depends on user role]
-You can search the graph, inspect nodes, and find paths.
-{write_role → "You can also create schemas, create and update nodes, and create edges."}
-{read_role → "You cannot modify the graph."}
+[How to Answer Questions]
+1. search_nodes → 2. get_neighbors / find_paths → 3. answer → 4. done
 
 [Rules]
-- Before extracting from a document, analyze what schemas of entities and relationships exist.
-  Reuse existing schemas. Create new schemas only when no existing schema fits.
-- Keep the number of schemas manageable. Prefer a broader schema over a narrow one.
-- Entity resolution is automatic: when you create a node, the system searches for similar
-  existing nodes. If a match is found, the node is NOT created — you get the candidates back.
-  Use update_node to merge into an existing node, or call create_node with force=true.
-- Use schema keys (like ESVhRs9k) in tool calls, not human-readable names.
-- Process the ENTIRE document before finishing.
-- Keep nodes focused on one concept. If a node has many properties, consider splitting it.
-  If an edge needs many properties, promote it to a node.
-- For questions, search the graph first, then reason. Do not fabricate information.
+- Keys vs labels: tools require the 8-char schema key, not the label.
+- Human-readable property names: "Founded Date" not "founded_date".
+- Extract thoroughly: don't skip details.
+- Free-form details: AI decides what properties to store.
+- Batch first: prefer create_nodes/create_edges over singular variants.
 ```
+
+### Key design decisions
+
+**5-phase workflow, not flat rules.** The original prompt listed rules in a flat list.
+The agent frequently skipped edge schema creation (Phase 2) and jumped straight to creating
+edges with human-readable names as keys, causing failures. The phased workflow enforces
+ordering: categories must exist before data, entities before connections.
+
+**No graph jargon.** The user sees "types" and "connections", not "node schemas" and "edges".
+This makes the agent's responses accessible to non-technical users.
+
+**Batch-first instruction.** Rule 5 explicitly tells the agent to prefer `create_nodes` /
+`create_edges` over the singular tools. This reduces LLM round-trips from O(N) to O(1)
+for bulk extraction.
 
 ### Schema injection
 
@@ -1047,7 +1110,7 @@ schema colors onto nodes and edges.
 | Entity resolution | Pre-check in `create_node` — blocks creation if similar nodes exist, returns candidates with neighbor context. `force=true` to override. |
 | Graph normalization | Prompt-guided, no hard limits |
 | `update_node` semantics | Merge (override existing, add new) — not replace |
-| Batch inserts | Start single, measure, then decide |
+| Batch inserts | `create_nodes` + `create_edges` batch tools (up to 50 per call). Single batch embedding, per-node entity resolution. Knowledge service batch endpoints deferred. |
 | Session ownership | Metadata service (Postgres) |
 | Message storage | One row per message in `session_messages` |
 | Document delivery | File uploaded via multipart → saved to `session_documents` → AI chunked in-memory |
@@ -1064,15 +1127,6 @@ schema colors onto nodes and edges.
 | gRPC channels | `connect_lazy()` for automatic HTTP/2 reconnection |
 | Role enforcement | Two layers: tool filtering + tool executor guard |
 
-### Open: Batch inserts
-
-Start with single inserts, no parallel tool calling. Measure actual latency on real
-document ingestion. If round-trips are the bottleneck:
-1. First explore parallel tool calling (model emits multiple calls, we execute concurrently)
-2. If still not enough, add explicit batch tools (`create_nodes`, `create_edges`)
-
-No new knowledge RPCs needed — batch tools loop over single inserts in the executor.
-
 ---
 
 ## Implementation Status
@@ -1087,9 +1141,9 @@ What's **built and compiles** vs what's **design-only** (documented above but no
   vector index management. `cargo check` clean.
 - **AI service** — gRPC server, agent loop, system prompt builder, tool executor, streaming,
   LLM semaphore, HTTP retry, gRPC retry. `cargo check` clean.
-- **13 tools**: `search_nodes`, `get_node`, `get_neighbors`, `find_paths`, `read_document`,
-  `create_schema`, `create_edge_schema`, `create_node`, `create_edge`, `update_node`,
-  `update_edge`, `delete_node`, `delete_edge`, `done`.
+- **15 tools**: `search_nodes`, `get_node`, `get_neighbors`, `find_paths`, `read_document`,
+  `create_schema`, `create_edge_schema`, `create_node`, `create_nodes`, `create_edge`,
+  `create_edges`, `update_node`, `update_edge`, `delete_node`, `delete_edge`, `done`.
 - **`delete_node` tool** — full pipeline: tool definition, tool executor handler, AI gRPC
   client, knowledge gRPC handler, repository (`DETACH DELETE`).
 - **`delete_edge` tool** — full pipeline: tool definition, tool executor handler, AI gRPC
@@ -1103,9 +1157,7 @@ What's **built and compiles** vs what's **design-only** (documented above but no
 - **Session concurrency** — one active session per graph, transaction-guarded.
 - **Active session recovery** — `GET /graphs/{graph_id}/active-session` endpoint returns
   the current active session (or 204). Frontend `ChatPanel` recovers session + messages
-  on mount.
-- **Session close on unmount** — `ChatPanel` calls `POST /sessions/{id}/close` when the
-  component unmounts (navigation away or page close).
+  on mount. Sessions persist across page navigation (no auto-close on unmount).
 - **Streaming cancel button** — "Stop" button replaces "Send" while streaming. Aborts the
   SSE connection and resets streaming state.
 - **Chat history recovery** — on page load, if an active session exists, previous messages
@@ -1127,8 +1179,14 @@ What's **built and compiles** vs what's **design-only** (documented above but no
 - **Delete graph** — full stack: `DELETE /graphs/{graph_id}` with CASCADE in Postgres
   (schemas, sessions, accesses, documents) + Memgraph cleanup (drop all nodes/edges
   by graph_id, drop vector indexes).
-- **Schema proposal** — Rule #1 in the system prompt: AI proposes schemas and extraction
-  plan in plain language before extracting, waits for user confirmation.
+- **Schema proposal** — Phase 1 of the system prompt workflow: AI proposes schemas and
+  extraction plan in plain language before extracting, waits for user confirmation.
+- **Batch tools** — `create_nodes` (up to 50) and `create_edges` (up to 50). Single batch
+  embedding call, per-node entity resolution, per-node/edge insert. Reduces LLM round-trips.
+- **Property display selection** — sidebar eye toggle per schema property, graph context
+  tracks `displayProperty`, node labels update to show the selected property.
+- **5-phase workflow prompt** — system prompt rewritten as an ordered workflow (propose →
+  create categories → store entities → connect entities → done) replacing the old flat rules.
 
 ### Not yet implemented
 
@@ -1141,28 +1199,20 @@ What's **built and compiles** vs what's **design-only** (documented above but no
 
 ## Remaining Work
 
-See [Implementation Status](#implementation-status) for what's built vs what's not.
+See [PRIORITIES.md](PRIORITIES.md) for the full prioritized list. Summary:
 
-- **Implement `remove_properties` tool** — tool definition + tool executor handler +
-  knowledge gRPC call. The AI can currently work around this (delete + recreate), so
-  this is low priority.
-- **Authentication** — OAuth2 login. Currently `user_id` is hardcoded / passed as a header.
-- **Loading skeletons** — skeleton loaders for dashboard cards and graph page.
+- **E2E testing** — stress-test the core loop with real PDFs, fix every bug.
+- **Dashboard cleanup** — remove non-functional cards, add responsive layout.
+- **Branding & navigation** — top bar, logo, favicon, per-page titles.
+- **README rewrite** — architecture diagram, tech stack, setup guide, screenshots.
+- **One-command setup** — root `docker-compose.yaml`, env examples.
+- **Loading skeletons** — replace spinners with skeletons.
+- **Demo recording** — 2-minute video of the full loop.
 
----
+### Not yet implemented (backend)
 
-## Future Work
-
-- **Vector index cleanup** — reconcile existing indexes against current schemas, drop orphans
-- **Branch/diff system** — session writes as a reviewable branch before merging
-- **Web search tools** — `web_search` + `fetch_page` for info beyond training cutoff
-- **Multi-session concurrency** — distributed locking or optimistic concurrency
-- **Embedding dimension reduction** — 512 dims if memory becomes a concern
-- **Deferred entity resolution** — let the AI flag uncertain matches (`potential_duplicate_of`)
-  instead of forcing an immediate merge/keep decision. A post-processing step (or the AI
-  at the end of the session) reviews flagged pairs with more context.
-- **User confirmation of new schemas** — before the AI creates a schema, ask the user first
-- **MCP exposure** — expose graph tools to external agents
+- **1 tool**: `remove_properties` — the AI works around this (delete + recreate).
+- **Authentication** — `user_id` is hardcoded. Not needed for a portfolio demo.
 
 ---
 
@@ -1201,7 +1251,7 @@ A two-phase approach ("free extraction" summary → graph mapping) was considere
   relationships get merged, nuance disappears. The LLM working directly on raw text
   produces better graph output.
 - **Extra cost.** Two LLM calls per chunk instead of one.
-- **No clear benefit.** The current single-pass approach with schema proposal (Rule #1
+- **No clear benefit.** The current single-pass approach with the Phase 1 proposal step
   in the system prompt) already handles schema planning before extraction.
 
 ### Document storage

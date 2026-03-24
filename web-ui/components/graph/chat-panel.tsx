@@ -173,14 +173,6 @@ const ChatPanel = () => {
     };
   }, []);
 
-  // Close session on unmount or when session changes
-  useEffect(() => {
-    const sid = sessionId;
-    return () => {
-      if (sid) { sessionService.close(sid).catch(() => {}); }
-    };
-  }, [sessionId]);
-
   const applyGraphDelta = useCallback(
     (toolName: string, argsJson: string, resultContent: string) => {
       try {
@@ -197,9 +189,32 @@ const ChatPanel = () => {
               addNode({
                 id: result.node_data_id,
                 key: result.key,
+                label: nodeSchema?.label ?? result.key,
                 color: nodeSchema?.color ?? "#888888",
                 properties: result.properties ?? {}
               });
+            }
+            break;
+          }
+          case "create_nodes": {
+            const results = JSON.parse(resultContent) as Array<{
+              index?: number;
+              created?: boolean;
+              node_data_id?: string;
+              key?: string;
+              properties?: Record<string, string | number | boolean>;
+            }>;
+            for (const r of results) {
+              if (r.created && r.node_data_id && r.key) {
+                const nodeSchema = schema?.nodes.find((n) => n.key === r.key);
+                addNode({
+                  id: r.node_data_id,
+                  key: r.key,
+                  label: nodeSchema?.label ?? r.key,
+                  color: nodeSchema?.color ?? "#888888",
+                  properties: r.properties ?? {}
+                });
+              }
             }
             break;
           }
@@ -211,17 +226,40 @@ const ChatPanel = () => {
               properties?: Record<string, string | number | boolean>;
             };
             if (args.edge_key && args.from_node_data_id && args.to_node_data_id) {
-              // Result is a plain string, not JSON — no edge ID returned.
-              // Use a deterministic temp ID; refetch on "done" will reconcile.
               const edgeSchema = schema?.edges.find((e) => e.key === args.edge_key);
               addEdge({
                 id: `temp-${args.from_node_data_id}-${args.edge_key}-${args.to_node_data_id}`,
                 source: args.from_node_data_id,
                 target: args.to_node_data_id,
                 key: args.edge_key,
+                label: edgeSchema?.label ?? args.edge_key,
                 color: edgeSchema?.color ?? "#888888",
                 properties: args.properties ?? {}
               });
+            }
+            break;
+          }
+          case "create_edges": {
+            const results = JSON.parse(resultContent) as Array<{
+              index?: number;
+              created?: boolean;
+              edge_key?: string;
+              from_node_data_id?: string;
+              to_node_data_id?: string;
+            }>;
+            for (const r of results) {
+              if (r.created && r.edge_key && r.from_node_data_id && r.to_node_data_id) {
+                const edgeSchema = schema?.edges.find((e) => e.key === r.edge_key);
+                addEdge({
+                  id: `temp-${r.from_node_data_id}-${r.edge_key}-${r.to_node_data_id}`,
+                  source: r.from_node_data_id,
+                  target: r.to_node_data_id,
+                  key: r.edge_key,
+                  label: edgeSchema?.label ?? r.edge_key,
+                  color: edgeSchema?.color ?? "#888888",
+                  properties: {}
+                });
+              }
             }
             break;
           }

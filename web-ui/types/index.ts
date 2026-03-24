@@ -35,6 +35,7 @@ export type SessionMessage = InferOutput<typeof SessionMessageDto>;
 export type ProcessedNodeData = {
   id: string;
   key: string;
+  label: string;
   color: string;
   properties: PropertiesData;
 };
@@ -44,6 +45,7 @@ export type ProcessedEdgeData = {
   source: string;
   target: string;
   key: string;
+  label: string;
   color: string;
   properties: PropertiesData;
 };
