@@ -1,7 +1,6 @@
 "use client";
 
 import { useGraph } from "@/contexts/graph-context";
-import { sampleProcessedGraphData } from "@/lib/api/data";
 import type { ProcessedEdgeData, ProcessedNodeData } from "@/types";
 import dynamic from "next/dynamic";
 import { useCallback, useRef } from "react";
@@ -65,7 +64,7 @@ const Graph = ({ dimensions }: GraphProps) => {
   return (
     <ForceGraph3D
       ref={graphRef}
-      graphData={isLoaded ? processedData! : sampleProcessedGraphData}
+      graphData={isLoaded ? processedData! : { nodes: [], links: [] }}
       backgroundColor="white"
       width={dimensions.width}
       height={dimensions.height}

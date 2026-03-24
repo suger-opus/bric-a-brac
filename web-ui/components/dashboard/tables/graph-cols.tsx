@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GraphMetadata, Role } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpRightIcon, BanIcon, BookmarkCheckIcon, HandHeartIcon, Trash2Icon } from "lucide-react";
+import { ArrowUpRightIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { graphService } from "@/lib/api/services/graph-service";
 import { toast } from "sonner";
@@ -95,90 +95,6 @@ export const columns = (onRefresh: () => void): ColumnDef<GraphMetadata>[] => [
           </Badge>
         );
       }
-    }
-  },
-  {
-    accessorKey: "nb_data_nodes",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            Nodes
-          </TooltipTrigger>
-          <TooltipContent>
-            Number of nodes in the graph
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-  },
-  {
-    accessorKey: "nb_data_edges",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            Edges
-          </TooltipTrigger>
-          <TooltipContent>
-            Number of edges in the graph
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-  },
-  {
-    accessorKey: "nb_bookmarks",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            <BookmarkCheckIcon size={16} />
-          </TooltipTrigger>
-          <TooltipContent>
-            Number of bookmarks of the graph
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
-    cell: ({ row }) => {
-      return row.original.is_public ? row.original.nb_bookmarks : (
-        <Tooltip>
-          <TooltipTrigger>
-            <BanIcon size={12} />
-          </TooltipTrigger>
-          <TooltipContent>
-            A private graph can&apos;t have bookmarks
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-  },
-  {
-    accessorKey: "nb_cheers",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            <HandHeartIcon size={16} />
-          </TooltipTrigger>
-          <TooltipContent>
-            Number of cheers of the graph
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
-    cell: ({ row }) => {
-      return row.original.is_public ? row.original.nb_cheers : (
-        <Tooltip>
-          <TooltipTrigger>
-            <BanIcon size={12} />
-          </TooltipTrigger>
-          <TooltipContent>
-            A private graph can&apos;t have cheers
-          </TooltipContent>
-        </Tooltip>
-      );
     }
   },
   {

@@ -13,12 +13,12 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
+  SidebarHeader
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGraph } from "@/contexts/graph-context";
-import { BotIcon, ChevronDown, HomeIcon, ListTreeIcon, PackageIcon, SplineIcon } from "lucide-react";
+import { BotIcon, ChevronDown, HomeIcon, ListTreeIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const GraphSidebar = () => {
@@ -43,7 +43,9 @@ const GraphSidebar = () => {
                 <div className="border-l-2 border-black/80 pl-2 text-black/80 text-xs">
                   <p>
                     <i>by</i>{" "}
-                    <b><u>{metadata!.owner_username}</u></b>{" "}
+                    <b>
+                      <u>{metadata!.owner_username}</u>
+                    </b>{" "}
                     <i>on {new Date(metadata!.created_at).toLocaleDateString()}</i>
                   </p>
                   <p>
@@ -54,14 +56,6 @@ const GraphSidebar = () => {
               <div className="flex items-center space-x-1">
                 <Badge className="font-bold text-[9px] h-5">
                   {metadata!.is_public ? "PUBLIC" : "PRIVATE"}
-                </Badge>
-                <Badge variant="outline" className="font-bold text-[11px] h-5">
-                  <PackageIcon />
-                  {metadata!.nb_data_nodes}
-                </Badge>
-                <Badge variant="outline" className="font-bold text-[11px] h-5">
-                  <SplineIcon />
-                  {metadata!.nb_data_edges}
                 </Badge>
               </div>
               {metadata!.description && (
@@ -83,7 +77,11 @@ const GraphSidebar = () => {
           </TabsList>
         </div>
 
-        <TabsContent value="chat" forceMount className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+        <TabsContent
+          value="chat"
+          forceMount
+          className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden"
+        >
           <ChatPanel />
         </TabsContent>
 
@@ -101,7 +99,9 @@ const GraphSidebar = () => {
                   <SidebarGroupContent className="space-y-1">
                     {!isLoaded
                       ? <>{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8" />)}</>
-                      : schema!.nodes.map((node) => <NodeSchemaItem key={node.node_schema_id} schema={node} />)}
+                      : schema!.nodes.map((node) => (
+                        <NodeSchemaItem key={node.node_schema_id} schema={node} />
+                      ))}
                   </SidebarGroupContent>
                 </CollapsibleContent>
               </SidebarGroup>
@@ -119,7 +119,9 @@ const GraphSidebar = () => {
                   <SidebarGroupContent className="space-y-1">
                     {!isLoaded
                       ? <>{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8" />)}</>
-                      : schema!.edges.map((edge) => <EdgeSchemaItem key={edge.edge_schema_id} schema={edge} />)}
+                      : schema!.edges.map((edge) => (
+                        <EdgeSchemaItem key={edge.edge_schema_id} schema={edge} />
+                      ))}
                   </SidebarGroupContent>
                 </CollapsibleContent>
               </SidebarGroup>

@@ -1,5 +1,5 @@
 use super::RoleDto;
-use crate::domain::models::{CreateGraphModel, GraphIdModel, GraphMetadataModel, RedditModel};
+use crate::domain::models::{CreateGraphModel, GraphIdModel, GraphMetadataModel};
 use bric_a_brac_dtos::GraphIdDto;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -24,17 +24,10 @@ pub struct GraphMetadataDto {
     pub name: String,
     pub description: String,
     pub is_public: bool,
-    pub reddit: RedditDto,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub nb_data_nodes: u32,
-    pub nb_data_edges: u32,
     pub owner_username: String,
     pub user_role: RoleDto,
-    pub is_bookmarked_by_user: bool,
-    pub is_cheered_by_user: bool,
-    pub nb_bookmarks: u32,
-    pub nb_cheers: u32,
 }
 
 impl From<GraphMetadataModel> for GraphMetadataDto {
@@ -44,27 +37,11 @@ impl From<GraphMetadataModel> for GraphMetadataDto {
             name: metadata.name,
             description: metadata.description,
             is_public: metadata.is_public,
-            reddit: metadata.reddit.into(),
             created_at: metadata.created_at,
             updated_at: metadata.updated_at,
-            nb_data_nodes: metadata.nb_data_nodes,
-            nb_data_edges: metadata.nb_data_edges,
             owner_username: metadata.owner_username,
             user_role: metadata.user_role.into(),
-            is_bookmarked_by_user: metadata.is_bookmarked_by_user,
-            is_cheered_by_user: metadata.is_cheered_by_user,
-            nb_bookmarks: metadata.nb_bookmarks,
-            nb_cheers: metadata.nb_cheers,
         }
-    }
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct RedditDto {}
-
-impl From<RedditModel> for RedditDto {
-    fn from(_reddit: RedditModel) -> Self {
-        RedditDto {}
     }
 }
 

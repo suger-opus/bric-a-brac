@@ -2,12 +2,12 @@ use crate::{
     domain::models::{
         CreateEdgeSchemaModel, CreateGraphModel, CreateNodeSchemaModel, EdgeSchemaIdModel,
         EdgeSchemaModel, GraphIdModel, GraphMetadataModel, GraphModel, GraphSchemaModel,
-        NodeSchemaIdModel, NodeSchemaModel, RedditModel, RoleModel, UserIdModel,
+        NodeSchemaIdModel, NodeSchemaModel, RoleModel, UserIdModel,
     },
     infrastructure::errors::DatabaseError,
 };
 use chrono::{DateTime, Utc};
-use sqlx::{types::Json, PgConnection};
+use sqlx::PgConnection;
 
 #[derive(Clone)]
 pub struct GraphRepository;
@@ -41,14 +41,7 @@ SELECT
     g.name,
     g.description,
     user_access.role AS "user_role!:_",
-    g.is_public,
-    g.reddit AS "reddit!:_",
-    EXISTS(SELECT 1 FROM bookmarks b WHERE b.user_id = $1 AND b.graph_id = g.graph_id) AS "is_bookmarked_by_user!",
-    EXISTS(SELECT 1 FROM cheers c WHERE c.user_id = $1 AND c.graph_id = g.graph_id) AS "is_cheered_by_user!",
-    g.nb_data_nodes,
-    g.nb_data_edges,
-    (SELECT COUNT(*)::INT FROM bookmarks b WHERE b.graph_id = g.graph_id) AS "nb_bookmarks!",
-    (SELECT COUNT(*)::INT FROM cheers c WHERE c.graph_id = g.graph_id) AS "nb_cheers!"
+    g.is_public
 FROM graphs g
 JOIN accesses user_access ON g.graph_id = user_access.graph_id AND user_access.user_id = $1 AND user_access.role IN ('Owner', 'Admin', 'Editor', 'Viewer')
 JOIN accesses owner_access ON g.graph_id = owner_access.graph_id AND owner_access.role = 'Owner'
@@ -87,14 +80,7 @@ SELECT
     g.name,
     g.description,
     COALESCE(user_access.role, 'None') AS "user_role!:_",
-    g.is_public,
-    g.reddit AS "reddit!:_",
-    EXISTS(SELECT 1 FROM bookmarks b WHERE b.user_id = $1 AND b.graph_id = g.graph_id) AS "is_bookmarked_by_user!",
-    EXISTS(SELECT 1 FROM cheers c WHERE c.user_id = $1 AND c.graph_id = g.graph_id) AS "is_cheered_by_user!",
-    g.nb_data_nodes,
-    g.nb_data_edges,
-    (SELECT COUNT(*)::INT FROM bookmarks b WHERE b.graph_id = g.graph_id) AS "nb_bookmarks!",
-    (SELECT COUNT(*)::INT FROM cheers c WHERE c.graph_id = g.graph_id) AS "nb_cheers!"
+    g.is_public
 FROM graphs g
 LEFT JOIN accesses user_access ON g.graph_id = user_access.graph_id AND user_access.user_id = $1
 JOIN accesses owner_access ON g.graph_id = owner_access.graph_id AND owner_access.role = 'Owner'
@@ -192,11 +178,8 @@ RETURNING
     name,
     description,
     is_public,
-    reddit AS "reddit!:_",
     created_at,
-    updated_at,
-    nb_data_nodes,
-    nb_data_edges
+    updated_at
             "#,
             create_graph.graph_id as _,
             create_graph.name,
@@ -327,11 +310,8 @@ struct GraphRow {
     name: String,
     description: String,
     is_public: bool,
-    reddit: Json<RedditModel>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
-    nb_data_nodes: i32,
-    nb_data_edges: i32,
 }
 
 impl From<GraphRow> for GraphModel {
@@ -341,11 +321,8 @@ impl From<GraphRow> for GraphModel {
             name: row.name,
             description: row.description,
             is_public: row.is_public,
-            reddit: row.reddit.0,
             created_at: row.created_at,
             updated_at: row.updated_at,
-            nb_data_nodes: row.nb_data_nodes as u32,
-            nb_data_edges: row.nb_data_edges as u32,
         }
     }
 }
@@ -358,15 +335,8 @@ struct GraphMetadataRow {
     updated_at: DateTime<Utc>,
     name: String,
     description: String,
-    reddit: Json<RedditModel>,
     user_role: RoleModel,
     is_public: bool,
-    is_bookmarked_by_user: bool,
-    is_cheered_by_user: bool,
-    nb_data_nodes: i32,
-    nb_data_edges: i32,
-    nb_bookmarks: i32,
-    nb_cheers: i32,
 }
 
 impl From<GraphMetadataRow> for GraphMetadataModel {
@@ -376,17 +346,10 @@ impl From<GraphMetadataRow> for GraphMetadataModel {
             name: row.name,
             description: row.description,
             is_public: row.is_public,
-            reddit: row.reddit.0,
             created_at: row.created_at,
             updated_at: row.updated_at,
-            nb_data_nodes: row.nb_data_nodes as u32,
-            nb_data_edges: row.nb_data_edges as u32,
             owner_username: row.owner_username,
             user_role: row.user_role,
-            is_bookmarked_by_user: row.is_bookmarked_by_user,
-            is_cheered_by_user: row.is_cheered_by_user,
-            nb_bookmarks: row.nb_bookmarks as u32,
-            nb_cheers: row.nb_cheers as u32,
         }
     }
 }

@@ -10,9 +10,7 @@ mod user_model;
 
 pub use access_model::{AccessModel, CreateAccessModel, RoleModel};
 pub use edge_schema_model::{CreateEdgeSchemaModel, EdgeSchemaIdModel, EdgeSchemaModel};
-pub use graph_model::{
-    CreateGraphModel, GraphIdModel, GraphMetadataModel, GraphModel, RedditModel,
-};
+pub use graph_model::{CreateGraphModel, GraphIdModel, GraphMetadataModel, GraphModel};
 pub use graph_schema_model::GraphSchemaModel;
 pub use node_schema_model::{CreateNodeSchemaModel, NodeSchemaIdModel, NodeSchemaModel};
 pub use session_document_model::{

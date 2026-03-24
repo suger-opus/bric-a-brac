@@ -22,11 +22,8 @@ CREATE TABLE graphs
     name                VARCHAR(100)                    NOT NULL,
     description         VARCHAR(10000)                  NOT NULL,
     is_public           BOOLEAN                         NOT NULL DEFAULT FALSE,
-    reddit              JSONB                           NOT NULL DEFAULT '{}'::JSONB,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    nb_data_nodes       INTEGER                         NOT NULL DEFAULT 0,
-    nb_data_edges       INTEGER                         NOT NULL DEFAULT 0
+    updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE accesses
@@ -36,22 +33,6 @@ CREATE TABLE accesses
     role                role_type                       NOT NULL DEFAULT 'None',
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id, graph_id)
-);
-
-CREATE TABLE bookmarks
-(
-    user_id             UUID                            NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    graph_id            UUID                            NOT NULL REFERENCES graphs(graph_id) ON DELETE CASCADE,
-    created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id, graph_id)
-);
-
-CREATE TABLE cheers
-(
-    user_id             UUID                            NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    graph_id            UUID                            NOT NULL REFERENCES graphs(graph_id) ON DELETE CASCADE,
-    created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, graph_id)
 );
 

@@ -2,7 +2,7 @@ export { Role } from "./access-dto";
 export { EdgeDataDto } from "./edge-data-dto";
 export { EdgeSchemaDto } from "./edge-schema-dto";
 export { GraphDataDto } from "./graph-data-dto";
-export { CreateGraphDto, GraphMetadataDto, SearchGraphDto } from "./graph-dto";
+export { CreateGraphDto, GraphMetadataDto } from "./graph-dto";
 export { GraphSchemaDto } from "./graph-schema-dto";
 export { NodeDataDto } from "./node-data-dto";
 export { NodeSchemaDto } from "./node-schema-dto";

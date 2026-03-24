@@ -14,11 +14,9 @@ import {
 import {
   InputGroup,
   InputGroupAddon,
-  InputGroupButton,
   InputGroupInput
 } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { userService } from "@/lib/api/services/user-service";
@@ -26,13 +24,9 @@ import { scrollToElement } from "@/lib/utils";
 import { User } from "@/types";
 import {
   BadgeCheckIcon,
-  CopyIcon,
   ExpandIcon,
   InfoIcon,
-  LogOutIcon,
-  PenIcon,
-  ShrinkIcon,
-  UserRoundXIcon
+  ShrinkIcon
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -115,29 +109,14 @@ const SettingsCard = ({ is_expanded, expand, un_expand }: SettingsProps) => {
                   </Label>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <InputGroupButton
-                        variant="ghost"
-                        aria-label="Copy"
-                        className="ml-auto rounded-full"
-                        size="icon-xs"
-                      >
-                        <CopyIcon />
-                      </InputGroupButton>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Copy your user ID</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <InputGroupButton
+                      <Button
                         variant="ghost"
                         aria-label="Help"
-                        className="rounded-full"
-                        size="icon-xs"
+                        className="ml-auto rounded-full"
+                        size="icon-sm"
                       >
                         <InfoIcon />
-                      </InputGroupButton>
+                      </Button>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Your user ID</p>
@@ -153,14 +132,14 @@ const SettingsCard = ({ is_expanded, expand, un_expand }: SettingsProps) => {
                   </Label>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <InputGroupButton
+                      <Button
                         variant="ghost"
                         aria-label="Help"
                         className="ml-auto rounded-full"
-                        size="icon-xs"
+                        size="icon-sm"
                       >
                         <InfoIcon />
-                      </InputGroupButton>
+                      </Button>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>You authenticated using this email</p>
@@ -169,36 +148,21 @@ const SettingsCard = ({ is_expanded, expand, un_expand }: SettingsProps) => {
                 </InputGroupAddon>
               </InputGroup>
               <InputGroup>
-                <InputGroupInput id="user-username" placeholder={user.username} />
+                <InputGroupInput id="user-username" placeholder={user.username} readOnly />
                 <InputGroupAddon align="block-start">
                   <Label htmlFor="user-username" className="text-foreground">
                     Username
                   </Label>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <InputGroupButton
-                        variant="ghost"
-                        aria-label="Copy"
-                        className="ml-auto rounded-full"
-                        size="icon-xs"
-                      >
-                        <PenIcon />
-                      </InputGroupButton>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Change your username</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <InputGroupButton
+                      <Button
                         variant="ghost"
                         aria-label="Help"
-                        className="rounded-full"
-                        size="icon-xs"
+                        className="ml-auto rounded-full"
+                        size="icon-sm"
                       >
                         <InfoIcon />
-                      </InputGroupButton>
+                      </Button>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Your username</p>
@@ -209,21 +173,7 @@ const SettingsCard = ({ is_expanded, expand, un_expand }: SettingsProps) => {
             </>
           )}
       </CardContent>
-      <CardFooter className="flex flex-col items-start space-y-4">
-        <Separator />
-        <div className="flex w-full">
-          <Button variant="outline" size="sm">
-            <LogOutIcon /> Log Out
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="ml-auto not-hover:bg-white not-hover:border not-hover:border-red-400 not-hover:text-red-400"
-          >
-            <UserRoundXIcon /> Delete Account
-          </Button>
-        </div>
-      </CardFooter>
+      <CardFooter />
     </Card>
   );
 };
