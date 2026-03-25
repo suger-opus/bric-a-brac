@@ -29,7 +29,7 @@ impl TryFrom<HashMap<BoltString, BoltType>> for PropertiesDataModel {
             values.insert(k.to_string(), value);
         }
 
-        Ok(PropertiesDataModel { values })
+        Ok(Self { values })
     }
 }
 
@@ -42,7 +42,7 @@ impl TryFrom<PropertiesDataModel> for HashMap<BoltString, BoltType> {
             .into_iter()
             .map(|(k, v)| {
                 let bolt_value = match v {
-                    serde_json::Value::String(s) => Ok(BoltType::String(s.clone().into())),
+                    serde_json::Value::String(s) => Ok(BoltType::String(s.into())),
                     serde_json::Value::Number(n) => {
                         let f = n.as_f64().ok_or_else(|| DatabaseError::NumberConversion {
                             property_name: k.clone(),
@@ -50,9 +50,7 @@ impl TryFrom<PropertiesDataModel> for HashMap<BoltString, BoltType> {
                         })?;
                         Ok(BoltType::Float(neo4rs::BoltFloat::new(f)))
                     }
-                    serde_json::Value::Bool(b) => {
-                        Ok(BoltType::Boolean(BoltBoolean::new(b.clone())))
-                    }
+                    serde_json::Value::Bool(b) => Ok(BoltType::Boolean(BoltBoolean::new(b))),
                     _ => Err(DatabaseError::UnsupportedPropertyValue {
                         value: v.to_string(),
                     }),

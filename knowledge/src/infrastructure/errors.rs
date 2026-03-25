@@ -47,18 +47,18 @@ pub enum DatabaseError {
 
 impl From<uuid::Error> for DatabaseError {
     fn from(e: uuid::Error) -> Self {
-        DatabaseError::WrongId { id: e.to_string() }
+        Self::WrongId { id: e.to_string() }
     }
 }
 
 impl From<neo4rs::Error> for DatabaseError {
     fn from(err: neo4rs::Error) -> Self {
-        DatabaseError::Unknown { source: err }
+        Self::Unknown { source: err }
     }
 }
 
 impl From<neo4rs::DeError> for DatabaseError {
     fn from(err: neo4rs::DeError) -> Self {
-        DatabaseError::UnknownDe { source: err }
+        Self::UnknownDe { source: err }
     }
 }

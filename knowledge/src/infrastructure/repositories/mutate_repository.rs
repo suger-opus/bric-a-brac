@@ -9,10 +9,11 @@ use crate::{
 use neo4rs::{query, BoltFloat, BoltList, BoltMap, BoltString, BoltType};
 use std::{collections::HashMap, str::FromStr};
 
+#[derive(Default)]
 pub struct MutateRepository;
 
 impl MutateRepository {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 
@@ -39,7 +40,7 @@ impl MutateRepository {
             value: data
                 .embedding
                 .into_iter()
-                .map(|f| BoltType::Float(BoltFloat::new(f as f64)))
+                .map(|f| BoltType::Float(BoltFloat::new(f64::from(f))))
                 .collect(),
         });
 
@@ -80,7 +81,7 @@ impl MutateRepository {
             value: data
                 .embedding
                 .into_iter()
-                .map(|f| BoltType::Float(BoltFloat::new(f as f64)))
+                .map(|f| BoltType::Float(BoltFloat::new(f64::from(f))))
                 .collect(),
         });
 
@@ -124,11 +125,11 @@ impl MutateRepository {
         // MERGE ensures edge uniqueness per (from, to, edge_key) triple.
         // ON CREATE sets properties for new edges, ON MATCH updates for existing ones.
         let cypher = format!(
-            r#"MATCH (a {{node_data_id: $from, graph_id: $gid}}), (b {{node_data_id: $to, graph_id: $gid}})
+            r"MATCH (a {{node_data_id: $from, graph_id: $gid}}), (b {{node_data_id: $to, graph_id: $gid}})
 MERGE (a)-[r:{}]->(b)
 ON CREATE SET r = $props
 ON MATCH SET r += $props
-RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id"#,
+RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id",
             data.key
         );
         let mut result = connection
@@ -280,9 +281,9 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
 
         // Drop vector indexes for each node schema key
         for key in node_keys {
-            let cypher = format!("DROP INDEX ON :{}(embedding)", key);
+            let cypher = format!("DROP INDEX ON :{key}(embedding)");
             match graph.run(query(&cypher)).await {
-                Ok(_) => {
+                Ok(()) => {
                     tracing::debug!(key = %key, "Vector index dropped");
                 }
                 Err(e) => {
@@ -306,11 +307,10 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
     ) -> Result<(), DatabaseError> {
         for key in node_keys {
             let cypher = format!(
-                "CREATE VECTOR INDEX idx_{}_embedding ON :{}(embedding) WITH CONFIG {{\"dimension\": 1536, \"capacity\": 10000, \"metric\": \"cos\"}}",
-                key, key
+                "CREATE VECTOR INDEX idx_{key}_embedding ON :{key}(embedding) WITH CONFIG {{\"dimension\": 1536, \"capacity\": 10000, \"metric\": \"cos\"}}"
             );
             match graph.run(query(&cypher)).await {
-                Ok(_) => {
+                Ok(()) => {
                     tracing::debug!(key = %key, "Vector index created");
                 }
                 Err(e) => {

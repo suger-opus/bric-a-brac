@@ -1,8 +1,8 @@
 use crate::infrastructure::errors::DatabaseError;
 
 pub fn validate_depth(depth: i32) -> Result<u32, DatabaseError> {
-    if depth < 1 || depth > 10 {
+    if !(1..=10).contains(&depth) {
         return Err(DatabaseError::InvalidDepth { value: depth });
     }
-    Ok(depth as u32)
+    Ok(depth.cast_unsigned())
 }

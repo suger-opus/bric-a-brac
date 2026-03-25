@@ -1,17 +1,16 @@
 use crate::{
-    application::services::{MutateService, QueryService},
     application::errors::AppError,
+    application::services::{MutateService, QueryService},
 };
 use bric_a_brac_dtos::{
-    EdgeDataDto, InsertEdgeDataDto, InsertNodeDataDto, KeyDto, NodeDataDto,
-    UpdateEdgeDataDto, UpdateNodeDataDto,
+    EdgeDataDto, InsertEdgeDataDto, InsertNodeDataDto, KeyDto, NodeDataDto, UpdateEdgeDataDto,
+    UpdateNodeDataDto,
 };
 use bric_a_brac_protos::{
     common::{EdgeDataProto, GraphDataProto, NodeDataProto, PathProto, SubgraphProto},
     knowledge::{
-        knowledge_server::Knowledge, DeleteEdgeRequest, DeleteEdgeResponse,
-        DeleteGraphRequest, DeleteGraphResponse, DeleteNodeRequest,
-        DeleteNodeResponse, FindPathsRequest,
+        knowledge_server::Knowledge, DeleteEdgeRequest, DeleteEdgeResponse, DeleteGraphRequest,
+        DeleteGraphResponse, DeleteNodeRequest, DeleteNodeResponse, FindPathsRequest,
         FindPathsResponse, GetNeighborsRequest, GetNeighborsResponse, GetNodeRequest,
         InitializeSchemaRequest, InitializeSchemaResponse, InsertEdgeRequest, InsertNodeRequest,
         LoadGraphRequest, SearchNodesRequest, SearchNodesResponse, UpdateEdgeRequest,
@@ -27,7 +26,7 @@ pub struct KnowledgeService {
 }
 
 impl KnowledgeService {
-    pub fn new(query_service: QueryService, mutate_service: MutateService) -> Self {
+    pub const fn new(query_service: QueryService, mutate_service: MutateService) -> Self {
         Self {
             query_service,
             mutate_service,
@@ -52,7 +51,7 @@ impl Knowledge for KnowledgeService {
 
         let data = self
             .query_service
-            .load_graph(req.graph_id.try_into().map_err(|err| AppError::from(err))?)
+            .load_graph(req.graph_id.try_into().map_err(AppError::from)?)
             .await?;
 
         Ok(Response::new(data.into()))
@@ -68,13 +67,11 @@ impl Knowledge for KnowledgeService {
         for key_str in &req.node_keys {
             let key: KeyDto = key_str.clone().into();
             key.validate().map_err(|e| AppError::InvalidInput {
-                reason: format!("Invalid node key '{}': {}", key_str, e),
+                reason: format!("Invalid node key '{key_str}': {e}"),
             })?;
         }
 
-        self.mutate_service
-            .initialize_schema(req.node_keys)
-            .await?;
+        self.mutate_service.initialize_schema(req.node_keys).await?;
 
         Ok(Response::new(InitializeSchemaResponse {}))
     }
@@ -89,7 +86,7 @@ impl Knowledge for KnowledgeService {
         let node_dto: InsertNodeDataDto = req
             .node
             .ok_or_else(|| AppError::InvalidInput {
-                reason: "Missing node field".to_string(),
+                reason: "Missing node field".to_owned(),
             })?
             .try_into()
             .map_err(AppError::from)?;
@@ -101,9 +98,7 @@ impl Knowledge for KnowledgeService {
         let node = self
             .mutate_service
             .insert_node(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
                 node_dto.into(),
             )
             .await?;
@@ -122,7 +117,7 @@ impl Knowledge for KnowledgeService {
         let node_dto: UpdateNodeDataDto = req
             .node
             .ok_or_else(|| AppError::InvalidInput {
-                reason: "Missing node field".to_string(),
+                reason: "Missing node field".to_owned(),
             })?
             .try_into()
             .map_err(AppError::from)?;
@@ -130,9 +125,7 @@ impl Knowledge for KnowledgeService {
         let node = self
             .mutate_service
             .update_node(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
                 node_dto.into(),
             )
             .await?;
@@ -150,12 +143,8 @@ impl Knowledge for KnowledgeService {
 
         self.mutate_service
             .delete_node(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
-                req.node_data_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
+                req.node_data_id.try_into().map_err(AppError::from)?,
             )
             .await?;
 
@@ -171,12 +160,8 @@ impl Knowledge for KnowledgeService {
 
         self.mutate_service
             .delete_edge(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
-                req.edge_data_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
+                req.edge_data_id.try_into().map_err(AppError::from)?,
             )
             .await?;
 
@@ -193,7 +178,7 @@ impl Knowledge for KnowledgeService {
         let edge_dto: InsertEdgeDataDto = req
             .edge
             .ok_or_else(|| AppError::InvalidInput {
-                reason: "Missing edge field".to_string(),
+                reason: "Missing edge field".to_owned(),
             })?
             .try_into()
             .map_err(AppError::from)?;
@@ -205,9 +190,7 @@ impl Knowledge for KnowledgeService {
         let edge = self
             .mutate_service
             .insert_edge(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
                 edge_dto.into(),
             )
             .await?;
@@ -226,7 +209,7 @@ impl Knowledge for KnowledgeService {
         let edge_dto: UpdateEdgeDataDto = req
             .edge
             .ok_or_else(|| AppError::InvalidInput {
-                reason: "Missing edge field".to_string(),
+                reason: "Missing edge field".to_owned(),
             })?
             .try_into()
             .map_err(AppError::from)?;
@@ -234,9 +217,7 @@ impl Knowledge for KnowledgeService {
         let edge = self
             .mutate_service
             .update_edge(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
                 edge_dto.into(),
             )
             .await?;
@@ -255,19 +236,18 @@ impl Knowledge for KnowledgeService {
         if let Some(ref nk) = req.node_key {
             let key: KeyDto = nk.clone().into();
             key.validate().map_err(|e| AppError::InvalidInput {
-                reason: format!("Invalid node key '{}': {}", nk, e),
+                reason: format!("Invalid node key '{nk}': {e}"),
             })?;
         }
 
+        #[allow(clippy::cast_sign_loss)]
         let results = self
             .query_service
             .search_nodes(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
                 req.node_key,
                 req.query_embedding,
-                req.limit,
+                req.limit as usize,
             )
             .await?;
 
@@ -286,12 +266,8 @@ impl Knowledge for KnowledgeService {
         let node = self
             .query_service
             .get_node(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
-                req.node_data_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
+                req.node_data_id.try_into().map_err(AppError::from)?,
             )
             .await?;
 
@@ -309,19 +285,15 @@ impl Knowledge for KnowledgeService {
         if let Some(ref ek) = req.edge_key {
             let key: KeyDto = ek.clone().into();
             key.validate().map_err(|e| AppError::InvalidInput {
-                reason: format!("Invalid edge key '{}': {}", ek, e),
+                reason: format!("Invalid edge key '{ek}': {e}"),
             })?;
         }
 
         let subgraph = self
             .query_service
             .get_neighbors(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
-                req.node_data_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
+                req.node_data_id.try_into().map_err(AppError::from)?,
                 req.edge_key,
                 req.depth,
             )
@@ -348,15 +320,9 @@ impl Knowledge for KnowledgeService {
         let paths = self
             .query_service
             .find_paths(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
-                req.from_node_data_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
-                req.to_node_data_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
+                req.from_node_data_id.try_into().map_err(AppError::from)?,
+                req.to_node_data_id.try_into().map_err(AppError::from)?,
                 req.max_depth,
             )
             .await?;
@@ -375,9 +341,7 @@ impl Knowledge for KnowledgeService {
 
         self.mutate_service
             .delete_graph_data(
-                req.graph_id
-                    .try_into()
-                    .map_err(|err| AppError::from(err))?,
+                req.graph_id.try_into().map_err(AppError::from)?,
                 req.node_keys,
             )
             .await?;

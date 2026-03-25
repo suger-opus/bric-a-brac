@@ -8,10 +8,11 @@ use crate::{
 use neo4rs::query;
 use std::str::FromStr;
 
+#[derive(Default)]
 pub struct QueryRepository;
 
 impl QueryRepository {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 
@@ -70,13 +71,13 @@ impl QueryRepository {
         graph_id: GraphIdModel,
     ) -> Result<Vec<EdgeDataModel>, DatabaseError> {
         let edges_query = query(
-            r#"
+            r"
 MATCH (a { graph_id: $graph_id })-[e]->(b { graph_id: $graph_id })
 RETURN
     e,
     a.node_data_id AS from_node_data_id,
     b.node_data_id AS to_node_data_id
-        "#,
+        ",
         )
         .param("graph_id", graph_id.to_string());
         let mut edges_result = connection.execute(edges_query).await?;
@@ -136,43 +137,39 @@ RETURN
         graph_id: GraphIdModel,
         node_key: Option<String>,
         embedding: Vec<f32>,
-        limit: i32,
+        limit: usize,
     ) -> Result<Vec<NodeSummaryModel>, DatabaseError> {
-        let emb: Vec<f64> = embedding.into_iter().map(|f| f as f64).collect();
+        let emb: Vec<f64> = embedding.into_iter().map(f64::from).collect();
 
-        let labels = match node_key {
-            Some(key) => {
-                vec![key]
-            }
-            None => {
-                // Get all distinct labels for this graph
-                let mut label_result = connection
-                    .execute(
-                        query(
-                            "MATCH (n { graph_id: $gid }) WITH labels(n) AS lbls UNWIND lbls AS lbl RETURN DISTINCT lbl",
-                        )
-                        .param("gid", graph_id.to_string()),
+        let labels = if let Some(key) = node_key {
+            vec![key]
+        } else {
+            // Get all distinct labels for this graph
+            let mut label_result = connection
+                .execute(
+                    query(
+                        "MATCH (n { graph_id: $gid }) WITH labels(n) AS lbls UNWIND lbls AS lbl RETURN DISTINCT lbl",
                     )
-                    .await?;
-                let mut labels = Vec::new();
-                while let Some(row) = label_result.next(&mut *connection).await? {
-                    let lbl: String = row.get("lbl")?;
-                    labels.push(lbl);
-                }
-                labels
+                    .param("gid", graph_id.to_string()),
+                )
+                .await?;
+            let mut labels = Vec::new();
+            while let Some(row) = label_result.next(&mut *connection).await? {
+                let lbl: String = row.get("lbl")?;
+                labels.push(lbl);
             }
+            labels
         };
 
         let mut all_results: Vec<NodeSummaryModel> = Vec::new();
 
         for label in labels {
             let cypher = format!(
-                r#"CALL vector_search.search("idx_{}_embedding", {}, $emb)
+                r#"CALL vector_search.search("idx_{label}_embedding", {limit}, $emb)
 YIELD node, distance
 WITH node, distance
 WHERE node.graph_id = $gid
-RETURN node, distance"#,
-                label, limit
+RETURN node, distance"#
             );
             let mut result = connection
                 .execute(
@@ -184,10 +181,10 @@ RETURN node, distance"#,
 
             while let Some(row) = result.next(&mut *connection).await? {
                 let neo_node: neo4rs::Node = row.get("node")?;
-                let distance: f64 = row.get("distance")?;
+                let distance: f32 = row.get("distance")?;
                 let node_model = NodeDataModel::try_from(neo_node)?;
                 let mut summary = NodeSummaryModel::from(node_model);
-                summary.distance = distance as f32;
+                summary.distance = distance;
                 all_results.push(summary);
             }
         }
@@ -197,7 +194,7 @@ RETURN node, distance"#,
                 .partial_cmp(&b.distance)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        all_results.truncate(limit as usize);
+        all_results.truncate(limit);
 
         Ok(all_results)
     }
@@ -220,36 +217,29 @@ RETURN node, distance"#,
         let nid = node_data_id.to_string();
 
         // Build traversal pattern based on edge_key filter
-        let (node_cypher, edge_cypher) = match &edge_key {
-            Some(ek) => (
+        let (node_cypher, edge_cypher) = edge_key.as_ref().map_or_else(|| (
                 format!(
-                    "MATCH (n {{node_data_id: $nid, graph_id: $gid}})-[:{}*0..{}]-(m {{graph_id: $gid}}) RETURN DISTINCT m",
-                    ek, depth
+                    "MATCH (n {{node_data_id: $nid, graph_id: $gid}})-[*0..{depth}]-(m {{graph_id: $gid}}) RETURN DISTINCT m"
                 ),
                 format!(
-                    r#"MATCH (n {{node_data_id: $nid, graph_id: $gid}})-[:{}*0..{}]-(m {{graph_id: $gid}})
-WITH collect(DISTINCT m.node_data_id) AS nids
-MATCH (a {{graph_id: $gid}})-[r:{}]->(b {{graph_id: $gid}})
-WHERE a.node_data_id IN nids AND b.node_data_id IN nids
-RETURN DISTINCT r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id"#,
-                    ek, depth, ek
-                ),
-            ),
-            None => (
-                format!(
-                    "MATCH (n {{node_data_id: $nid, graph_id: $gid}})-[*0..{}]-(m {{graph_id: $gid}}) RETURN DISTINCT m",
-                    depth
-                ),
-                format!(
-                    r#"MATCH (n {{node_data_id: $nid, graph_id: $gid}})-[*0..{}]-(m {{graph_id: $gid}})
+                    r"MATCH (n {{node_data_id: $nid, graph_id: $gid}})-[*0..{depth}]-(m {{graph_id: $gid}})
 WITH collect(DISTINCT m.node_data_id) AS nids
 MATCH (a {{graph_id: $gid}})-[r]->(b {{graph_id: $gid}})
 WHERE a.node_data_id IN nids AND b.node_data_id IN nids
-RETURN DISTINCT r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id"#,
-                    depth
+RETURN DISTINCT r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id"
                 ),
-            ),
-        };
+            ), |ek| (
+                format!(
+                    "MATCH (n {{node_data_id: $nid, graph_id: $gid}})-[:{ek}*0..{depth}]-(m {{graph_id: $gid}}) RETURN DISTINCT m"
+                ),
+                format!(
+                    r"MATCH (n {{node_data_id: $nid, graph_id: $gid}})-[:{ek}*0..{depth}]-(m {{graph_id: $gid}})
+WITH collect(DISTINCT m.node_data_id) AS nids
+MATCH (a {{graph_id: $gid}})-[r:{ek}]->(b {{graph_id: $gid}})
+WHERE a.node_data_id IN nids AND b.node_data_id IN nids
+RETURN DISTINCT r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id"
+                ),
+            ));
 
         // Query nodes
         let mut nodes = Vec::new();
@@ -298,8 +288,7 @@ RETURN DISTINCT r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_nod
         max_depth: u32,
     ) -> Result<Vec<GraphDataModel>, DatabaseError> {
         let cypher = format!(
-            "MATCH path = shortestPath((a {{node_data_id: $from, graph_id: $gid}})-[*..{}]-(b {{node_data_id: $to, graph_id: $gid}})) RETURN path",
-            max_depth
+            "MATCH path = shortestPath((a {{node_data_id: $from, graph_id: $gid}})-[*..{max_depth}]-(b {{node_data_id: $to, graph_id: $gid}})) RETURN path"
         );
 
         let mut result = connection
@@ -328,10 +317,17 @@ RETURN DISTINCT r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_nod
                 let mut edge = EdgeDataModel::try_from(rel)?;
                 // Infer from/to from path order
                 if i < path_nodes.len() - 1 {
-                    edge.from_node_data_id =
-                        NodeDataIdModel::from_str(&path_nodes[i].get::<String>("node_data_id")?)?;
+                    edge.from_node_data_id = NodeDataIdModel::from_str(
+                        &path_nodes
+                            .get(i)
+                            .and_then(|n| n.get::<String>("node_data_id").ok())
+                            .unwrap_or_default(),
+                    )?;
                     edge.to_node_data_id = NodeDataIdModel::from_str(
-                        &path_nodes[i + 1].get::<String>("node_data_id")?,
+                        &path_nodes
+                            .get(i + 1)
+                            .and_then(|n| n.get::<String>("node_data_id").ok())
+                            .unwrap_or_default(),
                     )?;
                 }
                 edges.push(edge);

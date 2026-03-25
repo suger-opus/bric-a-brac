@@ -30,7 +30,7 @@ impl TryFrom<neo4rs::Node> for NodeDataModel {
             .to_string();
         let properties = node.collect_properties()?;
 
-        Ok(NodeDataModel {
+        Ok(Self {
             graph_id,
             node_data_id,
             key,

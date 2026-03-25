@@ -1,10 +1,10 @@
 use crate::{
+    application::errors::AppError,
     domain::models::{
         EdgeDataModel, InsertEdgeDataModel, InsertNodeDataModel, NodeDataModel,
         UpdateEdgeDataModel, UpdateNodeDataModel,
     },
     infrastructure::repositories::MutateRepository,
-    application::errors::AppError,
 };
 use bric_a_brac_dtos::{EdgeDataIdDto, GraphIdDto, NodeDataIdDto};
 use neo4rs::Graph;
@@ -16,7 +16,7 @@ pub struct MutateService {
 }
 
 impl MutateService {
-    pub fn new(pool: Arc<Graph>, repository: MutateRepository) -> Self {
+    pub const fn new(pool: Arc<Graph>, repository: MutateRepository) -> Self {
         Self { pool, repository }
     }
 

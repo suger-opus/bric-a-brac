@@ -19,14 +19,14 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self, anyhow::Error> {
-        Config::try_parse().context("Failed to parse configuration")
+        Self::try_parse().context("Failed to parse configuration")
     }
 
-    pub fn knowledge_server(&self) -> &KnowledgeServerConfig {
+    pub const fn knowledge_server(&self) -> &KnowledgeServerConfig {
         &self.knowledge_server
     }
 
-    pub fn knowledge_db(&self) -> &KnowledgeDatabaseConfig {
+    pub const fn knowledge_db(&self) -> &KnowledgeDatabaseConfig {
         &self.knowledge_db
     }
 }

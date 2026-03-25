@@ -17,7 +17,7 @@ impl TonicError {
 
 impl From<TonicError> for Status {
     fn from(err: TonicError) -> Self {
-        Status::new(err.code, err.message)
+        Self::new(err.code, err.message)
     }
 }
 
@@ -32,12 +32,11 @@ impl From<AppError> for TonicError {
             }
         }
         match &err {
-            AppError::NotFound { .. } => TonicError::new(Code::NotFound, format!("{}", err)),
-            AppError::InvalidInput { .. } => {
-                TonicError::new(Code::InvalidArgument, format!("{}", err))
+            AppError::NotFound { .. } => Self::new(Code::NotFound, format!("{err}")),
+            AppError::InvalidInput { .. } | AppError::Conversion(_) => {
+                Self::new(Code::InvalidArgument, format!("{err}"))
             }
-            AppError::Conversion(_) => TonicError::new(Code::InvalidArgument, format!("{}", err)),
-            _ => TonicError::new(Code::Internal, format!("Application error: {}", err)),
+            _ => Self::new(Code::Internal, format!("Application error: {err}")),
         }
     }
 }

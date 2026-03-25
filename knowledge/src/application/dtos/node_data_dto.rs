@@ -1,10 +1,8 @@
 use crate::domain::models::{
-    InsertNodeDataModel, NodeDataIdModel, NodeDataModel, NodeSummaryModel,
-    UpdateNodeDataModel,
+    InsertNodeDataModel, NodeDataIdModel, NodeDataModel, NodeSummaryModel, UpdateNodeDataModel,
 };
 use bric_a_brac_dtos::{
-    InsertNodeDataDto, NodeDataDto, NodeDataIdDto, PropertiesDataDto,
-    UpdateNodeDataDto,
+    InsertNodeDataDto, NodeDataDto, NodeDataIdDto, PropertiesDataDto, UpdateNodeDataDto,
 };
 use bric_a_brac_protos::common::NodeSummaryProto;
 
@@ -22,7 +20,7 @@ impl From<NodeDataIdDto> for NodeDataIdModel {
 
 impl From<NodeDataModel> for NodeDataDto {
     fn from(model: NodeDataModel) -> Self {
-        NodeDataDto {
+        Self {
             node_data_id: model.node_data_id.into(),
             key: model.key.into(),
             properties: model.properties.into(),

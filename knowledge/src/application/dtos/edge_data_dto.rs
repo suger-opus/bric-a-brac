@@ -17,7 +17,7 @@ impl From<EdgeDataIdDto> for EdgeDataIdModel {
 
 impl From<EdgeDataModel> for EdgeDataDto {
     fn from(model: EdgeDataModel) -> Self {
-        EdgeDataDto {
+        Self {
             edge_data_id: model.edge_data_id.into(),
             key: model.key.into(),
             from_node_data_id: model.from_node_data_id.into(),

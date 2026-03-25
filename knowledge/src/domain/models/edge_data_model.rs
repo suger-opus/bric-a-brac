@@ -21,10 +21,10 @@ impl TryFrom<neo4rs::Relation> for EdgeDataModel {
 
     fn try_from(relation: neo4rs::Relation) -> Result<Self, Self::Error> {
         let edge_data_id = EdgeDataIdModel::from_str(&relation.extract_id("edge_data_id")?)?;
-        let key = relation.typ().to_string();
+        let key = relation.typ().to_owned();
         let properties = relation.collect_properties()?;
 
-        Ok(EdgeDataModel {
+        Ok(Self {
             edge_data_id,
             key,
             from_node_data_id: NodeDataIdModel::default(), // Placeholder, will be set in the repository
@@ -39,10 +39,10 @@ impl TryFrom<neo4rs::UnboundedRelation> for EdgeDataModel {
 
     fn try_from(relation: neo4rs::UnboundedRelation) -> Result<Self, Self::Error> {
         let edge_data_id = EdgeDataIdModel::from_str(&relation.extract_id("edge_data_id")?)?;
-        let key = relation.typ().to_string();
+        let key = relation.typ().to_owned();
         let properties = relation.collect_properties()?;
 
-        Ok(EdgeDataModel {
+        Ok(Self {
             edge_data_id,
             key,
             from_node_data_id: NodeDataIdModel::default(), // Set from path order
@@ -65,4 +65,3 @@ pub struct UpdateEdgeDataModel {
     pub edge_data_id: EdgeDataIdModel,
     pub properties: PropertiesDataModel,
 }
-

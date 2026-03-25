@@ -10,13 +10,13 @@ pub trait ExtendElement {
 
     fn extract_id(&self, id_key: &str) -> Result<String, DatabaseError> {
         let bolt_id = self.get(id_key).ok_or_else(|| DatabaseError::MissingId {
-            id: id_key.to_string(),
+            id: id_key.to_owned(),
         })?;
 
         match bolt_id {
             BoltType::String(s) => Ok(s.to_string()),
             _ => Err(DatabaseError::WrongId {
-                id: id_key.to_string(),
+                id: id_key.to_owned(),
             }),
         }
     }
@@ -35,13 +35,13 @@ pub trait ExtendElement {
                 let value = self
                     .get(key)
                     .ok_or_else(|| DatabaseError::UnreachableProperty {
-                        property_key: key.to_string(),
+                        property_key: key.to_owned(),
                     })?;
-                Ok((key.to_string().into(), value))
+                Ok((key.to_owned().into(), value))
             })
             .collect::<Result<HashMap<_, _>, DatabaseError>>()?;
 
-        Ok(bolt_properties.try_into()?)
+        bolt_properties.try_into()
     }
 }
 

@@ -1,8 +1,8 @@
 use crate::{
+    application::errors::AppError,
     domain::models::{GraphDataModel, NodeDataModel, NodeSummaryModel},
     domain::utils::validate_depth,
     infrastructure::repositories::QueryRepository,
-    application::errors::AppError,
 };
 use bric_a_brac_dtos::{GraphDataDto, GraphIdDto, NodeDataIdDto};
 use neo4rs::Graph;
@@ -14,7 +14,7 @@ pub struct QueryService {
 }
 
 impl QueryService {
-    pub fn new(pool: Arc<Graph>, repository: QueryRepository) -> Self {
+    pub const fn new(pool: Arc<Graph>, repository: QueryRepository) -> Self {
         Self { pool, repository }
     }
 
@@ -66,7 +66,7 @@ impl QueryService {
         graph_id: GraphIdDto,
         node_key: Option<String>,
         embedding: Vec<f32>,
-        limit: i32,
+        limit: usize,
     ) -> Result<Vec<NodeSummaryModel>, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let results = self
