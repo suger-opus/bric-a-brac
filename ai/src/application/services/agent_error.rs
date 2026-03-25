@@ -38,5 +38,9 @@ pub enum AgentError {
     },
 
     #[error("Internal agent error: {message}")]
-    Internal { message: String },
+    Internal {
+        message: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
 }

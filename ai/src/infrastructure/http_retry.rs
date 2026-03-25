@@ -4,7 +4,7 @@ use std::time::Duration;
 const MAX_RETRIES: u32 = 2;
 const BASE_DELAY_MS: u64 = 200;
 
-fn is_retryable_status(status: reqwest::StatusCode) -> bool {
+const fn is_retryable_status(status: reqwest::StatusCode) -> bool {
     matches!(status.as_u16(), 429 | 500 | 502 | 503 | 504)
 }
 
@@ -37,7 +37,7 @@ where
             Ok(response) if is_retryable_status(response.status()) && attempt < MAX_RETRIES => {
                 let status = response.status();
                 let delay = parse_retry_after(&response)
-                    .unwrap_or(Duration::from_millis(BASE_DELAY_MS * 2u64.pow(attempt)));
+                    .unwrap_or_else(|| Duration::from_millis(BASE_DELAY_MS * 2u64.pow(attempt)));
 
                 tracing::warn!(
                     attempt = attempt + 1,

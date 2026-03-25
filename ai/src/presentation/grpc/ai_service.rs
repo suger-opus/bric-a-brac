@@ -1,7 +1,5 @@
 use crate::application::services::AgentService;
-use bric_a_brac_protos::ai::{
-    ai_server::Ai, AgentEventProto, SendMessageRequest,
-};
+use bric_a_brac_protos::ai::{ai_server::Ai, AgentEventProto, SendMessageRequest};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};

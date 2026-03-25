@@ -26,12 +26,10 @@ pub fn chunk_user_message(message: &str) -> Vec<String> {
         .map(|(i, chunk)| {
             let part_label = format!("[Document content — Part {}/{}]", i + 1, total);
             if i == 0 {
-                match user_msg {
-                    Some(msg) => {
-                        format!("{part_label}\n{chunk}\n\n[User message]\n{msg}")
-                    }
-                    None => format!("{part_label}\n{chunk}"),
-                }
+                user_msg.map_or_else(
+                    || format!("{part_label}\n{chunk}"),
+                    |msg| format!("{part_label}\n{chunk}\n\n[User message]\n{msg}"),
+                )
             } else {
                 format!(
                     "{part_label}\n{chunk}\n\n\
@@ -46,18 +44,15 @@ pub fn chunk_user_message(message: &str) -> Vec<String> {
 /// Extract the document text and optional user message from the combined format
 /// produced by the chat handler.
 fn parse_document_message(message: &str) -> (Option<&str>, Option<&str>) {
-    let rest = match message.strip_prefix(DOC_PREFIX) {
-        Some(r) => r,
-        None => return (None, None),
+    let Some(rest) = message.strip_prefix(DOC_PREFIX) else {
+        return (None, None);
     };
 
-    if let Some(idx) = rest.find(MSG_SEPARATOR) {
+    rest.find(MSG_SEPARATOR).map_or((Some(rest), None), |idx| {
         let doc = &rest[..idx];
         let msg = &rest[idx + MSG_SEPARATOR.len()..];
         (Some(doc), Some(msg))
-    } else {
-        (Some(rest), None)
-    }
+    })
 }
 
 /// Split text into chunks of at most `max_chars`, preferring paragraph boundaries
@@ -75,13 +70,10 @@ fn split_at_paragraphs(text: &str, max_chars: usize) -> Vec<&str> {
         let search_end = start + max_chars;
         let window = &text[start..search_end];
 
-        let split_at = if let Some(pos) = window.rfind("\n\n") {
-            start + pos + 2
-        } else if let Some(pos) = window.rfind('\n') {
-            start + pos + 1
-        } else {
-            search_end
-        };
+        let split_at = window.rfind("\n\n").map_or_else(
+            || window.rfind('\n').map_or(search_end, |pos| start + pos + 1),
+            |pos| start + pos + 2,
+        );
 
         chunks.push(text[start..split_at].trim_start());
         start = split_at;

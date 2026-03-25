@@ -28,7 +28,6 @@ pub struct EmbeddingClient {
 }
 
 impl EmbeddingClient {
-    #[must_use] 
     pub fn new(config: &OpenRouterConfig) -> Self {
         Self {
             api_key: config.api_key().clone(),
@@ -43,10 +42,7 @@ impl EmbeddingClient {
         skip(self, texts),
         err
     )]
-    pub async fn embed(
-        &self,
-        texts: Vec<String>,
-    ) -> Result<Vec<Vec<f32>>, OpenRouterClientError> {
+    pub async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>, OpenRouterClientError> {
         tracing::debug!(text_count = texts.len());
 
         let request = EmbeddingRequest {
@@ -106,10 +102,7 @@ impl EmbeddingClient {
         skip(self, text),
         err
     )]
-    pub async fn embed_one(
-        &self,
-        text: String,
-    ) -> Result<Vec<f32>, OpenRouterClientError> {
+    pub async fn embed_one(&self, text: String) -> Result<Vec<f32>, OpenRouterClientError> {
         let mut results = self.embed(vec![text]).await?;
         results.pop().ok_or(OpenRouterClientError::ResponseFormat {
             message: "No embedding data in response".to_owned(),

@@ -54,7 +54,6 @@ impl Message {
         }
     }
 
-    #[must_use] 
     pub fn assistant(content: Option<String>, tool_calls: Option<Vec<ToolCall>>) -> Self {
         Self {
             role: "assistant".to_owned(),
@@ -191,7 +190,6 @@ pub struct OpenRouterClient {
 }
 
 impl OpenRouterClient {
-    #[must_use] 
     pub fn new(config: &OpenRouterConfig) -> Self {
         Self {
             api_key: config.api_key().clone(),
@@ -275,7 +273,8 @@ impl OpenRouterClient {
 
         let chat_response: ChatResponse = serde_json::from_str(&response_text).map_err(|err| {
             OpenRouterClientError::Deserialization {
-                message: "Failed to deserialize ChatResponse from OpenRouter response_text".to_owned(),
+                message: "Failed to deserialize ChatResponse from OpenRouter response_text"
+                    .to_owned(),
                 source: err,
             }
         })?;
@@ -291,12 +290,16 @@ impl OpenRouterClient {
             .clone()
             .unwrap_or_default();
 
-        let value = if is_structured_output_needed { serde_json::from_str::<serde_json::Value>(&content).map_err(|err| {
-            OpenRouterClientError::Deserialization {
-                message: "Failed to deserialize content field as JSON value".to_owned(),
-                source: err,
-            }
-        })? } else { serde_json::Value::String(content.clone()) };
+        let value = if is_structured_output_needed {
+            serde_json::from_str::<serde_json::Value>(&content).map_err(|err| {
+                OpenRouterClientError::Deserialization {
+                    message: "Failed to deserialize content field as JSON value".to_owned(),
+                    source: err,
+                }
+            })?
+        } else {
+            serde_json::Value::String(content.clone())
+        };
 
         Ok(ChatResult {
             raw_content: content,
@@ -317,10 +320,7 @@ impl OpenRouterClient {
         messages: Vec<Message>,
         tools: Option<Vec<ToolDefinition>>,
     ) -> Result<StreamChatResult, OpenRouterClientError> {
-        tracing::debug!(
-            message_count = messages.len(),
-            has_tools = tools.is_some(),
-        );
+        tracing::debug!(message_count = messages.len(), has_tools = tools.is_some(),);
 
         let request = ChatRequest {
             model: self.default_model.clone(),
@@ -385,16 +385,18 @@ impl OpenRouterClient {
                                     while tool_calls_builder.len() <= tc.index {
                                         tool_calls_builder.push(ToolCallBuilder::default());
                                     }
-                                    let builder = &mut tool_calls_builder[tc.index];
-                                    if let Some(id) = &tc.id {
-                                        builder.id = Some(id.clone());
-                                    }
-                                    if let Some(func) = &tc.function {
-                                        if let Some(name) = &func.name {
-                                            builder.name = Some(name.clone());
+                                    let builder = tool_calls_builder.get_mut(tc.index);
+                                    if let Some(builder) = builder {
+                                        if let Some(id) = &tc.id {
+                                            builder.id = Some(id.clone());
                                         }
-                                        if let Some(args) = &func.arguments {
-                                            builder.arguments.push_str(args);
+                                        if let Some(func) = &tc.function {
+                                            if let Some(name) = &func.name {
+                                                builder.name = Some(name.clone());
+                                            }
+                                            if let Some(args) = &func.arguments {
+                                                builder.arguments.push_str(args);
+                                            }
                                         }
                                     }
                                 }

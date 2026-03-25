@@ -16,13 +16,14 @@ use bric_a_brac_protos::{
     common::GraphSchemaProto,
     metadata::SessionMessageProto,
 };
+use std::error::Error as StdError;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Semaphore};
 
 const MAX_TOOL_ITERATIONS: usize = 200;
 
 /// Maximum number of concurrent LLM calls across all agent sessions.
-/// Prevents overwhelming the LLM provider (OpenRouter) with too many
+/// Prevents overwhelming the LLM provider (`OpenRouter`) with too many
 /// simultaneous requests, which would cause 429 rate-limit errors.
 const MAX_CONCURRENT_LLM_CALLS: usize = 20;
 
@@ -47,6 +48,7 @@ impl AgentService {
         }
     }
 
+    // TODO: tracing
     pub fn send_message(
         &self,
         session_id: String,
@@ -57,7 +59,7 @@ impl AgentService {
         let openrouter_client = self.openrouter_client.clone();
         let metadata_client = self.metadata_client.clone();
         let tool_executor = self.tool_executor.clone();
-        let llm_semaphore = self.llm_semaphore.clone();
+        let llm_semaphore = Arc::clone(&self.llm_semaphore);
 
         tokio::spawn(async move {
             if let Err(err) = run_agent_loop(
@@ -78,14 +80,14 @@ impl AgentService {
                     session_id,
                     "Agent loop failed"
                 );
+                #[allow(clippy::let_underscore_must_use)]
                 let _ = tx.send(event_error(&format!("{err}"))).await;
             }
         });
     }
 }
 
-use std::error::Error as StdError;
-
+// TODO: clean this and split
 #[tracing::instrument(
     level = "info",
     name = "agent.run",
@@ -100,6 +102,7 @@ use std::error::Error as StdError;
     fields(graph_id, user_role),
     err
 )]
+#[allow(clippy::let_underscore_must_use)]
 async fn run_agent_loop(
     openrouter_client: &OpenRouterClient,
     metadata_client: &MetadataClient,
@@ -164,8 +167,9 @@ async fn run_agent_loop(
         let doc = metadata_client
             .get_session_document(doc_id)
             .await
-            .map_err(|e| AgentError::Internal {
-                message: format!("Failed to load document {doc_id}: {e}"),
+            .map_err(|err| AgentError::Internal {
+                message: format!("Failed to load document {doc_id}: {err}"),
+                source: Some(Box::new(err)),
             })?;
 
         // Build the combined format that the chunker expects
@@ -256,7 +260,7 @@ async fn run_agent_loop(
                     tool_call_id: None,
                     document_id: document_id.map(String::from),
                     document_name: None,
-                    chunk_index: Some((chunk_idx + 1) as i32),
+                    chunk_index: Some(i32::try_from(chunk_idx + 1).unwrap_or_default()),
                 }],
             )
             .await;
@@ -272,7 +276,7 @@ async fn run_agent_loop(
                     tool_call_id: None,
                     document_id: document_id.map(String::from),
                     document_name: None,
-                    chunk_index: Some((chunk_idx + 1) as i32),
+                    chunk_index: Some(i32::try_from(chunk_idx + 1).unwrap_or_default()),
                 }],
             )
             .await;
@@ -288,11 +292,12 @@ async fn run_agent_loop(
                 break;
             }
 
-            let _permit = llm_semaphore
+            let permit = llm_semaphore
                 .acquire()
                 .await
-                .map_err(|_| AgentError::Internal {
+                .map_err(|err| AgentError::Internal {
                     message: "LLM semaphore closed".to_owned(),
+                    source: Some(Box::new(err)),
                 })?;
 
             let result = openrouter_client
@@ -303,7 +308,7 @@ async fn run_agent_loop(
                     source: e,
                 })?;
 
-            drop(_permit);
+            drop(permit);
 
             // Stream text to user only for single-chunk messages.
             // For multi-chunk, intermediate text is kept in history silently.
@@ -417,7 +422,11 @@ async fn run_agent_loop(
                     }
                 })?;
 
-                messages[0] = Message::system(build_system_prompt(&schema));
+                if let Some(first) = messages.get_mut(0) {
+                    *first = Message::system(build_system_prompt(&schema));
+                } else {
+                    messages.insert(0, Message::system(build_system_prompt(&schema)));
+                }
             }
 
             iteration += 1;
@@ -439,11 +448,12 @@ async fn run_agent_loop(
              Provide a concise summary of everything you extracted and stored in the graph.",
         ));
 
-        let _permit = llm_semaphore
+        let permit = llm_semaphore
             .acquire()
             .await
-            .map_err(|_| AgentError::Internal {
+            .map_err(|err| AgentError::Internal {
                 message: "LLM semaphore closed".to_owned(),
+                source: Some(Box::new(err)),
             })?;
 
         let summary_result = openrouter_client
@@ -454,7 +464,7 @@ async fn run_agent_loop(
                 source: e,
             })?;
 
-        drop(_permit);
+        drop(permit);
 
         let summary = summary_result
             .content
@@ -573,8 +583,10 @@ fn build_message_history(
 
         // Always keep the first user message (session intent)
         if keep_from > 0 && !history.is_empty() {
-            trimmed.push(history[0].clone());
-            total_chars += message_char_size(&history[0]);
+            if let Some(first) = history.first() {
+                trimmed.push(first.clone());
+                total_chars += message_char_size(first);
+            }
 
             let dropped = keep_from - 1; // minus the first message we kept
             if dropped > 0 {
@@ -586,7 +598,7 @@ fn build_message_history(
 
         for msg in history
             .iter()
-            .skip(keep_from.max(if keep_from > 0 { 1 } else { 0 }))
+            .skip(keep_from.max(usize::from(keep_from > 0)))
         {
             total_chars += message_char_size(msg);
             trimmed.push(msg.clone());
@@ -601,7 +613,7 @@ fn build_message_history(
 }
 
 fn message_char_size(msg: &Message) -> usize {
-    msg.content.as_ref().map_or(0, |c| c.len())
+    msg.content.as_ref().map_or(0, std::string::String::len)
 }
 
 async fn persist_messages(

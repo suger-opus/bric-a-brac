@@ -1,6 +1,7 @@
 use secrecy::SecretString;
 
 #[derive(Clone, clap::Args, derive_more::Debug)]
+#[allow(clippy::struct_field_names)]
 pub struct OpenRouterConfig {
     /// `OpenRouter` API key
     #[arg(long, env = "OPENROUTER_API_KEY", required = true)]
@@ -24,17 +25,14 @@ pub struct OpenRouterConfig {
 }
 
 impl OpenRouterConfig {
-    #[must_use] 
     pub const fn api_key(&self) -> &SecretString {
         &self.openrouter_api_key
     }
 
-    #[must_use] 
     pub fn default_model(&self) -> &str {
         &self.openrouter_default_model
     }
 
-    #[must_use] 
     pub fn embedding_model(&self) -> &str {
         &self.openrouter_embedding_model
     }

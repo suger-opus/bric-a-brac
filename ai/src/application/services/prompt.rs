@@ -1,5 +1,6 @@
 use bric_a_brac_protos::common::GraphSchemaProto;
 
+#[allow(clippy::format_push_string)]
 pub fn build_system_prompt(schema: &GraphSchemaProto) -> String {
     let mut prompt = String::new();
 
