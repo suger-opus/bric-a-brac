@@ -9,7 +9,6 @@ bric-a-brac-id = { workspace = true }
 
 chrono = { workspace = true, features = ["serde"] }
 derive_more = { workspace = true, features = ["debug", "display"] }
-lazy_static = { workspace = true }
 prost-types = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }

@@ -15,7 +15,7 @@ impl TryFrom<String> for NodeDataIdDto {
     type Error = DtosConversionError;
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        Ok(NodeDataIdDto::from_str(&s)?)
+        Ok(Self::from_str(&s)?)
     }
 }
 

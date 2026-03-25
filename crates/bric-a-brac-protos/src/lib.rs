@@ -18,9 +18,9 @@ pub mod metadata {
 // Base trait & error
 mod client;
 mod error;
-mod tracing;
 mod server;
+mod tracing;
 
-pub use server::build_grpc_server;
 pub use client::with_retry;
 pub use error::{BaseGrpcClientError, GrpcServiceKind};
+pub use server::build_grpc_server;

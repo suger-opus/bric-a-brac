@@ -14,7 +14,7 @@ impl TryFrom<String> for EdgeSchemaIdDto {
     type Error = DtosConversionError;
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        Ok(EdgeSchemaIdDto::from_str(&s)?)
+        Ok(Self::from_str(&s)?)
     }
 }
 

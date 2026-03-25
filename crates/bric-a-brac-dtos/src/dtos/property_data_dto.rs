@@ -46,7 +46,7 @@ impl TryFrom<HashMap<String, PropertyValueProto>> for PropertiesDataDto {
             };
             values.insert(k, json_value);
         }
-        Ok(PropertiesDataDto { values })
+        Ok(Self { values })
     }
 }
 

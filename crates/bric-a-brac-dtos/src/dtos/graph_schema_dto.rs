@@ -42,11 +42,13 @@ impl TryFrom<Option<GraphSchemaProto>> for GraphSchemaDto {
     type Error = DtosConversionError;
 
     fn try_from(proto: Option<GraphSchemaProto>) -> Result<Self, Self::Error> {
-        match proto {
-            Some(p) => Self::try_from(p),
-            None => Err(DtosConversionError::NoField {
-                field_name: "GraphSchemaProto".to_string(),
-            }),
-        }
+        proto.map_or_else(
+            || {
+                Err(DtosConversionError::NoField {
+                    field_name: "GraphSchemaProto".to_owned(),
+                })
+            },
+            Self::try_from,
+        )
     }
 }

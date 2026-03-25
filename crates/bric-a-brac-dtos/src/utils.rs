@@ -9,22 +9,23 @@ pub trait ProtoTimestampExt {
 
 impl ProtoTimestampExt for Option<Timestamp> {
     fn to_chrono(&self) -> Result<chrono::DateTime<Utc>, DtosConversionError> {
-        let timestamp = self.as_ref().ok_or(DtosConversionError::Timestamp {
-            value: "None".to_string(),
-        })?;
-        Ok(
-            DateTime::from_timestamp(timestamp.seconds, timestamp.nanos as u32).ok_or(
-                DtosConversionError::Timestamp {
-                    value: timestamp.to_string(),
-                },
-            )?,
+        let timestamp = self
+            .as_ref()
+            .ok_or_else(|| DtosConversionError::Timestamp {
+                value: "None".to_owned(),
+            })?;
+
+        DateTime::from_timestamp(timestamp.seconds, timestamp.nanos.cast_unsigned()).ok_or_else(
+            || DtosConversionError::Timestamp {
+                value: timestamp.to_string(),
+            },
         )
     }
 
     fn from_chrono(datetime: DateTime<Utc>) -> Self {
         Some(Timestamp {
             seconds: datetime.timestamp(),
-            nanos: datetime.timestamp_subsec_nanos() as i32,
+            nanos: datetime.timestamp_subsec_nanos().cast_signed(),
         })
     }
 }

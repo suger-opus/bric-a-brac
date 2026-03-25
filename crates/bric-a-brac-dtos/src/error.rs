@@ -24,6 +24,6 @@ pub enum DtosConversionError {
 
 impl From<uuid::Error> for DtosConversionError {
     fn from(e: uuid::Error) -> Self {
-        DtosConversionError::Uuid { source: e }
+        Self::Uuid { source: e }
     }
 }

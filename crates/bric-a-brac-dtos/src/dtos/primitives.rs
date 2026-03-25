@@ -1,17 +1,19 @@
-use lazy_static::lazy_static;
 use rand::RngExt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 use utoipa::{PartialSchema, ToSchema};
 use validator::Validate;
 
 const LETTERS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const BASE62: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-lazy_static! {
-    static ref COLOR_REGEX: Regex = Regex::new(r"^#[0-9A-Fa-f]{6}$").unwrap();
-    static ref KEY_REGEX: Regex = Regex::new(r"^[a-zA-Z][a-zA-Z0-9]{7}$").unwrap();
-}
+#[allow(clippy::expect_used)]
+static COLOR_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^#[0-9A-Fa-f]{6}$").expect("Invalid color regex"));
+#[allow(clippy::expect_used)]
+static KEY_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9]{7}$").expect("Invalid key regex"));
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display)]
 #[display("{value}")]
@@ -104,6 +106,7 @@ impl From<ColorDto> for String {
 
 #[derive(
     Debug,
+    Default,
     Clone,
     Serialize,
     Deserialize,
@@ -125,12 +128,12 @@ pub struct KeyDto {
 impl KeyDto {
     pub fn new() -> Self {
         let mut rng = rand::rng();
-        let first = LETTERS[rng.random_range(0..52)] as char;
+        let first = *LETTERS.get(rng.random_range(0..52)).unwrap_or(&b'a') as char;
         let rest: String = (0..7)
-            .map(|_| BASE62[rng.random_range(0..62)] as char)
+            .map(|_| *BASE62.get(rng.random_range(0..62)).unwrap_or(&b'0') as char)
             .collect();
         Self {
-            value: format!("{}{}", first, rest),
+            value: format!("{first}{rest}"),
         }
     }
 
@@ -187,7 +190,10 @@ mod tests {
         use std::collections::HashSet;
         let mut set = HashSet::new();
         for _ in 0..1000 {
-            assert!(set.insert(KeyDto::new().to_string()), "Duplicate key generated");
+            assert!(
+                set.insert(KeyDto::new().to_string()),
+                "Duplicate key generated"
+            );
         }
     }
 }

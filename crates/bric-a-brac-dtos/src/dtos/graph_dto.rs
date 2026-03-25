@@ -8,6 +8,6 @@ impl TryFrom<String> for GraphIdDto {
     type Error = DtosConversionError;
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        Ok(GraphIdDto::from_str(&s)?)
+        Ok(Self::from_str(&s)?)
     }
 }
