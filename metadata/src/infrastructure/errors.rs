@@ -61,12 +61,12 @@ pub enum DatabaseError {
 impl From<sqlx::Error> for DatabaseError {
     fn from(err: sqlx::Error) -> Self {
         match &err {
-            sqlx::Error::RowNotFound => DatabaseError::NotFound { source: err },
+            sqlx::Error::RowNotFound => Self::NotFound { source: err },
             sqlx::Error::Database(db_err) => {
                 let pg_err = db_err.downcast_ref::<PgDatabaseError>();
-                let detail = pg_err.detail().unwrap_or("unknown").to_string();
-                let table = pg_err.table().unwrap_or("unknown").to_string();
-                let constraint_name = pg_err.constraint().unwrap_or("unknown").to_string();
+                let detail = pg_err.detail().unwrap_or("unknown").to_owned();
+                let table = pg_err.table().unwrap_or("unknown").to_owned();
+                let constraint_name = pg_err.constraint().unwrap_or("unknown").to_owned();
                 let column = pg_err
                     .constraint()
                     .and_then(|constraint| {
@@ -75,40 +75,40 @@ impl From<sqlx::Error> for DatabaseError {
                             .and_then(|s| s.split_once('_').map(|(_, field)| field))
                     })
                     .unwrap_or("unknown")
-                    .to_string();
+                    .to_owned();
 
                 match db_err.kind() {
-                    ErrorKind::UniqueViolation => DatabaseError::UniqueConstraintViolation {
+                    ErrorKind::UniqueViolation => Self::UniqueConstraintViolation {
                         table,
                         column,
                         detail,
                         source: err,
                     },
-                    ErrorKind::NotNullViolation => DatabaseError::PrimaryConstraintViolation {
+                    ErrorKind::NotNullViolation => Self::PrimaryConstraintViolation {
                         table,
                         column,
-                        constraint: "not null".to_string(),
+                        constraint: "not null".to_owned(),
                         detail,
                         source: err,
                     },
-                    ErrorKind::ForeignKeyViolation => DatabaseError::PrimaryConstraintViolation {
+                    ErrorKind::ForeignKeyViolation => Self::PrimaryConstraintViolation {
                         table,
                         column,
-                        constraint: "foreign key".to_string(),
+                        constraint: "foreign key".to_owned(),
                         detail,
                         source: err,
                     },
-                    ErrorKind::CheckViolation => DatabaseError::BusinessConstraintViolation {
+                    ErrorKind::CheckViolation => Self::BusinessConstraintViolation {
                         table,
                         column,
                         constraint: constraint_name,
                         detail,
                         source: err,
                     },
-                    _ => DatabaseError::Unknown { source: err },
+                    _ => Self::Unknown { source: err },
                 }
             }
-            _ => DatabaseError::Unknown { source: err },
+            _ => Self::Unknown { source: err },
         }
     }
 }

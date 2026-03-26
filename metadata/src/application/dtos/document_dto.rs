@@ -5,8 +5,18 @@ use bric_a_brac_protos::metadata::SessionDocumentProto;
 use chrono::{DateTime, Utc};
 use prost_types::Timestamp;
 use serde::Serialize;
+use std::str::FromStr;
 
 id!(SessionDocumentIdDto);
+
+// TODO: should be inside dtos crates
+impl TryFrom<String> for SessionDocumentIdDto {
+    type Error = String;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        Self::from_str(&s).map_err(|err| err.to_string())
+    }
+}
 
 impl From<SessionDocumentIdModel> for SessionDocumentIdDto {
     fn from(id: SessionDocumentIdModel) -> Self {

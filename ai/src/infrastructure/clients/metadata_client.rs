@@ -3,8 +3,7 @@ use bric_a_brac_protos::{
     common::{EdgeSchemaProto, GraphSchemaProto, NodeSchemaProto},
     metadata::{
         metadata_client::MetadataClient as MetadataGrpcClient, AppendSessionMessagesRequest,
-        CloseSessionRequest, CreateEdgeSchemaRequest, CreateNodeSchemaRequest,
-        CreateSessionRequest, GetSchemaRequest,
+        CloseSessionRequest, CreateEdgeSchemaRequest, CreateNodeSchemaRequest, GetSchemaRequest,
         GetSessionDocumentRequest, GetSessionMessagesRequest, GetSessionRequest,
         NewSessionMessageProto, SessionDocumentProto, SessionMessageProto, SessionProto,
     },
@@ -28,37 +27,7 @@ impl MetadataClient {
     }
 
     // --- Session RPCs ---
-
-    #[tracing::instrument(
-        level = "debug",
-        name = "metadata_client.create_session",
-        skip(self, graph_id, user_id),
-        err
-    )]
-    pub async fn create_session(
-        &self,
-        graph_id: &str,
-        user_id: &str,
-    ) -> Result<SessionProto, GrpcClientError> {
-        let client = self.client.clone();
-        let graph_id = graph_id.to_owned();
-        let user_id = user_id.to_owned();
-        with_retry(
-            GrpcServiceKind::Metadata,
-            "Failed to create session",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(CreateSessionRequest {
-                    graph_id: graph_id.clone(),
-                    user_id: user_id.clone(),
-                });
-                async move { c.create_session(req).await }
-            },
-        )
-        .await
-        .map_err(Into::into)
-    }
-
+    // TODO: might need a session DTO
     #[tracing::instrument(
         level = "debug",
         name = "metadata_client.get_session",

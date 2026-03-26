@@ -66,8 +66,8 @@ impl Knowledge for KnowledgeService {
 
         for key_str in &req.node_keys {
             let key: KeyDto = key_str.clone().into();
-            key.validate().map_err(|e| AppError::InvalidInput {
-                reason: format!("Invalid node key '{key_str}': {e}"),
+            key.validate().map_err(|err| AppError::InvalidInput {
+                reason: format!("Invalid node key '{key_str}': {err}"),
             })?;
         }
 
@@ -91,8 +91,8 @@ impl Knowledge for KnowledgeService {
             .try_into()
             .map_err(AppError::from)?;
 
-        node_dto.validate().map_err(|e| AppError::InvalidInput {
-            reason: e.to_string(),
+        node_dto.validate().map_err(|err| AppError::InvalidInput {
+            reason: err.to_string(),
         })?;
 
         let node = self
@@ -183,8 +183,8 @@ impl Knowledge for KnowledgeService {
             .try_into()
             .map_err(AppError::from)?;
 
-        edge_dto.validate().map_err(|e| AppError::InvalidInput {
-            reason: e.to_string(),
+        edge_dto.validate().map_err(|err| AppError::InvalidInput {
+            reason: err.to_string(),
         })?;
 
         let edge = self
@@ -235,8 +235,8 @@ impl Knowledge for KnowledgeService {
 
         if let Some(ref nk) = req.node_key {
             let key: KeyDto = nk.clone().into();
-            key.validate().map_err(|e| AppError::InvalidInput {
-                reason: format!("Invalid node key '{nk}': {e}"),
+            key.validate().map_err(|err| AppError::InvalidInput {
+                reason: format!("Invalid node key '{nk}': {err}"),
             })?;
         }
 
@@ -284,8 +284,8 @@ impl Knowledge for KnowledgeService {
 
         if let Some(ref ek) = req.edge_key {
             let key: KeyDto = ek.clone().into();
-            key.validate().map_err(|e| AppError::InvalidInput {
-                reason: format!("Invalid edge key '{ek}': {e}"),
+            key.validate().map_err(|err| AppError::InvalidInput {
+                reason: format!("Invalid edge key '{ek}': {err}"),
             })?;
         }
 

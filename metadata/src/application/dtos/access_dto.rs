@@ -16,7 +16,7 @@ pub struct AccessDto {
 
 impl From<AccessModel> for AccessDto {
     fn from(access: AccessModel) -> Self {
-        AccessDto {
+        Self {
             graph_id: access.graph_id.into(),
             user_id: access.user_id.into(),
             role: access.role.into(),
@@ -54,11 +54,11 @@ pub enum RoleDto {
 impl From<RoleDto> for RoleModel {
     fn from(role: RoleDto) -> Self {
         match role {
-            RoleDto::Owner => RoleModel::Owner,
-            RoleDto::Admin => RoleModel::Admin,
-            RoleDto::Editor => RoleModel::Editor,
-            RoleDto::Viewer => RoleModel::Viewer,
-            RoleDto::None => RoleModel::None,
+            RoleDto::Owner => Self::Owner,
+            RoleDto::Admin => Self::Admin,
+            RoleDto::Editor => Self::Editor,
+            RoleDto::Viewer => Self::Viewer,
+            RoleDto::None => Self::None,
         }
     }
 }
@@ -66,11 +66,11 @@ impl From<RoleDto> for RoleModel {
 impl From<RoleModel> for RoleDto {
     fn from(role: RoleModel) -> Self {
         match role {
-            RoleModel::Owner => RoleDto::Owner,
-            RoleModel::Admin => RoleDto::Admin,
-            RoleModel::Editor => RoleDto::Editor,
-            RoleModel::Viewer => RoleDto::Viewer,
-            RoleModel::None => RoleDto::None,
+            RoleModel::Owner => Self::Owner,
+            RoleModel::Admin => Self::Admin,
+            RoleModel::Editor => Self::Editor,
+            RoleModel::Viewer => Self::Viewer,
+            RoleModel::None => Self::None,
         }
     }
 }

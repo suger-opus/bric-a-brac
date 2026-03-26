@@ -118,9 +118,9 @@ async fn run_agent_loop(
         metadata_client
             .get_session(session_id)
             .await
-            .map_err(|e| AgentError::SessionLoad {
+            .map_err(|err| AgentError::SessionLoad {
                 session_id: session_id.to_owned(),
-                source: e,
+                source: err,
             })?;
 
     let graph_id = &session.graph_id;
@@ -134,9 +134,9 @@ async fn run_agent_loop(
     let existing_messages = metadata_client
         .get_session_messages(session_id)
         .await
-        .map_err(|e| AgentError::MessagesLoad {
+        .map_err(|err| AgentError::MessagesLoad {
             session_id: session_id.to_owned(),
-            source: e,
+            source: err,
         })?;
 
     tracing::debug!(
@@ -149,9 +149,9 @@ async fn run_agent_loop(
         metadata_client
             .get_schema(graph_id)
             .await
-            .map_err(|e| AgentError::SchemaLoad {
+            .map_err(|err| AgentError::SchemaLoad {
                 graph_id: graph_id.clone(),
-                source: e,
+                source: err,
             })?;
 
     let tools = build_tool_list(user_role);
@@ -303,9 +303,9 @@ async fn run_agent_loop(
             let result = openrouter_client
                 .chat_stream(messages.clone(), Some(tools.clone()))
                 .await
-                .map_err(|e| AgentError::LlmCall {
+                .map_err(|err| AgentError::LlmCall {
                     iteration,
-                    source: e,
+                    source: err,
                 })?;
 
             drop(permit);
@@ -415,10 +415,10 @@ async fn run_agent_loop(
 
             // Refresh schema if any tool modified it
             if schema_changed {
-                schema = metadata_client.get_schema(graph_id).await.map_err(|e| {
+                schema = metadata_client.get_schema(graph_id).await.map_err(|err| {
                     AgentError::SchemaRefresh {
                         graph_id: graph_id.clone(),
-                        source: e,
+                        source: err,
                     }
                 })?;
 
@@ -459,9 +459,9 @@ async fn run_agent_loop(
         let summary_result = openrouter_client
             .chat_stream(messages.clone(), None)
             .await
-            .map_err(|e| AgentError::LlmCall {
+            .map_err(|err| AgentError::LlmCall {
                 iteration,
-                source: e,
+                source: err,
             })?;
 
         drop(permit);
@@ -624,12 +624,12 @@ async fn persist_messages(
     if messages.is_empty() {
         return;
     }
-    if let Err(e) = metadata_client
+    if let Err(err) = metadata_client
         .append_session_messages(session_id, messages)
         .await
     {
         tracing::error!(
-            error = ?e,
+            error = ?err,
             "Failed to persist session messages"
         );
     }

@@ -7,12 +7,12 @@ use crate::{
 use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct DocumentRepository;
 
 impl DocumentRepository {
-    pub fn new() -> Self {
-        DocumentRepository
+    pub const fn new() -> Self {
+        Self
     }
 
     #[tracing::instrument(

@@ -1,14 +1,24 @@
 use crate::domain::models::{SessionIdModel, SessionMessageModel, SessionModel};
-use bric_a_brac_dtos::GraphIdDto;
 use bric_a_brac_dtos::utils::ProtoTimestampExt;
+use bric_a_brac_dtos::GraphIdDto;
 use bric_a_brac_id::id;
 use bric_a_brac_protos::metadata::{SessionMessageProto, SessionProto};
 use chrono::{DateTime, Utc};
 use prost_types::Timestamp;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use utoipa::ToSchema;
 
 id!(SessionIdDto);
+
+// TODO: should be inside dtos crates
+impl TryFrom<String> for SessionIdDto {
+    type Error = String;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        Self::from_str(&s).map_err(|err| err.to_string())
+    }
+}
 
 impl From<SessionIdModel> for SessionIdDto {
     fn from(id: SessionIdModel) -> Self {

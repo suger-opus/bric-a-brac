@@ -1,5 +1,6 @@
 use crate::{
     application::dtos::{CreateGraphDto, GraphMetadataDto, UserIdDto},
+    application::errors::AppError,
     domain::models::{
         CreateAccessModel, CreateEdgeSchemaModel, CreateNodeSchemaModel, EdgeSchemaIdModel,
         NodeSchemaIdModel, RoleModel,
@@ -9,10 +10,10 @@ use crate::{
         errors::GrpcClientError,
         repositories::{AccessRepository, GraphRepository},
     },
-    application::errors::AppError,
 };
-use bric_a_brac_dtos::{EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto, NodeSchemaDto};
-use rand::RngExt;
+use bric_a_brac_dtos::{
+    ColorDto, EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto, KeyDto, NodeSchemaDto,
+};
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -24,13 +25,13 @@ pub struct GraphService {
 }
 
 impl GraphService {
-    pub fn new(
+    pub const fn new(
         pool: PgPool,
         repository: GraphRepository,
         access_repository: AccessRepository,
         knowledge_client: KnowledgeClient,
     ) -> Self {
-        GraphService {
+        Self {
             pool,
             repository,
             access_repository,
@@ -129,12 +130,17 @@ impl GraphService {
         Ok(schema.into())
     }
 
-    #[tracing::instrument(level = "trace", name = "graph_service.get_data", skip(self, graph_id), err)]
+    #[tracing::instrument(
+        level = "trace",
+        name = "graph_service.get_data",
+        skip(self, graph_id),
+        err
+    )]
     pub async fn get_data(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, AppError> {
         let proto = self.knowledge_client.load_graph(graph_id).await?;
         proto
             .try_into()
-            .map_err(|e| GrpcClientError::Conversion(e).into())
+            .map_err(|err| GrpcClientError::Conversion(err).into())
     }
 
     #[tracing::instrument(
@@ -149,8 +155,8 @@ impl GraphService {
         label: String,
         description: String,
     ) -> Result<NodeSchemaDto, AppError> {
-        let key = generate_key();
-        let color = generate_color();
+        let key: String = KeyDto::new().into();
+        let color = ColorDto::new().into();
 
         let create = CreateNodeSchemaModel {
             node_schema_id: NodeSchemaIdModel::new(),
@@ -185,8 +191,8 @@ impl GraphService {
         label: String,
         description: String,
     ) -> Result<EdgeSchemaDto, AppError> {
-        let key = generate_key();
-        let color = generate_color();
+        let key = KeyDto::new().into();
+        let color = ColorDto::new().into();
 
         let create = CreateEdgeSchemaModel {
             edge_schema_id: EdgeSchemaIdModel::new(),
@@ -213,7 +219,10 @@ impl GraphService {
     pub async fn delete_graph(&self, graph_id: GraphIdDto) -> Result<(), AppError> {
         // Fetch node schema keys so we can drop vector indexes in Memgraph
         let mut txn = self.pool.begin().await?;
-        let schema = self.repository.get_schema(&mut txn, graph_id.into()).await?;
+        let schema = self
+            .repository
+            .get_schema(&mut txn, graph_id.into())
+            .await?;
         let node_keys: Vec<String> = schema.nodes.iter().map(|n| n.key.clone()).collect();
 
         // Delete all graph data from Memgraph (nodes, edges, vector indexes)
@@ -229,29 +238,4 @@ impl GraphService {
 
         Ok(())
     }
-}
-
-/// Generate a random 8-character key matching pattern `^[a-zA-Z][a-zA-Z0-9]{7}$`
-fn generate_key() -> String {
-    let mut rng = rand::rng();
-    let letters = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let alphanum = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-    let mut key = String::with_capacity(8);
-    key.push(letters[rng.random_range(0..letters.len())] as char);
-    for _ in 0..7 {
-        key.push(alphanum[rng.random_range(0..alphanum.len())] as char);
-    }
-    key
-}
-
-/// Generate a random hex color like `#A1B2C3`
-fn generate_color() -> String {
-    let mut rng = rand::rng();
-    format!(
-        "#{:02X}{:02X}{:02X}",
-        rng.random_range(0..=255u8),
-        rng.random_range(0..=255u8),
-        rng.random_range(0..=255u8),
-    )
 }

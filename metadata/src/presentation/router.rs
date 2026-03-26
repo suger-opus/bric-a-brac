@@ -19,13 +19,13 @@ pub fn build(state: ApiState) -> Router {
         .route(
             "/docs/openapi.json",
             get(|| async {
-                match ApiDoc::openapi().to_json() {
-                    Ok(json_str) => match serde_json::from_str::<serde_json::Value>(&json_str) {
-                        Ok(json) => Json(json),
-                        Err(_) => Json(serde_json::json!({})),
+                ApiDoc::openapi().to_json().map_or_else(
+                    |_| Json(serde_json::json!({})),
+                    |json_str| {
+                        serde_json::from_str::<serde_json::Value>(&json_str)
+                            .map_or_else(|_| Json(serde_json::json!({})), Json)
                     },
-                    Err(_) => Json(serde_json::json!({})),
-                }
+                )
             }),
         )
         .route("/users", post(user_handler::create))

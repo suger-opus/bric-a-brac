@@ -60,10 +60,14 @@ pub async fn get_active(
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Path(graph_id): Path<GraphIdDto>,
 ) -> impl IntoResponse {
-    match state.session_service.get_active_session(graph_id, user_id).await {
+    match state
+        .session_service
+        .get_active_session(graph_id, user_id)
+        .await
+    {
         Ok(Some(session)) => (StatusCode::OK, Json(session)).into_response(),
         Ok(None) => StatusCode::NO_CONTENT.into_response(),
-        Err(e) => e.into_response(),
+        Err(err) => err.into_response(),
     }
 }
 

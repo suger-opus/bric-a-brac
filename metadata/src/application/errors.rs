@@ -3,16 +3,29 @@ use crate::infrastructure::errors::{DatabaseError, GrpcClientError};
 #[derive(Debug, thiserror::Error)]
 pub enum RequestError {
     #[error("Request: unauthorized - {reason}")]
-    Unauthorized { reason: String },
+    Unauthorized {
+        reason: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
 
     #[error("Request: invalid header {header} - {issue}")]
     InvalidHeader { issue: String, header: String },
 
     #[error("Request: invalid file - {issue}")]
-    InvalidFile { issue: String },
+    InvalidFile {
+        issue: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
 
     #[error("Request: invalid input {field} - {issue}")]
-    InvalidInput { issue: String, field: String },
+    InvalidInput {
+        issue: String,
+        field: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]

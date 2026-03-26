@@ -8,7 +8,7 @@ pub struct KnowledgeServerConfig {
 }
 
 impl KnowledgeServerConfig {
-    pub fn url(&self) -> &Uri {
+    pub const fn url(&self) -> &Uri {
         &self.knowledge_grpc_server_url
     }
 }

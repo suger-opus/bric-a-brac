@@ -4,12 +4,12 @@ use crate::{
 };
 use sqlx::PgConnection;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct AccessRepository;
 
 impl AccessRepository {
-    pub fn new() -> Self {
-        AccessRepository
+    pub const fn new() -> Self {
+        Self
     }
 
     #[tracing::instrument(

@@ -14,19 +14,8 @@ pub enum SessionMessageRoleModel {
     Tool,
 }
 
-impl std::fmt::Display for SessionMessageRoleModel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::System => write!(f, "system"),
-            Self::User => write!(f, "user"),
-            Self::Assistant => write!(f, "assistant"),
-            Self::Tool => write!(f, "tool"),
-        }
-    }
-}
-
 impl std::str::FromStr for SessionMessageRoleModel {
-    type Err = String;
+    type Err = std::io::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -34,7 +23,21 @@ impl std::str::FromStr for SessionMessageRoleModel {
             "user" => Ok(Self::User),
             "assistant" => Ok(Self::Assistant),
             "tool" => Ok(Self::Tool),
-            other => Err(format!("Invalid message role: {other}")),
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Unknown message role: {s}"),
+            )),
+        }
+    }
+}
+
+impl std::fmt::Display for SessionMessageRoleModel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::System => write!(f, "system"),
+            Self::User => write!(f, "user"),
+            Self::Assistant => write!(f, "assistant"),
+            Self::Tool => write!(f, "tool"),
         }
     }
 }

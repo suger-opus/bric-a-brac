@@ -9,12 +9,12 @@ use crate::{
 use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SessionRepository;
 
 impl SessionRepository {
-    pub fn new() -> Self {
-        SessionRepository
+    pub const fn new() -> Self {
+        Self
     }
 
     #[tracing::instrument(

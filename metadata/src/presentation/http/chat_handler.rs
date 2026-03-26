@@ -1,8 +1,6 @@
 use crate::{
     application::{
-        dtos::CreateSessionDocumentDto,
-        errors::RequestError,
-        services::file_extraction,
+        dtos::CreateSessionDocumentDto, errors::RequestError, services::file_extraction,
     },
     presentation::{extractors::AuthenticatedUser, state::ApiState},
 };
@@ -34,47 +32,52 @@ pub async fn chat(
     let mut file_text: Option<String> = None;
     let mut file_name: Option<String> = None;
 
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|e| RequestError::InvalidFile {
-            issue: format!("Failed to read multipart field: {e}"),
-        })?
+    while let Some(field) =
+        multipart
+            .next_field()
+            .await
+            .map_err(|err| RequestError::InvalidFile {
+                issue: "Failed to read multipart field".to_owned(),
+                source: Some(Box::new(err)),
+            })?
     {
-        let name = field.name().unwrap_or_default().to_string();
+        let name = field.name().unwrap_or_default().to_owned();
         match name.as_str() {
             "session_id" => {
-                session_id = Some(
-                    field
-                        .text()
-                        .await
-                        .map_err(|e| RequestError::InvalidInput {
-                            field: "session_id".to_string(),
-                            issue: format!("Failed to read session_id: {e}"),
-                        })?,
-                );
+                session_id =
+                    Some(
+                        field
+                            .text()
+                            .await
+                            .map_err(|err| RequestError::InvalidInput {
+                                field: "session_id".to_owned(),
+                                issue: format!("Failed to read session_id: {err}"),
+                                source: None,
+                            })?,
+                    );
             }
             "content" => {
                 content = Some(
                     field
                         .text()
                         .await
-                        .map_err(|e| RequestError::InvalidInput {
-                            field: "content".to_string(),
-                            issue: format!("Failed to read content: {e}"),
+                        .map_err(|err| RequestError::InvalidInput {
+                            field: "content".to_owned(),
+                            issue: format!("Failed to read content: {err}"),
+                            source: None,
                         })?,
                 );
             }
             "file" => {
                 file_name = field.file_name().map(ToString::to_string);
                 let content_type = field.content_type().map(ToString::to_string);
-                let bytes =
-                    field
-                        .bytes()
-                        .await
-                        .map_err(|e| RequestError::InvalidFile {
-                            issue: format!("Failed to read file bytes: {e}"),
-                        })?;
+                let bytes = field
+                    .bytes()
+                    .await
+                    .map_err(|err| RequestError::InvalidFile {
+                        issue: "Failed to read file bytes".to_owned(),
+                        source: Some(Box::new(err)),
+                    })?;
 
                 let extracted = file_extraction::extract_text(
                     &bytes,
@@ -88,8 +91,9 @@ pub async fn chat(
     }
 
     let session_id = session_id.ok_or(RequestError::InvalidInput {
-        field: "session_id".to_string(),
-        issue: "session_id is required".to_string(),
+        field: "session_id".to_owned(),
+        issue: "session_id is required".to_owned(),
+        source: None,
     })?;
 
     let user_content = content.filter(|s| !s.is_empty());
@@ -98,13 +102,13 @@ pub async fn chat(
     // The AI service will load the content on its own.
     let document_id = if let Some(ref doc_text) = file_text {
         let content_hash = format!("{:x}", Sha256::digest(doc_text.as_bytes()));
-        let filename = file_name.unwrap_or_else(|| "upload".to_string());
+        let file_name = file_name.unwrap_or_else(|| "upload".to_owned());
 
         let doc = state
             .document_service
             .create_document(CreateSessionDocumentDto {
                 session_id: session_id.clone(),
-                filename,
+                filename: file_name,
                 content_hash,
                 content: doc_text.clone(),
             })
@@ -119,8 +123,9 @@ pub async fn chat(
 
     if final_content.is_empty() && document_id.is_none() {
         return Err(RequestError::InvalidInput {
-            field: "content".to_string(),
-            issue: "At least one of 'content' or 'file' must be provided".to_string(),
+            field: "content".to_owned(),
+            issue: "At least one of 'content' or 'file' must be provided".to_owned(),
+            source: None,
         }
         .into());
     }

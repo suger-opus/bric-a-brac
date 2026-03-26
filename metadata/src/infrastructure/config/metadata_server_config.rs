@@ -1,6 +1,7 @@
 use std::net::{IpAddr, SocketAddr};
 
 #[derive(clap::Args, derive_more::Debug)]
+#[allow(clippy::struct_field_names)]
 pub struct MetadataServerConfig {
     /// Metadata server host
     #[arg(long, env = "METADATA_SERVER_HOST", required = true)]

@@ -60,7 +60,7 @@ impl From<LabelDto> for String {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display)]
 #[display("{value}")]
 #[serde(transparent)]
 pub struct ColorDto {
@@ -69,6 +69,17 @@ pub struct ColorDto {
 }
 
 impl ColorDto {
+    pub fn new() -> Self {
+        let mut rng = rand::rng();
+        let color = format!(
+            "#{:02X}{:02X}{:02X}",
+            rng.random_range(0..=255),
+            rng.random_range(0..=255),
+            rng.random_range(0..=255)
+        );
+        Self { value: color }
+    }
+
     pub fn as_str(&self) -> &str {
         &self.value
     }

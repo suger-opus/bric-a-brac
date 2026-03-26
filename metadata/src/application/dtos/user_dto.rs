@@ -30,7 +30,7 @@ pub struct UserDto {
 
 impl From<UserModel> for UserDto {
     fn from(user: UserModel) -> Self {
-        UserDto {
+        Self {
             user_id: user.user_id.into(),
             username: user.username,
             email: user.email,
@@ -53,7 +53,7 @@ pub struct CreateUserDto {
 
 impl From<CreateUserDto> for CreateUserModel {
     fn from(dto: CreateUserDto) -> Self {
-        CreateUserModel {
+        Self {
             user_id: UserIdModel::new(),
             email: dto.email,
             username: dto.username,

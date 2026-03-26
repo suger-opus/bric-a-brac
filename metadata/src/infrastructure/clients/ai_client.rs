@@ -12,7 +12,7 @@ pub struct AiClient {
 }
 
 impl AiClient {
-    pub fn new(config: AiServerConfig) -> anyhow::Result<Self> {
+    pub fn new(config: &AiServerConfig) -> anyhow::Result<Self> {
         let channel = tonic::transport::Endpoint::from_shared(config.url().to_string())?
             .connect_lazy();
         Ok(Self {

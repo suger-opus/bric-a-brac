@@ -60,7 +60,7 @@ pub struct CreateGraphDto {
 
 impl From<CreateGraphDto> for CreateGraphModel {
     fn from(dto: CreateGraphDto) -> Self {
-        CreateGraphModel {
+        Self {
             graph_id: GraphIdModel::new(),
             name: dto.name,
             description: dto.description,

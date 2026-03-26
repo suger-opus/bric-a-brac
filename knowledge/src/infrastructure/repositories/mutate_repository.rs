@@ -1,8 +1,7 @@
 use crate::{
     domain::models::{
-        EdgeDataIdModel, EdgeDataModel,
-        GraphIdModel, InsertEdgeDataModel, InsertNodeDataModel, NodeDataIdModel,
-        NodeDataModel, UpdateEdgeDataModel, UpdateNodeDataModel,
+        EdgeDataIdModel, EdgeDataModel, GraphIdModel, InsertEdgeDataModel, InsertNodeDataModel,
+        NodeDataIdModel, NodeDataModel, UpdateEdgeDataModel, UpdateNodeDataModel,
     },
     infrastructure::errors::DatabaseError,
 };
@@ -286,8 +285,8 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
                 Ok(()) => {
                     tracing::debug!(key = %key, "Vector index dropped");
                 }
-                Err(e) => {
-                    tracing::warn!(key = %key, error = ?e, "Failed to drop vector index (may not exist)");
+                Err(err) => {
+                    tracing::warn!(key = %key, error = ?err, "Failed to drop vector index (may not exist)");
                 }
             }
         }
@@ -313,8 +312,8 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
                 Ok(()) => {
                     tracing::debug!(key = %key, "Vector index created");
                 }
-                Err(e) => {
-                    tracing::warn!(key = %key, error = ?e, "Failed to create vector index (may already exist)");
+                Err(err) => {
+                    tracing::warn!(key = %key, error = ?err, "Failed to create vector index (may already exist)");
                 }
             }
         }

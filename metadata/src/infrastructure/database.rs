@@ -8,7 +8,7 @@ pub async fn connect(config: &MetadataDatabaseConfig) -> anyhow::Result<PgPool> 
 
     let pool = PgPoolOptions::new()
         .max_connections(config.max_connections())
-        .connect(&config.url().expose_secret())
+        .connect(config.url().expose_secret())
         .await
         .context("Failed to connect to metadata database")?;
 

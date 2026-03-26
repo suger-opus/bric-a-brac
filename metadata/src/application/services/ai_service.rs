@@ -10,7 +10,7 @@ pub struct AiService {
 }
 
 impl AiService {
-    pub fn new(client: AiClient) -> Self {
+    pub const fn new(client: AiClient) -> Self {
         Self { client }
     }
 
@@ -26,7 +26,7 @@ impl AiService {
         Ok(stream.map(|result| match result {
             Ok(event) => AgentEventDto::from(event.event),
             Err(status) => AgentEventDto::Error {
-                message: status.message().to_string(),
+                message: status.message().to_owned(),
             },
         }))
     }

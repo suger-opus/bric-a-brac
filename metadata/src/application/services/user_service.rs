@@ -12,8 +12,8 @@ pub struct UserService {
 }
 
 impl UserService {
-    pub fn new(pool: PgPool, repository: UserRepository) -> Self {
-        UserService { pool, repository }
+    pub const fn new(pool: PgPool, repository: UserRepository) -> Self {
+        Self { pool, repository }
     }
 
     #[tracing::instrument(level = "trace", name = "user_service.create", skip(self, create_user), err)]

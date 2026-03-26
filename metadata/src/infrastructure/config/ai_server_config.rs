@@ -8,7 +8,7 @@ pub struct AiServerConfig {
 }
 
 impl AiServerConfig {
-    pub fn url(&self) -> &Uri {
+    pub const fn url(&self) -> &Uri {
         &self.ai_grpc_server_url
     }
 }

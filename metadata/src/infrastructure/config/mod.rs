@@ -29,22 +29,22 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self, anyhow::Error> {
-        Config::try_parse().context("Failed to parse configuration")
+        Self::try_parse().context("Failed to parse configuration")
     }
 
-    pub fn metadata_server(&self) -> &MetadataServerConfig {
+    pub const fn metadata_server(&self) -> &MetadataServerConfig {
         &self.metadata_server
     }
 
-    pub fn knowledge_server(&self) -> &KnowledgeServerConfig {
+    pub const fn knowledge_server(&self) -> &KnowledgeServerConfig {
         &self.knowledge_server
     }
 
-    pub fn ai_server(&self) -> &AiServerConfig {
+    pub const fn ai_server(&self) -> &AiServerConfig {
         &self.ai_server
     }
 
-    pub fn metadata_db(&self) -> &MetadataDatabaseConfig {
+    pub const fn metadata_db(&self) -> &MetadataDatabaseConfig {
         &self.metadata_db
     }
 }

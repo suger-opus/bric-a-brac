@@ -20,10 +20,10 @@ impl FileType {
         }
 
         // Fall back to file extension
-        let name = filename?;
-        if name.ends_with(".pdf") {
+        let extension = std::path::Path::new(filename?).extension();
+        if extension.is_some_and(|ext| ext.eq_ignore_ascii_case("pdf")) {
             Some(Self::Pdf)
-        } else if name.ends_with(".txt") {
+        } else if extension.is_some_and(|ext| ext.eq_ignore_ascii_case("txt")) {
             Some(Self::PlainText)
         } else {
             None
@@ -40,17 +40,20 @@ pub fn extract_text(
 ) -> Result<String, RequestError> {
     if bytes.is_empty() {
         return Err(RequestError::InvalidFile {
-            issue: "File is empty".to_string(),
+            issue: "File is empty".to_owned(),
+            source: None,
         });
     }
 
     if bytes.len() > MAX_FILE_SIZE {
         return Err(RequestError::InvalidFile {
+            #[allow(clippy::cast_precision_loss)]
             issue: format!(
                 "File too large ({:.1} MB). Maximum is {} MB",
                 bytes.len() as f64 / 1_048_576.0,
                 MAX_FILE_SIZE / 1_048_576
             ),
+            source: None,
         });
     }
 
@@ -61,6 +64,7 @@ pub fn extract_text(
                 content_type.unwrap_or("none"),
                 filename.unwrap_or("none"),
             ),
+            source: None,
         })?;
 
     match file_type {
@@ -71,15 +75,17 @@ pub fn extract_text(
 
 fn extract_pdf(bytes: &[u8]) -> Result<String, RequestError> {
     let text =
-        pdf_extract::extract_text_from_mem(bytes).map_err(|e| RequestError::InvalidFile {
-            issue: format!("Failed to extract text from PDF: {e}"),
+        pdf_extract::extract_text_from_mem(bytes).map_err(|err| RequestError::InvalidFile {
+            issue: "Failed to extract text from PDF".to_owned(),
+            source: Some(Box::new(err)),
         })?;
     // PDF extraction can produce null bytes that PostgreSQL rejects in text columns.
     Ok(text.replace('\0', ""))
 }
 
 fn extract_plain_text(bytes: &[u8]) -> Result<String, RequestError> {
-    String::from_utf8(bytes.to_vec()).map_err(|_| RequestError::InvalidFile {
-        issue: "File is not valid UTF-8 text".to_string(),
+    String::from_utf8(bytes.to_vec()).map_err(|err| RequestError::InvalidFile {
+        issue: "File is not valid UTF-8 text".to_owned(),
+        source: Some(Box::new(err)),
     })
 }

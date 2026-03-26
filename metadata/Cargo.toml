@@ -13,10 +13,8 @@ anyhow = { workspace = true }
 axum = { workspace = true, features = ["multipart"] }
 chrono = { workspace = true, features = ["serde"] }
 clap = { workspace = true, features = ["derive", "env"] }
-csv = { workspace = true }
 derive_more = { workspace = true, features = ["debug", "display"] }
 futures-util = { workspace = true }
-lazy_static = { workspace = true }
 multer = { workspace = true }
 pdf-extract = { workspace = true }
 prost = { workspace = true }

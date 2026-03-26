@@ -20,7 +20,7 @@ impl HttpError {
     fn new(status: StatusCode, message: &str, details: Value) -> Self {
         Self {
             status,
-            message: message.to_string(),
+            message: message.to_owned(),
             details,
         }
     }
@@ -42,13 +42,6 @@ impl HttpError {
             json!({ "reason": reason }),
         )
     }
-
-    // // 403 - { user_id, action }
-    // fn forbidden(message: Option<&str>, user_id: &str, action: &str) -> Self {
-    //     let message = message.unwrap_or("Insufficient permissions");
-    //     Self::new(StatusCode::FORBIDDEN, message,
-    //         json!({ "user_id": user_id, "action": action }))
-    // }
 
     // 404 - {}
     fn not_found() -> Self {
@@ -102,7 +95,7 @@ impl From<AppError> for HttpError {
             // --- Database errors ---
             AppError::Database(DatabaseError::NotFound { source: _ }) => {
                 tracing::warn!(error = ?err, "Request failed: (Database) Not Found");
-                HttpError::not_found()
+                Self::not_found()
             }
             AppError::Database(DatabaseError::UniqueConstraintViolation {
                 table,
@@ -111,7 +104,7 @@ impl From<AppError> for HttpError {
                 source: _,
             }) => {
                 tracing::warn!(error = ?err, "Request failed: (Database) Unique Constraint Violation");
-                HttpError::conflict(table, column, detail)
+                Self::conflict(table, column, detail)
             }
             AppError::Database(DatabaseError::BusinessConstraintViolation {
                 table,
@@ -121,10 +114,9 @@ impl From<AppError> for HttpError {
                 constraint,
             }) => {
                 tracing::error!(error = ?err, "Request failed: (Database) Business Constraint Violation");
-                HttpError::internal_server_error(
+                Self::internal_server_error(
                     format!(
-                        "Database business constraint violation ({}): {}.{}: {}",
-                        constraint, table, column, detail
+                        "Database business constraint violation ({constraint}): {table}.{column}: {detail}"
                     )
                     .as_str(),
                 )
@@ -137,24 +129,21 @@ impl From<AppError> for HttpError {
                 constraint,
             }) => {
                 tracing::error!(error = ?err, "Request failed: (Database) Primary Constraint Violation");
-                HttpError::bad_request(
-                    format!("{}.{}", table, column).as_str(),
+                Self::bad_request(
+                    format!("{table}.{column}").as_str(),
                     format!(
-                        "Database primary constraint violation ({}): {}.{}: {}",
-                        constraint, table, column, detail
+                        "Database primary constraint violation ({constraint}): {table}.{column}: {detail}"
                     )
                     .as_str(),
                 )
             }
             AppError::Database(DatabaseError::UnexpectedState { reason }) => {
                 tracing::error!(error = ?err, "Request failed: (Database) Unexpected State");
-                HttpError::internal_server_error(
-                    format!("Unexpected database state: {}", reason).as_str(),
-                )
+                Self::internal_server_error(format!("Unexpected database state: {reason}").as_str())
             }
             AppError::Database(DatabaseError::Unknown { source: _ }) => {
                 tracing::error!(error = ?err, "Request failed: (Database) Unknown");
-                HttpError::internal_server_error("Unknown database error")
+                Self::internal_server_error("Unknown database error")
             }
 
             // --- gRPC client errors ---
@@ -164,29 +153,33 @@ impl From<AppError> for HttpError {
                 source: _,
             })) => {
                 tracing::error!(error = ?err, "Request failed: gRPC client error");
-                HttpError::bad_gateway("External service request failed", *service, message)
+                Self::bad_gateway("External service request failed", *service, message)
             }
             AppError::GrpcClient(GrpcClientError::Conversion(_)) => {
                 tracing::error!(error = ?err, "Request failed: gRPC DTO conversion error");
-                HttpError::internal_server_error("Failed to convert data from gRPC service")
+                Self::internal_server_error("Failed to convert data from gRPC service")
             }
 
             // --- Request errors ---
-            AppError::Request(RequestError::Unauthorized { reason }) => {
+            AppError::Request(RequestError::Unauthorized { reason, source: _ }) => {
                 tracing::warn!(error = ?err, "Request failed: (Domain) Unauthorized");
-                HttpError::unauthorized(reason)
+                Self::unauthorized(reason)
             }
             AppError::Request(RequestError::InvalidHeader { issue, header }) => {
                 tracing::warn!(error = ?err, "Request failed: (Domain) Invalid Header");
-                HttpError::bad_request(format!("Header {header}").as_str(), issue)
+                Self::bad_request(format!("Header {header}").as_str(), issue)
             }
-            AppError::Request(RequestError::InvalidFile { issue }) => {
+            AppError::Request(RequestError::InvalidFile { issue, source: _ }) => {
                 tracing::warn!(error = ?err, "Request failed: (Domain) Invalid File");
-                HttpError::bad_request("Body file", issue)
+                Self::bad_request("Body file", issue)
             }
-            AppError::Request(RequestError::InvalidInput { field, issue }) => {
+            AppError::Request(RequestError::InvalidInput {
+                field,
+                issue,
+                source: _,
+            }) => {
                 tracing::warn!(error = ?err, "Request failed: (Domain) Invalid Input");
-                HttpError::bad_request(field, issue)
+                Self::bad_request(field, issue)
             }
         }
     }

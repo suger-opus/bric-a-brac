@@ -21,16 +21,18 @@ where
             .get("user_id")
             .and_then(|v| v.to_str().ok())
             .ok_or_else(|| RequestError::Unauthorized {
-                reason: "Missing user_id header".to_string(),
+                reason: "Missing user_id header".to_owned(),
+                source: None,
             })?;
 
         let user_id = user_id_str
             .parse::<UserIdDto>()
-            .map_err(|_| RequestError::Unauthorized {
-                reason: "Invalid user_id format - must be a valid UUID".to_string(),
+            .map_err(|err| RequestError::Unauthorized {
+                reason: "Invalid user_id format - must be a valid UUID".to_owned(),
+                source: Some(Box::new(err)),
             })?;
 
         tracing::debug!(user_id = ?user_id, "Successfully extracted authenticated user");
-        Ok(AuthenticatedUser { user_id })
+        Ok(Self { user_id })
     }
 }

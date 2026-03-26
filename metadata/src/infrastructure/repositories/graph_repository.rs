@@ -9,12 +9,12 @@ use crate::{
 use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct GraphRepository;
 
 impl GraphRepository {
-    pub fn new() -> Self {
-        GraphRepository
+    pub const fn new() -> Self {
+        Self
     }
 
     #[tracing::instrument(
@@ -214,7 +214,7 @@ RETURNING
 
         if result.rows_affected() == 0 {
             return Err(DatabaseError::UnexpectedState {
-                reason: "Graph not found".to_string(),
+                reason: "Graph not found".to_owned(),
             });
         }
         Ok(())

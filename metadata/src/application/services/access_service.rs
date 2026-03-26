@@ -10,8 +10,8 @@ pub struct AccessService {
 }
 
 impl AccessService {
-    pub fn new(pool: PgPool, repository: AccessRepository) -> Self {
-        AccessService { pool, repository }
+    pub const fn new(pool: PgPool, repository: AccessRepository) -> Self {
+        Self { pool, repository }
     }
 
     #[tracing::instrument(

@@ -13,25 +13,28 @@ pub enum SessionStatusModel {
     Error,
 }
 
-impl std::fmt::Display for SessionStatusModel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Active => write!(f, "active"),
-            Self::Completed => write!(f, "completed"),
-            Self::Error => write!(f, "error"),
-        }
-    }
-}
-
 impl std::str::FromStr for SessionStatusModel {
-    type Err = String;
+    type Err = std::io::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "active" => Ok(Self::Active),
             "completed" => Ok(Self::Completed),
             "error" => Ok(Self::Error),
-            other => Err(format!("Invalid session status: {other}")),
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Unknown session status: {s}"),
+            )),
+        }
+    }
+}
+
+impl std::fmt::Display for SessionStatusModel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Active => write!(f, "active"),
+            Self::Completed => write!(f, "completed"),
+            Self::Error => write!(f, "error"),
         }
     }
 }

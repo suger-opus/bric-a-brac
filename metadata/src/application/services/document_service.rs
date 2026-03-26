@@ -1,7 +1,7 @@
 use crate::{
     application::{
         dtos::{CreateSessionDocumentDto, SessionDocumentDto, SessionDocumentIdDto},
-        errors::AppError,
+        errors::{AppError, RequestError},
     },
     domain::models::CreateSessionDocumentModel,
     infrastructure::repositories::DocumentRepository,
@@ -15,8 +15,8 @@ pub struct DocumentService {
 }
 
 impl DocumentService {
-    pub fn new(pool: PgPool, repository: DocumentRepository) -> Self {
-        DocumentService { pool, repository }
+    pub const fn new(pool: PgPool, repository: DocumentRepository) -> Self {
+        Self { pool, repository }
     }
 
     #[tracing::instrument(
@@ -32,9 +32,10 @@ impl DocumentService {
         let session_id = create
             .session_id
             .parse()
-            .map_err(|_| crate::application::errors::RequestError::InvalidInput {
-                field: "session_id".to_string(),
-                issue: "Invalid session_id".to_string(),
+            .map_err(|err| RequestError::InvalidInput {
+                field: "session_id".to_owned(),
+                issue: "Invalid session_id".to_owned(),
+                source: Some(Box::new(err)),
             })?;
 
         let model = CreateSessionDocumentModel {

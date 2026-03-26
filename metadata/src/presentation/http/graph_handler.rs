@@ -193,5 +193,5 @@ pub async fn delete_graph(
         .graph_service
         .delete_graph(graph_id)
         .await
-        .map(|_| StatusCode::NO_CONTENT)
+        .map(|()| StatusCode::NO_CONTENT)
 }
