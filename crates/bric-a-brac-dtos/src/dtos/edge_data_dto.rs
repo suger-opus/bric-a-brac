@@ -1,7 +1,7 @@
 use super::{KeyDto, NodeDataIdDto, PropertiesDataDto};
 use crate::DtosConversionError;
 use bric_a_brac_id::id;
-use bric_a_brac_protos::common::{EdgeDataProto, InsertEdgeDataProto, UpdateEdgeDataProto};
+use bric_a_brac_protos::common::{EdgeDataProto, CreateEdgeDataProto, UpdateEdgeDataProto};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use utoipa::ToSchema;
@@ -17,12 +17,14 @@ impl TryFrom<String> for EdgeDataIdDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
 pub struct EdgeDataDto {
     pub edge_data_id: EdgeDataIdDto,
+    #[validate(nested)]
     pub key: KeyDto,
     pub from_node_data_id: NodeDataIdDto,
     pub to_node_data_id: NodeDataIdDto,
+    #[validate(nested)]
     pub properties: PropertiesDataDto,
 }
 
@@ -53,17 +55,17 @@ impl From<EdgeDataDto> for EdgeDataProto {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-#[validate(schema(function = "validate_insert_no_self_loop"))]
-pub struct InsertEdgeDataDto {
+#[validate(schema(function = "validate_no_self_loop"))]
+pub struct CreateEdgeDataDto {
     #[validate(nested)]
     pub key: KeyDto,
     pub from_node_data_id: NodeDataIdDto,
     pub to_node_data_id: NodeDataIdDto,
+    #[validate(nested)]
     pub properties: PropertiesDataDto,
-    pub session_id: Option<String>,
 }
 
-fn validate_insert_no_self_loop(dto: &InsertEdgeDataDto) -> Result<(), validator::ValidationError> {
+fn validate_no_self_loop(dto: &CreateEdgeDataDto) -> Result<(), validator::ValidationError> {
     if dto.from_node_data_id == dto.to_node_data_id {
         let mut err = validator::ValidationError::new("self_loop");
         err.message = Some(
@@ -79,23 +81,23 @@ fn validate_insert_no_self_loop(dto: &InsertEdgeDataDto) -> Result<(), validator
     }
 }
 
-impl TryFrom<InsertEdgeDataProto> for InsertEdgeDataDto {
+impl TryFrom<CreateEdgeDataProto> for CreateEdgeDataDto {
     type Error = DtosConversionError;
 
-    fn try_from(proto: InsertEdgeDataProto) -> Result<Self, Self::Error> {
+    fn try_from(proto: CreateEdgeDataProto) -> Result<Self, Self::Error> {
         Ok(Self {
             key: proto.key.into(),
             from_node_data_id: proto.from_node_data_id.try_into()?,
             to_node_data_id: proto.to_node_data_id.try_into()?,
             properties: proto.properties.try_into()?,
-            session_id: proto.session_id,
         })
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct UpdateEdgeDataDto {
     pub edge_data_id: EdgeDataIdDto,
+    #[validate(nested)]
     pub properties: PropertiesDataDto,
 }
 

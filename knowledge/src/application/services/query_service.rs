@@ -1,10 +1,5 @@
-use crate::{
-    application::errors::AppError,
-    domain::models::{GraphDataModel, NodeDataModel, NodeSummaryModel},
-    domain::utils::validate_depth,
-    infrastructure::repositories::QueryRepository,
-};
-use bric_a_brac_dtos::{GraphDataDto, GraphIdDto, NodeDataIdDto};
+use crate::{application::AppError, infrastructure::QueryRepository};
+use bric_a_brac_dtos::{GraphDataDto, GraphIdDto, NodeDataDto, NodeDataIdDto, NodeSearchDto};
 use neo4rs::Graph;
 use std::sync::Arc;
 
@@ -31,7 +26,6 @@ impl QueryService {
             .load_graph(&mut txn, graph_id.into())
             .await?;
         txn.commit().await?;
-
         Ok(graph.into())
     }
 
@@ -45,14 +39,15 @@ impl QueryService {
         &self,
         graph_id: GraphIdDto,
         node_data_id: NodeDataIdDto,
-    ) -> Result<NodeDataModel, AppError> {
+    ) -> Result<NodeDataDto, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let node = self
             .repository
             .get_node(&mut txn, graph_id.into(), node_data_id.into())
             .await?;
         txn.commit().await?;
-        Ok(node)
+
+        Ok(node.into())
     }
 
     #[tracing::instrument(
@@ -66,15 +61,16 @@ impl QueryService {
         graph_id: GraphIdDto,
         node_key: Option<String>,
         embedding: Vec<f32>,
-        limit: usize,
-    ) -> Result<Vec<NodeSummaryModel>, AppError> {
+        limit: u32,
+    ) -> Result<Vec<NodeSearchDto>, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let results = self
             .repository
             .search_nodes(&mut txn, graph_id.into(), node_key, embedding, limit)
             .await?;
         txn.commit().await?;
-        Ok(results)
+
+        Ok(results.into_iter().map(Into::into).collect())
     }
 
     #[tracing::instrument(
@@ -88,9 +84,8 @@ impl QueryService {
         graph_id: GraphIdDto,
         node_data_id: NodeDataIdDto,
         edge_key: Option<String>,
-        depth: i32,
-    ) -> Result<GraphDataModel, AppError> {
-        let depth = validate_depth(depth)?;
+        depth: u8,
+    ) -> Result<GraphDataDto, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let subgraph = self
             .repository
@@ -103,7 +98,8 @@ impl QueryService {
             )
             .await?;
         txn.commit().await?;
-        Ok(subgraph)
+
+        Ok(subgraph.into())
     }
 
     #[tracing::instrument(
@@ -117,9 +113,8 @@ impl QueryService {
         graph_id: GraphIdDto,
         from_id: NodeDataIdDto,
         to_id: NodeDataIdDto,
-        max_depth: i32,
-    ) -> Result<Vec<GraphDataModel>, AppError> {
-        let max_depth = validate_depth(max_depth)?;
+        max_depth: u8,
+    ) -> Result<Vec<GraphDataDto>, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let paths = self
             .repository
@@ -132,6 +127,7 @@ impl QueryService {
             )
             .await?;
         txn.commit().await?;
-        Ok(paths)
+
+        Ok(paths.into_iter().map(Into::into).collect())
     }
 }

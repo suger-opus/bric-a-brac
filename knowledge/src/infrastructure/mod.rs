@@ -1,4 +1,8 @@
-pub mod config;
+mod config;
 pub mod database;
-pub mod errors;
-pub mod repositories;
+mod error;
+mod repositories;
+
+pub use config::{Config, KnowledgeDatabaseConfig, KnowledgeServerConfig};
+pub use error::DatabaseError;
+pub use repositories::{MutateRepository, QueryRepository};

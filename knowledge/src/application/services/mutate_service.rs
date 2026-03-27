@@ -1,12 +1,8 @@
-use crate::{
-    application::errors::AppError,
-    domain::models::{
-        EdgeDataModel, InsertEdgeDataModel, InsertNodeDataModel, NodeDataModel,
-        UpdateEdgeDataModel, UpdateNodeDataModel,
-    },
-    infrastructure::repositories::MutateRepository,
+use crate::{application::AppError, infrastructure::MutateRepository};
+use bric_a_brac_dtos::{
+    CreateEdgeDataDto, CreateNodeDataDto, EdgeDataDto, EdgeDataIdDto, GraphIdDto, NodeDataDto,
+    NodeDataIdDto, UpdateEdgeDataDto, UpdateNodeDataDto,
 };
-use bric_a_brac_dtos::{EdgeDataIdDto, GraphIdDto, NodeDataIdDto};
 use neo4rs::Graph;
 use std::sync::Arc;
 
@@ -22,22 +18,23 @@ impl MutateService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "mutate_service.insert_node",
+        name = "mutate_service.create_node",
         skip(self, graph_id, data),
         err
     )]
-    pub async fn insert_node(
+    pub async fn create_node(
         &self,
         graph_id: GraphIdDto,
-        data: InsertNodeDataModel,
-    ) -> Result<NodeDataModel, AppError> {
+        data: CreateNodeDataDto,
+    ) -> Result<NodeDataDto, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let node = self
             .repository
-            .insert_node(&mut txn, graph_id.into(), data)
+            .create_node(&mut txn, graph_id.into(), data.into())
             .await?;
         txn.commit().await?;
-        Ok(node)
+
+        Ok(node.into())
     }
 
     #[tracing::instrument(
@@ -49,35 +46,37 @@ impl MutateService {
     pub async fn update_node(
         &self,
         graph_id: GraphIdDto,
-        data: UpdateNodeDataModel,
-    ) -> Result<NodeDataModel, AppError> {
+        data: UpdateNodeDataDto,
+    ) -> Result<NodeDataDto, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let node = self
             .repository
-            .update_node(&mut txn, graph_id.into(), data)
+            .update_node(&mut txn, graph_id.into(), data.into())
             .await?;
         txn.commit().await?;
-        Ok(node)
+
+        Ok(node.into())
     }
 
     #[tracing::instrument(
         level = "trace",
-        name = "mutate_service.insert_edge",
+        name = "mutate_service.create_edge",
         skip(self, graph_id, data),
         err
     )]
-    pub async fn insert_edge(
+    pub async fn create_edge(
         &self,
         graph_id: GraphIdDto,
-        data: InsertEdgeDataModel,
-    ) -> Result<EdgeDataModel, AppError> {
+        data: CreateEdgeDataDto,
+    ) -> Result<EdgeDataDto, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let edge = self
             .repository
-            .insert_edge(&mut txn, graph_id.into(), data)
+            .create_edge(&mut txn, graph_id.into(), data.into())
             .await?;
         txn.commit().await?;
-        Ok(edge)
+
+        Ok(edge.into())
     }
 
     #[tracing::instrument(
@@ -89,15 +88,16 @@ impl MutateService {
     pub async fn update_edge(
         &self,
         graph_id: GraphIdDto,
-        data: UpdateEdgeDataModel,
-    ) -> Result<EdgeDataModel, AppError> {
+        data: UpdateEdgeDataDto,
+    ) -> Result<EdgeDataDto, AppError> {
         let mut txn = self.pool.start_txn().await?;
         let edge = self
             .repository
-            .update_edge(&mut txn, graph_id.into(), data)
+            .update_edge(&mut txn, graph_id.into(), data.into())
             .await?;
         txn.commit().await?;
-        Ok(edge)
+
+        Ok(edge.into())
     }
 
     #[tracing::instrument(

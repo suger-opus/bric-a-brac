@@ -1,9 +1,10 @@
+use super::conversions::ExtendElement;
 use crate::{
-    domain::models::{
+    domain::{
         EdgeDataModel, GraphDataModel, GraphIdModel, NodeDataIdModel, NodeDataModel,
-        NodeSummaryModel,
+        NodeSearchModel,
     },
-    infrastructure::errors::DatabaseError,
+    infrastructure::DatabaseError,
 };
 use neo4rs::query;
 use std::str::FromStr;
@@ -87,10 +88,8 @@ RETURN
             let neo_edge: neo4rs::Relation = row.get("e")?;
             let from_node_data_id = NodeDataIdModel::from_str(row.get("from_node_data_id")?)?;
             let to_node_data_id = NodeDataIdModel::from_str(row.get("to_node_data_id")?)?;
-            let mut edge_data = EdgeDataModel::try_from(neo_edge)?;
-            edge_data.from_node_data_id = from_node_data_id;
-            edge_data.to_node_data_id = to_node_data_id;
-
+            let edge_data =
+                EdgeDataModel::try_from_relation(&neo_edge, from_node_data_id, to_node_data_id)?;
             edges.push(edge_data);
         }
 
@@ -120,7 +119,7 @@ RETURN
         let row = result
             .next(&mut *connection)
             .await?
-            .ok_or(DatabaseError::NoneRow())?;
+            .ok_or(DatabaseError::NoRows())?;
         let neo_node: neo4rs::Node = row.get("n")?;
         NodeDataModel::try_from(neo_node)
     }
@@ -137,8 +136,8 @@ RETURN
         graph_id: GraphIdModel,
         node_key: Option<String>,
         embedding: Vec<f32>,
-        limit: usize,
-    ) -> Result<Vec<NodeSummaryModel>, DatabaseError> {
+        limit: u32,
+    ) -> Result<Vec<NodeSearchModel>, DatabaseError> {
         let emb: Vec<f64> = embedding.into_iter().map(f64::from).collect();
 
         let labels = if let Some(key) = node_key {
@@ -161,7 +160,7 @@ RETURN
             labels
         };
 
-        let mut all_results: Vec<NodeSummaryModel> = Vec::new();
+        let mut all_results: Vec<NodeSearchModel> = Vec::new();
 
         for label in labels {
             let cypher = format!(
@@ -183,9 +182,13 @@ RETURN node, distance"#
                 let neo_node: neo4rs::Node = row.get("node")?;
                 let distance: f32 = row.get("distance")?;
                 let node_model = NodeDataModel::try_from(neo_node)?;
-                let mut summary = NodeSummaryModel::from(node_model);
-                summary.distance = distance;
-                all_results.push(summary);
+                let node_search = NodeSearchModel {
+                    node_data_id: node_model.node_data_id,
+                    key: node_model.key,
+                    properties: node_model.properties,
+                    distance,
+                };
+                all_results.push(node_search);
             }
         }
 
@@ -194,7 +197,7 @@ RETURN node, distance"#
                 .partial_cmp(&b.distance)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        all_results.truncate(limit);
+        all_results.truncate(limit as usize);
 
         Ok(all_results)
     }
@@ -211,7 +214,7 @@ RETURN node, distance"#
         graph_id: GraphIdModel,
         node_data_id: NodeDataIdModel,
         edge_key: Option<String>,
-        depth: u32,
+        depth: u8,
     ) -> Result<GraphDataModel, DatabaseError> {
         let gid = graph_id.to_string();
         let nid = node_data_id.to_string();
@@ -264,9 +267,7 @@ RETURN DISTINCT r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_nod
             let neo_edge: neo4rs::Relation = row.get("r")?;
             let from_id = NodeDataIdModel::from_str(row.get("from_node_data_id")?)?;
             let to_id = NodeDataIdModel::from_str(row.get("to_node_data_id")?)?;
-            let mut edge_data = EdgeDataModel::try_from(neo_edge)?;
-            edge_data.from_node_data_id = from_id;
-            edge_data.to_node_data_id = to_id;
+            let edge_data = EdgeDataModel::try_from_relation(&neo_edge, from_id, to_id)?;
             edges.push(edge_data);
         }
 
@@ -285,7 +286,7 @@ RETURN DISTINCT r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_nod
         graph_id: GraphIdModel,
         from_id: NodeDataIdModel,
         to_id: NodeDataIdModel,
-        max_depth: u32,
+        max_depth: u8,
     ) -> Result<Vec<GraphDataModel>, DatabaseError> {
         let cypher = format!(
             "MATCH path = shortestPath((a {{node_data_id: $from, graph_id: $gid}})-[*..{max_depth}]-(b {{node_data_id: $to, graph_id: $gid}})) RETURN path"
@@ -314,22 +315,17 @@ RETURN DISTINCT r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_nod
 
             let mut edges = Vec::new();
             for (i, rel) in path_rels.into_iter().enumerate() {
-                let mut edge = EdgeDataModel::try_from(rel)?;
-                // Infer from/to from path order
-                if i < path_nodes.len() - 1 {
-                    edge.from_node_data_id = NodeDataIdModel::from_str(
-                        &path_nodes
-                            .get(i)
-                            .and_then(|n| n.get::<String>("node_data_id").ok())
-                            .unwrap_or_default(),
-                    )?;
-                    edge.to_node_data_id = NodeDataIdModel::from_str(
-                        &path_nodes
-                            .get(i + 1)
-                            .and_then(|n| n.get::<String>("node_data_id").ok())
-                            .unwrap_or_default(),
-                    )?;
-                }
+                let from_id: NodeDataIdModel = path_nodes
+                    .get(i)
+                    .ok_or_else(|| DatabaseError::NodeNotFoundInPath { index: i })?
+                    .extract_id("node_data_id")?
+                    .into();
+                let to_id: NodeDataIdModel = path_nodes
+                    .get(i + 1)
+                    .ok_or_else(|| DatabaseError::NodeNotFoundInPath { index: i + 1 })?
+                    .extract_id("node_data_id")?
+                    .into();
+                let edge = EdgeDataModel::try_from_unbounded_relation(&rel, from_id, to_id)?;
                 edges.push(edge);
             }
 

@@ -7,10 +7,10 @@ import "common.proto";
 service Knowledge {
     rpc LoadGraph(LoadGraphRequest) returns (common.GraphDataProto);
     rpc InitializeSchema(InitializeSchemaRequest) returns (InitializeSchemaResponse);
-    rpc InsertNode(InsertNodeRequest) returns (common.NodeDataProto);
+    rpc CreateNode(CreateNodeRequest) returns (common.NodeDataProto);
     rpc UpdateNode(UpdateNodeRequest) returns (common.NodeDataProto);
     rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
-    rpc InsertEdge(InsertEdgeRequest) returns (common.EdgeDataProto);
+    rpc CreateEdge(CreateEdgeRequest) returns (common.EdgeDataProto);
     rpc UpdateEdge(UpdateEdgeRequest) returns (common.EdgeDataProto);
     rpc DeleteEdge(DeleteEdgeRequest) returns (DeleteEdgeResponse);
     rpc SearchNodes(SearchNodesRequest) returns (SearchNodesResponse);
@@ -30,9 +30,9 @@ message InitializeSchemaRequest {
 }
 message InitializeSchemaResponse {}
 
-message InsertNodeRequest {
+message CreateNodeRequest {
     string graph_id = 1;
-    common.InsertNodeDataProto node = 2;
+    common.CreateNodeDataProto node = 2;
 }
 
 message UpdateNodeRequest {
@@ -46,9 +46,9 @@ message DeleteNodeRequest {
 }
 message DeleteNodeResponse {}
 
-message InsertEdgeRequest {
+message CreateEdgeRequest {
     string graph_id = 1;
-    common.InsertEdgeDataProto edge = 2;
+    common.CreateEdgeDataProto edge = 2;
 }
 
 message UpdateEdgeRequest {
@@ -69,7 +69,7 @@ message SearchNodesRequest {
     int32 limit = 4;
 }
 message SearchNodesResponse {
-    repeated common.NodeSummaryProto nodes = 1;
+    repeated common.NodeSearchProto nodes = 1;
 }
 
 message GetNodeRequest {
@@ -84,7 +84,7 @@ message GetNeighborsRequest {
     int32 depth = 4;
 }
 message GetNeighborsResponse {
-    common.SubgraphProto subgraph = 1;
+    common.GraphDataProto subgraph = 1;
 }
 
 message FindPathsRequest {
@@ -94,7 +94,7 @@ message FindPathsRequest {
     int32 max_depth = 4;
 }
 message FindPathsResponse {
-    repeated common.PathProto paths = 1;
+    repeated common.GraphDataProto paths = 1;
 }
 
 message DeleteGraphRequest {

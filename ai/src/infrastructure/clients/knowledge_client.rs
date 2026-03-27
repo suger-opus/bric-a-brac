@@ -1,13 +1,13 @@
 use crate::infrastructure::{config::KnowledgeServerConfig, errors::GrpcClientError};
 use bric_a_brac_protos::{
     common::{
-        InsertEdgeDataProto, InsertNodeDataProto, NodeDataProto, NodeSummaryProto, PathProto,
-        SubgraphProto, UpdateEdgeDataProto, UpdateNodeDataProto,
+        CreateEdgeDataProto, CreateNodeDataProto, GraphDataProto, NodeDataProto, NodeSearchProto,
+        UpdateEdgeDataProto, UpdateNodeDataProto,
     },
     knowledge::{
-        knowledge_client::KnowledgeClient as KnowledgeGrpcClient, DeleteEdgeRequest,
-        DeleteNodeRequest, FindPathsRequest, GetNeighborsRequest, GetNodeRequest,
-        InsertEdgeRequest, InsertNodeRequest, SearchNodesRequest, UpdateEdgeRequest,
+        knowledge_client::KnowledgeClient as KnowledgeGrpcClient, CreateEdgeRequest,
+        CreateNodeRequest, DeleteEdgeRequest, DeleteNodeRequest, FindPathsRequest,
+        GetNeighborsRequest, GetNodeRequest, SearchNodesRequest, UpdateEdgeRequest,
         UpdateNodeRequest,
     },
     with_retry, GrpcServiceKind,
@@ -31,24 +31,24 @@ impl KnowledgeClient {
 
     #[tracing::instrument(
         level = "debug",
-        name = "knowledge_client.insert_node",
+        name = "knowledge_client.create_node",
         skip(self, graph_id, node),
         err
     )]
-    pub async fn insert_node(
+    pub async fn create_node(
         &self,
         graph_id: &str,
-        node: InsertNodeDataProto,
+        node: CreateNodeDataProto,
     ) -> Result<NodeDataProto, GrpcClientError> {
         let client = self.client.clone();
         let graph_id = graph_id.to_owned();
-        with_retry(GrpcServiceKind::Knowledge, "Failed to insert node", || {
+        with_retry(GrpcServiceKind::Knowledge, "Failed to create node", || {
             let mut c = client.clone();
-            let req = Request::new(InsertNodeRequest {
+            let req = Request::new(CreateNodeRequest {
                 graph_id: graph_id.clone(),
                 node: Some(node.clone()),
             });
-            async move { c.insert_node(req).await }
+            async move { c.create_node(req).await }
         })
         .await
         .map_err(Into::into)
@@ -135,24 +135,24 @@ impl KnowledgeClient {
 
     #[tracing::instrument(
         level = "debug",
-        name = "knowledge_client.insert_edge",
+        name = "knowledge_client.create_edge",
         skip(self, graph_id, edge),
         err
     )]
-    pub async fn insert_edge(
+    pub async fn create_edge(
         &self,
         graph_id: &str,
-        edge: InsertEdgeDataProto,
+        edge: CreateEdgeDataProto,
     ) -> Result<(), GrpcClientError> {
         let client = self.client.clone();
         let graph_id = graph_id.to_owned();
-        with_retry(GrpcServiceKind::Knowledge, "Failed to insert edge", || {
+        with_retry(GrpcServiceKind::Knowledge, "Failed to create edge", || {
             let mut c = client.clone();
-            let req = Request::new(InsertEdgeRequest {
+            let req = Request::new(CreateEdgeRequest {
                 graph_id: graph_id.clone(),
                 edge: Some(edge.clone()),
             });
-            async move { c.insert_edge(req).await }
+            async move { c.create_edge(req).await }
         })
         .await
         .map_err(GrpcClientError::from)?;
@@ -196,7 +196,7 @@ impl KnowledgeClient {
         node_key: Option<String>,
         query_embedding: Vec<f32>,
         limit: i32,
-    ) -> Result<Vec<NodeSummaryProto>, GrpcClientError> {
+    ) -> Result<Vec<NodeSearchProto>, GrpcClientError> {
         let client = self.client.clone();
         let graph_id = graph_id.to_owned();
         let response = with_retry(GrpcServiceKind::Knowledge, "Failed to search nodes", || {
@@ -252,7 +252,7 @@ impl KnowledgeClient {
         node_data_id: &str,
         edge_key: Option<String>,
         depth: i32,
-    ) -> Result<SubgraphProto, GrpcClientError> {
+    ) -> Result<GraphDataProto, GrpcClientError> {
         let client = self.client.clone();
         let graph_id = graph_id.to_owned();
         let node_data_id = node_data_id.to_owned();
@@ -293,7 +293,7 @@ impl KnowledgeClient {
         from_node_data_id: &str,
         to_node_data_id: &str,
         max_depth: i32,
-    ) -> Result<Vec<PathProto>, GrpcClientError> {
+    ) -> Result<Vec<GraphDataProto>, GrpcClientError> {
         let client = self.client.clone();
         let graph_id = graph_id.to_owned();
         let from_node_data_id = from_node_data_id.to_owned();

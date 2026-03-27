@@ -1,9 +1,9 @@
 use crate::{
-    domain::models::{
-        EdgeDataIdModel, EdgeDataModel, GraphIdModel, InsertEdgeDataModel, InsertNodeDataModel,
+    domain::{
+        CreateEdgeDataModel, CreateNodeDataModel, EdgeDataIdModel, EdgeDataModel, GraphIdModel,
         NodeDataIdModel, NodeDataModel, UpdateEdgeDataModel, UpdateNodeDataModel,
     },
-    infrastructure::errors::DatabaseError,
+    infrastructure::DatabaseError,
 };
 use neo4rs::{query, BoltFloat, BoltList, BoltMap, BoltString, BoltType};
 use std::{collections::HashMap, str::FromStr};
@@ -18,22 +18,19 @@ impl MutateRepository {
 
     #[tracing::instrument(
         level = "debug",
-        name = "mutate_repository.insert_node",
+        name = "mutate_repository.create_node",
         skip(self, connection, graph_id, data),
         err
     )]
-    pub async fn insert_node(
+    pub async fn create_node(
         &self,
         connection: &mut neo4rs::Txn,
         graph_id: GraphIdModel,
-        data: InsertNodeDataModel,
+        data: CreateNodeDataModel,
     ) -> Result<NodeDataModel, DatabaseError> {
-        let mut props: HashMap<BoltString, BoltType> = data.properties.try_into()?;
+        let mut props: HashMap<BoltString, BoltType> = data.properties.into();
         props.insert("graph_id".into(), graph_id.to_string().into());
         props.insert("node_data_id".into(), data.node_data_id.to_string().into());
-        if let Some(sid) = data.session_id {
-            props.insert("session_id".into(), sid.into());
-        }
 
         let emb_bolt = BoltType::List(BoltList {
             value: data
@@ -58,7 +55,7 @@ impl MutateRepository {
         let row = result
             .next(&mut *connection)
             .await?
-            .ok_or(DatabaseError::NoneRow())?;
+            .ok_or(DatabaseError::NoRows())?;
         let neo_node: neo4rs::Node = row.get("n")?;
         NodeDataModel::try_from(neo_node)
     }
@@ -75,7 +72,7 @@ impl MutateRepository {
         graph_id: GraphIdModel,
         data: UpdateNodeDataModel,
     ) -> Result<NodeDataModel, DatabaseError> {
-        let props: HashMap<BoltString, BoltType> = data.properties.try_into()?;
+        let props: HashMap<BoltString, BoltType> = data.properties.into();
         let emb_bolt = BoltType::List(BoltList {
             value: data
                 .embedding
@@ -97,29 +94,26 @@ impl MutateRepository {
         let row = result
             .next(&mut *connection)
             .await?
-            .ok_or(DatabaseError::NoneRow())?;
+            .ok_or(DatabaseError::NoRows())?;
         let neo_node: neo4rs::Node = row.get("n")?;
         NodeDataModel::try_from(neo_node)
     }
 
     #[tracing::instrument(
         level = "debug",
-        name = "mutate_repository.insert_edge",
+        name = "mutate_repository.create_edge",
         skip(self, connection, graph_id, data),
         err
     )]
-    pub async fn insert_edge(
+    pub async fn create_edge(
         &self,
         connection: &mut neo4rs::Txn,
         graph_id: GraphIdModel,
-        data: InsertEdgeDataModel,
+        data: CreateEdgeDataModel,
     ) -> Result<EdgeDataModel, DatabaseError> {
-        let mut edge_props: HashMap<BoltString, BoltType> = data.properties.try_into()?;
+        let mut edge_props: HashMap<BoltString, BoltType> = data.properties.into();
         edge_props.insert("edge_data_id".into(), data.edge_data_id.to_string().into());
         edge_props.insert("graph_id".into(), graph_id.to_string().into());
-        if let Some(sid) = data.session_id {
-            edge_props.insert("session_id".into(), sid.into());
-        }
 
         // MERGE ensures edge uniqueness per (from, to, edge_key) triple.
         // ON CREATE sets properties for new edges, ON MATCH updates for existing ones.
@@ -144,13 +138,12 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
         let row = result
             .next(&mut *connection)
             .await?
-            .ok_or(DatabaseError::NoneRow())?;
+            .ok_or(DatabaseError::NoRows())?;
         let neo_edge: neo4rs::Relation = row.get("r")?;
         let from_node_data_id = NodeDataIdModel::from_str(row.get("from_node_data_id")?)?;
         let to_node_data_id = NodeDataIdModel::from_str(row.get("to_node_data_id")?)?;
-        let mut edge_data = EdgeDataModel::try_from(neo_edge)?;
-        edge_data.from_node_data_id = from_node_data_id;
-        edge_data.to_node_data_id = to_node_data_id;
+        let edge_data =
+            EdgeDataModel::try_from_relation(&neo_edge, from_node_data_id, to_node_data_id)?;
         Ok(edge_data)
     }
 
@@ -166,7 +159,7 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
         graph_id: GraphIdModel,
         data: UpdateEdgeDataModel,
     ) -> Result<EdgeDataModel, DatabaseError> {
-        let props: HashMap<BoltString, BoltType> = data.properties.try_into()?;
+        let props: HashMap<BoltString, BoltType> = data.properties.into();
 
         let mut result = connection
             .execute(
@@ -184,13 +177,12 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
         let row = result
             .next(&mut *connection)
             .await?
-            .ok_or(DatabaseError::NoneRow())?;
+            .ok_or(DatabaseError::NoRows())?;
         let neo_edge: neo4rs::Relation = row.get("r")?;
         let from_node_data_id = NodeDataIdModel::from_str(row.get("from_node_data_id")?)?;
         let to_node_data_id = NodeDataIdModel::from_str(row.get("to_node_data_id")?)?;
-        let mut edge_data = EdgeDataModel::try_from(neo_edge)?;
-        edge_data.from_node_data_id = from_node_data_id;
-        edge_data.to_node_data_id = to_node_data_id;
+        let edge_data =
+            EdgeDataModel::try_from_relation(&neo_edge, from_node_data_id, to_node_data_id)?;
         Ok(edge_data)
     }
 
@@ -217,10 +209,10 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
         let row = result
             .next(&mut *connection)
             .await?
-            .ok_or(DatabaseError::NoneRow())?;
+            .ok_or(DatabaseError::NoRows())?;
         let deleted: i64 = row.get("deleted")?;
         if deleted == 0 {
-            return Err(DatabaseError::NoneRow());
+            return Err(DatabaseError::NoRows());
         }
         Ok(())
     }
@@ -250,14 +242,17 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
         let row = result
             .next(&mut *connection)
             .await?
-            .ok_or(DatabaseError::NoneRow())?;
+            .ok_or(DatabaseError::NoRows())?;
         let deleted: i64 = row.get("deleted")?;
         if deleted == 0 {
-            return Err(DatabaseError::NoneRow());
+            return Err(DatabaseError::NoRows());
         }
         Ok(())
     }
 
+    // DDL statements (DROP INDEX) cannot run inside a transaction in Memgraph.
+    // We therefore take a direct pool reference (`neo4rs::Graph`) instead of a
+    // transaction handle (`neo4rs::Txn`) for this method.
     #[tracing::instrument(
         level = "debug",
         name = "mutate_repository.delete_graph_data",
@@ -293,6 +288,9 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
         Ok(())
     }
 
+    // DDL statements (CREATE VECTOR INDEX) cannot run inside a transaction in Memgraph.
+    // We therefore take a direct pool reference (`neo4rs::Graph`) instead of a
+    // transaction handle (`neo4rs::Txn`) for this method.
     #[tracing::instrument(
         level = "debug",
         name = "mutate_repository.initialize_schema",

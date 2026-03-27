@@ -42,6 +42,13 @@ message NodeDataProto {
     map<string, PropertyValueProto> properties = 4;
 }
 
+message NodeSearchProto {
+    string node_data_id = 1;
+    string key = 2;
+    map<string, PropertyValueProto> properties = 3;
+    float distance = 4;
+}
+
 message EdgeDataProto {
   string edge_data_id = 1;
   string key = 2;
@@ -58,20 +65,18 @@ message PropertyValueProto {
     }
 }
 
-message InsertNodeDataProto {
+message CreateNodeDataProto {
     string node_data_id = 1;
     string key = 2;
     map<string, PropertyValueProto> properties = 3;
     repeated float embedding = 4;
-    optional string session_id = 5;
 }
 
-message InsertEdgeDataProto {
+message CreateEdgeDataProto {
     string from_node_data_id = 1;
     string to_node_data_id = 2;
     string key = 3;
     map<string, PropertyValueProto> properties = 4;
-    optional string session_id = 5;
 }
 
 message UpdateNodeDataProto {
@@ -83,21 +88,4 @@ message UpdateNodeDataProto {
 message UpdateEdgeDataProto {
     string edge_data_id = 1;
     map<string, PropertyValueProto> properties = 2;
-}
-
-message NodeSummaryProto {
-    string node_data_id = 1;
-    string key = 2;
-    map<string, PropertyValueProto> properties = 3;
-    float distance = 4;
-}
-
-message PathProto {
-    repeated NodeDataProto nodes = 1;
-    repeated EdgeDataProto edges = 2;
-}
-
-message SubgraphProto {
-    repeated NodeDataProto nodes = 1;
-    repeated EdgeDataProto edges = 2;
 }

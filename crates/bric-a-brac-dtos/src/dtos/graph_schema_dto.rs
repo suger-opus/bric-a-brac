@@ -3,10 +3,13 @@ use crate::DtosConversionError;
 use bric_a_brac_protos::common::GraphSchemaProto;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
 pub struct GraphSchemaDto {
+    #[validate(nested)]
     pub nodes: Vec<NodeSchemaDto>,
+    #[validate(nested)]
     pub edges: Vec<EdgeSchemaDto>,
 }
 
@@ -35,20 +38,5 @@ impl TryFrom<GraphSchemaProto> for GraphSchemaDto {
                 .map(TryFrom::try_from)
                 .collect::<Result<_, _>>()?,
         })
-    }
-}
-
-impl TryFrom<Option<GraphSchemaProto>> for GraphSchemaDto {
-    type Error = DtosConversionError;
-
-    fn try_from(proto: Option<GraphSchemaProto>) -> Result<Self, Self::Error> {
-        proto.map_or_else(
-            || {
-                Err(DtosConversionError::NoField {
-                    field_name: "GraphSchemaProto".to_owned(),
-                })
-            },
-            Self::try_from,
-        )
     }
 }

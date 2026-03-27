@@ -1,18 +1,15 @@
-use crate::{
-    application::errors::AppError,
-    application::services::{MutateService, QueryService},
-};
+use super::PresentationError;
+use crate::application::{MutateService, QueryService};
 use bric_a_brac_dtos::{
-    EdgeDataDto, InsertEdgeDataDto, InsertNodeDataDto, KeyDto, NodeDataDto, UpdateEdgeDataDto,
-    UpdateNodeDataDto,
+    CreateEdgeDataDto, CreateNodeDataDto, KeyDto, UpdateEdgeDataDto, UpdateNodeDataDto,
 };
 use bric_a_brac_protos::{
-    common::{EdgeDataProto, GraphDataProto, NodeDataProto, PathProto, SubgraphProto},
+    common::{EdgeDataProto, GraphDataProto, NodeDataProto},
     knowledge::{
-        knowledge_server::Knowledge, DeleteEdgeRequest, DeleteEdgeResponse, DeleteGraphRequest,
-        DeleteGraphResponse, DeleteNodeRequest, DeleteNodeResponse, FindPathsRequest,
-        FindPathsResponse, GetNeighborsRequest, GetNeighborsResponse, GetNodeRequest,
-        InitializeSchemaRequest, InitializeSchemaResponse, InsertEdgeRequest, InsertNodeRequest,
+        knowledge_server::Knowledge, CreateEdgeRequest, CreateNodeRequest, DeleteEdgeRequest,
+        DeleteEdgeResponse, DeleteGraphRequest, DeleteGraphResponse, DeleteNodeRequest,
+        DeleteNodeResponse, FindPathsRequest, FindPathsResponse, GetNeighborsRequest,
+        GetNeighborsResponse, GetNodeRequest, InitializeSchemaRequest, InitializeSchemaResponse,
         LoadGraphRequest, SearchNodesRequest, SearchNodesResponse, UpdateEdgeRequest,
         UpdateNodeRequest,
     },
@@ -34,6 +31,12 @@ impl KnowledgeService {
     }
 }
 
+//     if !(1..=10).contains(&depth) {
+//         return Err(DatabaseError::InvalidDepth { value: depth });
+//     }
+//     Ok(depth.cast_unsigned())
+// }
+
 #[tonic::async_trait]
 impl Knowledge for KnowledgeService {
     #[tracing::instrument(
@@ -51,7 +54,7 @@ impl Knowledge for KnowledgeService {
 
         let data = self
             .query_service
-            .load_graph(req.graph_id.try_into().map_err(AppError::from)?)
+            .load_graph(req.graph_id.try_into().map_err(PresentationError::from)?)
             .await?;
 
         Ok(Response::new(data.into()))
@@ -66,45 +69,39 @@ impl Knowledge for KnowledgeService {
 
         for key_str in &req.node_keys {
             let key: KeyDto = key_str.clone().into();
-            key.validate().map_err(|err| AppError::InvalidInput {
-                reason: format!("Invalid node key '{key_str}': {err}"),
-            })?;
+            key.validate().map_err(PresentationError::from)?;
         }
-
         self.mutate_service.initialize_schema(req.node_keys).await?;
 
         Ok(Response::new(InitializeSchemaResponse {}))
     }
 
-    async fn insert_node(
+    async fn create_node(
         &self,
-        request: Request<InsertNodeRequest>,
+        request: Request<CreateNodeRequest>,
     ) -> Result<Response<NodeDataProto>, Status> {
         let req = request.into_inner();
         tracing::debug!(graph_id = %req.graph_id);
 
-        let node_dto: InsertNodeDataDto = req
+        let node_dto: CreateNodeDataDto = req
             .node
-            .ok_or_else(|| AppError::InvalidInput {
-                reason: "Missing node field".to_owned(),
-            })?
+            .ok_or_else(|| PresentationError::MissingField("node".to_owned()))?
             .try_into()
-            .map_err(AppError::from)?;
+            .map_err(PresentationError::from)?;
 
-        node_dto.validate().map_err(|err| AppError::InvalidInput {
-            reason: err.to_string(),
-        })?;
+        node_dto
+            .validate()
+            .map_err(PresentationError::ValidationErrors)?;
 
         let node = self
             .mutate_service
-            .insert_node(
-                req.graph_id.try_into().map_err(AppError::from)?,
-                node_dto.into(),
+            .create_node(
+                req.graph_id.try_into().map_err(PresentationError::from)?,
+                node_dto,
             )
             .await?;
 
-        let dto: NodeDataDto = node.into();
-        Ok(Response::new(dto.into()))
+        Ok(Response::new(node.into()))
     }
 
     async fn update_node(
@@ -114,24 +111,24 @@ impl Knowledge for KnowledgeService {
         let req = request.into_inner();
         tracing::debug!(graph_id = %req.graph_id);
 
-        let node_dto: UpdateNodeDataDto = req
+        let node: UpdateNodeDataDto = req
             .node
-            .ok_or_else(|| AppError::InvalidInput {
-                reason: "Missing node field".to_owned(),
-            })?
+            .ok_or_else(|| PresentationError::MissingField("node".to_owned()))?
             .try_into()
-            .map_err(AppError::from)?;
+            .map_err(PresentationError::from)?;
+
+        node.validate()
+            .map_err(PresentationError::ValidationErrors)?;
 
         let node = self
             .mutate_service
             .update_node(
-                req.graph_id.try_into().map_err(AppError::from)?,
-                node_dto.into(),
+                req.graph_id.try_into().map_err(PresentationError::from)?,
+                node,
             )
             .await?;
 
-        let dto: NodeDataDto = node.into();
-        Ok(Response::new(dto.into()))
+        Ok(Response::new(node.into()))
     }
 
     async fn delete_node(
@@ -143,8 +140,10 @@ impl Knowledge for KnowledgeService {
 
         self.mutate_service
             .delete_node(
-                req.graph_id.try_into().map_err(AppError::from)?,
-                req.node_data_id.try_into().map_err(AppError::from)?,
+                req.graph_id.try_into().map_err(PresentationError::from)?,
+                req.node_data_id
+                    .try_into()
+                    .map_err(PresentationError::from)?,
             )
             .await?;
 
@@ -160,43 +159,41 @@ impl Knowledge for KnowledgeService {
 
         self.mutate_service
             .delete_edge(
-                req.graph_id.try_into().map_err(AppError::from)?,
-                req.edge_data_id.try_into().map_err(AppError::from)?,
+                req.graph_id.try_into().map_err(PresentationError::from)?,
+                req.edge_data_id
+                    .try_into()
+                    .map_err(PresentationError::from)?,
             )
             .await?;
 
         Ok(Response::new(DeleteEdgeResponse {}))
     }
 
-    async fn insert_edge(
+    async fn create_edge(
         &self,
-        request: Request<InsertEdgeRequest>,
+        request: Request<CreateEdgeRequest>,
     ) -> Result<Response<EdgeDataProto>, Status> {
         let req = request.into_inner();
         tracing::debug!(graph_id = %req.graph_id);
 
-        let edge_dto: InsertEdgeDataDto = req
+        let edge: CreateEdgeDataDto = req
             .edge
-            .ok_or_else(|| AppError::InvalidInput {
-                reason: "Missing edge field".to_owned(),
-            })?
+            .ok_or_else(|| PresentationError::MissingField("edge".to_owned()))?
             .try_into()
-            .map_err(AppError::from)?;
+            .map_err(PresentationError::from)?;
 
-        edge_dto.validate().map_err(|err| AppError::InvalidInput {
-            reason: err.to_string(),
-        })?;
+        edge.validate()
+            .map_err(PresentationError::ValidationErrors)?;
 
         let edge = self
             .mutate_service
-            .insert_edge(
-                req.graph_id.try_into().map_err(AppError::from)?,
-                edge_dto.into(),
+            .create_edge(
+                req.graph_id.try_into().map_err(PresentationError::from)?,
+                edge,
             )
             .await?;
 
-        let dto: EdgeDataDto = edge.into();
-        Ok(Response::new(dto.into()))
+        Ok(Response::new(edge.into()))
     }
 
     async fn update_edge(
@@ -206,24 +203,24 @@ impl Knowledge for KnowledgeService {
         let req = request.into_inner();
         tracing::debug!(graph_id = %req.graph_id);
 
-        let edge_dto: UpdateEdgeDataDto = req
+        let edge: UpdateEdgeDataDto = req
             .edge
-            .ok_or_else(|| AppError::InvalidInput {
-                reason: "Missing edge field".to_owned(),
-            })?
+            .ok_or_else(|| PresentationError::MissingField("edge".to_owned()))?
             .try_into()
-            .map_err(AppError::from)?;
+            .map_err(PresentationError::from)?;
+
+        edge.validate()
+            .map_err(PresentationError::ValidationErrors)?;
 
         let edge = self
             .mutate_service
             .update_edge(
-                req.graph_id.try_into().map_err(AppError::from)?,
-                edge_dto.into(),
+                req.graph_id.try_into().map_err(PresentationError::from)?,
+                edge,
             )
             .await?;
 
-        let dto: EdgeDataDto = edge.into();
-        Ok(Response::new(dto.into()))
+        Ok(Response::new(edge.into()))
     }
 
     async fn search_nodes(
@@ -235,19 +232,18 @@ impl Knowledge for KnowledgeService {
 
         if let Some(ref nk) = req.node_key {
             let key: KeyDto = nk.clone().into();
-            key.validate().map_err(|err| AppError::InvalidInput {
-                reason: format!("Invalid node key '{nk}': {err}"),
-            })?;
+            key.validate()
+                .map_err(PresentationError::ValidationErrors)?;
         }
 
         #[allow(clippy::cast_sign_loss)]
         let results = self
             .query_service
             .search_nodes(
-                req.graph_id.try_into().map_err(AppError::from)?,
+                req.graph_id.try_into().map_err(PresentationError::from)?,
                 req.node_key,
                 req.query_embedding,
-                req.limit as usize,
+                req.limit as u32,
             )
             .await?;
 
@@ -266,13 +262,14 @@ impl Knowledge for KnowledgeService {
         let node = self
             .query_service
             .get_node(
-                req.graph_id.try_into().map_err(AppError::from)?,
-                req.node_data_id.try_into().map_err(AppError::from)?,
+                req.graph_id.try_into().map_err(PresentationError::from)?,
+                req.node_data_id
+                    .try_into()
+                    .map_err(PresentationError::from)?,
             )
             .await?;
 
-        let dto: NodeDataDto = node.into();
-        Ok(Response::new(dto.into()))
+        Ok(Response::new(node.into()))
     }
 
     async fn get_neighbors(
@@ -284,24 +281,32 @@ impl Knowledge for KnowledgeService {
 
         if let Some(ref ek) = req.edge_key {
             let key: KeyDto = ek.clone().into();
-            key.validate().map_err(|err| AppError::InvalidInput {
-                reason: format!("Invalid edge key '{ek}': {err}"),
-            })?;
+            key.validate()
+                .map_err(PresentationError::ValidationErrors)?;
         }
+
+        #[allow(clippy::cast_sign_loss)]
+        #[allow(clippy::cast_possible_truncation)]
+        let depth = if (1..=10).contains(&req.depth) {
+            req.depth as u8
+        } else {
+            return Err(PresentationError::DepthOutOfRange { value: req.depth }.into());
+        };
 
         let subgraph = self
             .query_service
             .get_neighbors(
-                req.graph_id.try_into().map_err(AppError::from)?,
-                req.node_data_id.try_into().map_err(AppError::from)?,
+                req.graph_id.try_into().map_err(PresentationError::from)?,
+                req.node_data_id
+                    .try_into()
+                    .map_err(PresentationError::from)?,
                 req.edge_key,
-                req.depth,
+                depth,
             )
             .await?;
 
-        let proto: SubgraphProto = subgraph.into();
         Ok(Response::new(GetNeighborsResponse {
-            subgraph: Some(proto),
+            subgraph: Some(subgraph.into()),
         }))
     }
 
@@ -317,18 +322,33 @@ impl Knowledge for KnowledgeService {
             max_depth = req.max_depth
         );
 
+        #[allow(clippy::cast_sign_loss)]
+        #[allow(clippy::cast_possible_truncation)]
+        let max_depth = if (1..=10).contains(&req.max_depth) {
+            req.max_depth as u8
+        } else {
+            return Err(PresentationError::DepthOutOfRange {
+                value: req.max_depth,
+            }
+            .into());
+        };
+
         let paths = self
             .query_service
             .find_paths(
-                req.graph_id.try_into().map_err(AppError::from)?,
-                req.from_node_data_id.try_into().map_err(AppError::from)?,
-                req.to_node_data_id.try_into().map_err(AppError::from)?,
-                req.max_depth,
+                req.graph_id.try_into().map_err(PresentationError::from)?,
+                req.from_node_data_id
+                    .try_into()
+                    .map_err(PresentationError::from)?,
+                req.to_node_data_id
+                    .try_into()
+                    .map_err(PresentationError::from)?,
+                max_depth,
             )
             .await?;
 
         Ok(Response::new(FindPathsResponse {
-            paths: paths.into_iter().map(PathProto::from).collect(),
+            paths: paths.into_iter().map(Into::into).collect(),
         }))
     }
 
@@ -341,7 +361,7 @@ impl Knowledge for KnowledgeService {
 
         self.mutate_service
             .delete_graph_data(
-                req.graph_id.try_into().map_err(AppError::from)?,
+                req.graph_id.try_into().map_err(PresentationError::from)?,
                 req.node_keys,
             )
             .await?;

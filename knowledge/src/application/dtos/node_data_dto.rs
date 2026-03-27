@@ -1,10 +1,9 @@
-use crate::domain::models::{
-    InsertNodeDataModel, NodeDataIdModel, NodeDataModel, NodeSummaryModel, UpdateNodeDataModel,
+use crate::domain::{
+    CreateNodeDataModel, NodeDataIdModel, NodeDataModel, NodeSearchModel, UpdateNodeDataModel,
 };
 use bric_a_brac_dtos::{
-    InsertNodeDataDto, NodeDataDto, NodeDataIdDto, PropertiesDataDto, UpdateNodeDataDto,
+    CreateNodeDataDto, NodeDataDto, NodeDataIdDto, NodeSearchDto, UpdateNodeDataDto,
 };
-use bric_a_brac_protos::common::NodeSummaryProto;
 
 impl From<NodeDataIdModel> for NodeDataIdDto {
     fn from(graph_id: NodeDataIdModel) -> Self {
@@ -28,14 +27,13 @@ impl From<NodeDataModel> for NodeDataDto {
     }
 }
 
-impl From<InsertNodeDataDto> for InsertNodeDataModel {
-    fn from(dto: InsertNodeDataDto) -> Self {
+impl From<CreateNodeDataDto> for CreateNodeDataModel {
+    fn from(dto: CreateNodeDataDto) -> Self {
         Self {
             node_data_id: dto.node_data_id.into(),
             key: dto.key.into(),
             properties: dto.properties.into(),
             embedding: dto.embedding,
-            session_id: dto.session_id,
         }
     }
 }
@@ -50,25 +48,13 @@ impl From<UpdateNodeDataDto> for UpdateNodeDataModel {
     }
 }
 
-impl From<NodeSummaryModel> for NodeSummaryProto {
-    fn from(model: NodeSummaryModel) -> Self {
-        let props_dto: PropertiesDataDto = model.properties.into();
+impl From<NodeSearchModel> for NodeSearchDto {
+    fn from(model: NodeSearchModel) -> Self {
         Self {
-            node_data_id: model.node_data_id.to_string(),
-            key: model.key,
-            properties: props_dto.into(),
+            node_data_id: model.node_data_id.into(),
+            key: model.key.into(),
+            properties: model.properties.into(),
             distance: model.distance,
-        }
-    }
-}
-
-impl From<NodeDataModel> for NodeSummaryModel {
-    fn from(model: NodeDataModel) -> Self {
-        Self {
-            node_data_id: model.node_data_id,
-            key: model.key,
-            properties: model.properties,
-            distance: 0.0,
         }
     }
 }

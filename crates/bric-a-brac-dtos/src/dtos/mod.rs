@@ -8,12 +8,14 @@ mod node_schema_dto;
 mod primitives;
 mod property_data_dto;
 
-pub use edge_data_dto::{EdgeDataDto, EdgeDataIdDto, InsertEdgeDataDto, UpdateEdgeDataDto};
+pub use edge_data_dto::{CreateEdgeDataDto, EdgeDataDto, EdgeDataIdDto, UpdateEdgeDataDto};
 pub use edge_schema_dto::{EdgeSchemaDto, EdgeSchemaIdDto};
 pub use graph_data_dto::GraphDataDto;
 pub use graph_dto::GraphIdDto;
 pub use graph_schema_dto::GraphSchemaDto;
-pub use node_data_dto::{InsertNodeDataDto, NodeDataDto, NodeDataIdDto, UpdateNodeDataDto};
+pub use node_data_dto::{
+    CreateNodeDataDto, NodeDataDto, NodeDataIdDto, NodeSearchDto, UpdateNodeDataDto,
+};
 pub use node_schema_dto::{NodeSchemaDto, NodeSchemaIdDto};
 pub use primitives::{ColorDto, KeyDto, LabelDto};
-pub use property_data_dto::PropertiesDataDto;
+pub use property_data_dto::{PropertiesDataDto, PropertyValueDto};

@@ -6,13 +6,9 @@ pub mod presentation;
 use std::sync::Arc;
 
 use crate::{
-    application::services::{MutateService, QueryService},
-    infrastructure::{
-        config::Config,
-        database,
-        repositories::{MutateRepository, QueryRepository},
-    },
-    presentation::grpc::KnowledgeService,
+    application::{MutateService, QueryService},
+    infrastructure::{database, Config, MutateRepository, QueryRepository},
+    presentation::KnowledgeService,
 };
 use bric_a_brac_protos::{build_grpc_server, knowledge::knowledge_server::KnowledgeServer};
 
@@ -27,6 +23,5 @@ pub async fn run(config: &Config) -> anyhow::Result<()> {
     tracing::info!(grpc_addr = %grpc_addr, "Knowledge gRPC server starting");
 
     build_grpc_server(KnowledgeServer::new(knowledge_service), grpc_addr).await?;
-
     Ok(())
 }

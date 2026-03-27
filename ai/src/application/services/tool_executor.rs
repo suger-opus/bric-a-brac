@@ -1,6 +1,6 @@
 use crate::infrastructure::clients::{EmbeddingClient, KnowledgeClient, MetadataClient};
 use bric_a_brac_protos::common::{
-    GraphSchemaProto, InsertEdgeDataProto, InsertNodeDataProto, PropertyValueProto,
+    CreateEdgeDataProto, CreateNodeDataProto, GraphSchemaProto, PropertyValueProto,
     UpdateEdgeDataProto, UpdateNodeDataProto,
 };
 use serde_json::Value;
@@ -93,22 +93,10 @@ impl ToolExecutor {
             "create_edge_schema" => {
                 return self.exec_create_edge_schema(arguments, graph_id).await;
             }
-            "create_node" => {
-                self.exec_create_node(arguments, graph_id, session_id, schema)
-                    .await
-            }
-            "create_edge" => {
-                self.exec_create_edge(arguments, graph_id, session_id, schema)
-                    .await
-            }
-            "create_nodes" => {
-                self.exec_create_nodes(arguments, graph_id, session_id, schema)
-                    .await
-            }
-            "create_edges" => {
-                self.exec_create_edges(arguments, graph_id, session_id, schema)
-                    .await
-            }
+            "create_node" => self.exec_create_node(arguments, graph_id, schema).await,
+            "create_edge" => self.exec_create_edge(arguments, graph_id, schema).await,
+            "create_nodes" => self.exec_create_nodes(arguments, graph_id, schema).await,
+            "create_edges" => self.exec_create_edges(arguments, graph_id, schema).await,
             "update_node" => self.exec_update_node(arguments, graph_id).await,
             "update_edge" => self.exec_update_edge(arguments, graph_id).await,
             "delete_node" => self.exec_delete_node(arguments, graph_id).await,
@@ -359,7 +347,6 @@ impl ToolExecutor {
         &self,
         arguments: &str,
         graph_id: &str,
-        session_id: &str,
         schema: &GraphSchemaProto,
     ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
@@ -443,14 +430,13 @@ impl ToolExecutor {
 
         let node = self
             .knowledge_client
-            .insert_node(
+            .create_node(
                 graph_id,
-                InsertNodeDataProto {
+                CreateNodeDataProto {
                     node_data_id: node_data_id.clone(),
                     key: node_key.to_owned(),
                     properties: proto_properties,
                     embedding,
-                    session_id: Some(session_id.to_owned()),
                 },
             )
             .await
@@ -470,7 +456,6 @@ impl ToolExecutor {
         &self,
         arguments: &str,
         graph_id: &str,
-        session_id: &str,
         schema: &GraphSchemaProto,
     ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
@@ -493,14 +478,13 @@ impl ToolExecutor {
         let proto_properties = json_properties_to_proto(&properties);
 
         self.knowledge_client
-            .insert_edge(
+            .create_edge(
                 graph_id,
-                InsertEdgeDataProto {
+                CreateEdgeDataProto {
                     from_node_data_id: from_id.to_owned(),
                     to_node_data_id: to_id.to_owned(),
                     key: edge_key.to_owned(),
                     properties: proto_properties,
-                    session_id: Some(session_id.to_owned()),
                 },
             )
             .await
@@ -520,7 +504,6 @@ impl ToolExecutor {
         &self,
         arguments: &str,
         graph_id: &str,
-        session_id: &str,
         schema: &GraphSchemaProto,
     ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
@@ -624,14 +607,13 @@ impl ToolExecutor {
 
             match self
                 .knowledge_client
-                .insert_node(
+                .create_node(
                     graph_id,
-                    InsertNodeDataProto {
+                    CreateNodeDataProto {
                         node_data_id: node_data_id.clone(),
                         key: node_key.to_owned(),
                         properties: proto_properties,
                         embedding,
-                        session_id: Some(session_id.to_owned()),
                     },
                 )
                 .await
@@ -659,13 +641,12 @@ impl ToolExecutor {
     }
 
     /// Batch create up to 50 edges. Each edge is merged if it already exists.
-    // NOTE: This generates O(N) insert_edge calls to the knowledge service.
+    // NOTE: This generates O(N) create_edge calls to the knowledge service.
     // A future optimisation would be a batch insert endpoint.
     async fn exec_create_edges(
         &self,
         arguments: &str,
         graph_id: &str,
-        session_id: &str,
         schema: &GraphSchemaProto,
     ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
@@ -713,14 +694,13 @@ impl ToolExecutor {
 
             match self
                 .knowledge_client
-                .insert_edge(
+                .create_edge(
                     graph_id,
-                    InsertEdgeDataProto {
+                    CreateEdgeDataProto {
                         from_node_data_id: from_id.to_owned(),
                         to_node_data_id: to_id.to_owned(),
                         key: edge_key.to_owned(),
                         properties: proto_properties,
-                        session_id: Some(session_id.to_owned()),
                     },
                 )
                 .await

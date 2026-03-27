@@ -2,7 +2,7 @@ use super::{KeyDto, PropertiesDataDto};
 use crate::DtosConversionError;
 use bric_a_brac_id::id;
 use bric_a_brac_protos::common::{
-    InsertNodeDataProto, NodeDataProto, UpdateNodeDataProto,
+    CreateNodeDataProto, NodeDataProto, NodeSearchProto, UpdateNodeDataProto,
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -19,10 +19,12 @@ impl TryFrom<String> for NodeDataIdDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
 pub struct NodeDataDto {
     pub node_data_id: NodeDataIdDto,
+    #[validate(nested)]
     pub key: KeyDto,
+    #[validate(nested)]
     pub properties: PropertiesDataDto,
 }
 
@@ -48,33 +50,67 @@ impl From<NodeDataDto> for NodeDataProto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct InsertNodeDataDto {
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
+pub struct NodeSearchDto {
     pub node_data_id: NodeDataIdDto,
     #[validate(nested)]
     pub key: KeyDto,
+    #[validate(nested)]
     pub properties: PropertiesDataDto,
-    pub embedding: Vec<f32>,
-    pub session_id: Option<String>,
+    pub distance: f32,
 }
 
-impl TryFrom<InsertNodeDataProto> for InsertNodeDataDto {
+impl TryFrom<NodeSearchProto> for NodeSearchDto {
     type Error = DtosConversionError;
 
-    fn try_from(proto: InsertNodeDataProto) -> Result<Self, Self::Error> {
+    fn try_from(proto: NodeSearchProto) -> Result<Self, Self::Error> {
+        Ok(Self {
+            node_data_id: proto.node_data_id.try_into()?,
+            key: proto.key.into(),
+            properties: proto.properties.try_into()?,
+            distance: proto.distance,
+        })
+    }
+}
+
+impl From<NodeSearchDto> for NodeSearchProto {
+    fn from(dto: NodeSearchDto) -> Self {
+        Self {
+            node_data_id: dto.node_data_id.to_string(),
+            key: dto.key.into(),
+            properties: dto.properties.into(),
+            distance: dto.distance,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+pub struct CreateNodeDataDto {
+    pub node_data_id: NodeDataIdDto,
+    #[validate(nested)]
+    pub key: KeyDto,
+    #[validate(nested)]
+    pub properties: PropertiesDataDto,
+    pub embedding: Vec<f32>,
+}
+
+impl TryFrom<CreateNodeDataProto> for CreateNodeDataDto {
+    type Error = DtosConversionError;
+
+    fn try_from(proto: CreateNodeDataProto) -> Result<Self, Self::Error> {
         Ok(Self {
             node_data_id: proto.node_data_id.try_into()?,
             key: proto.key.into(),
             properties: proto.properties.try_into()?,
             embedding: proto.embedding,
-            session_id: proto.session_id,
         })
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct UpdateNodeDataDto {
     pub node_data_id: NodeDataIdDto,
+    #[validate(nested)]
     pub properties: PropertiesDataDto,
     pub embedding: Vec<f32>,
 }
