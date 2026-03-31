@@ -19,7 +19,7 @@ impl TryFrom<String> for NodeSchemaIdDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct NodeSchemaDto {
     pub node_schema_id: NodeSchemaIdDto,
     pub graph_id: GraphIdDto,

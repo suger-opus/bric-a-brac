@@ -1,11 +1,11 @@
-use crate::infrastructure::{config::KnowledgeServerConfig, errors::GrpcClientError};
+use crate::infrastructure::{InfraError, KnowledgeServerConfig};
+use bric_a_brac_dtos::{GraphDataDto, GraphIdDto, KeyDto};
 use bric_a_brac_protos::{
-    common::GraphDataProto,
     knowledge::{
         knowledge_client::KnowledgeClient as KnowledgeGrpcClient, DeleteGraphRequest,
         InitializeSchemaRequest, LoadGraphRequest,
     },
-    with_retry, GrpcServiceKind,
+    with_retry,
 };
 use tonic::transport::Channel;
 use tonic::Request;
@@ -24,68 +24,60 @@ impl KnowledgeClient {
         })
     }
 
-    pub async fn load_graph(
-        &self,
-        graph_id: impl std::fmt::Display,
-    ) -> Result<GraphDataProto, GrpcClientError> {
-        let client = self.client.clone();
-        let graph_id = graph_id.to_string();
-        with_retry(GrpcServiceKind::Knowledge, "Failed to load graph", || {
-            let mut c = client.clone();
+    pub async fn load_graph(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, InfraError> {
+        let data = with_retry(|| {
+            let mut c = self.client.clone();
             let req = Request::new(LoadGraphRequest {
-                graph_id: graph_id.clone(),
+                graph_id: graph_id.to_string(),
             });
             async move { c.load_graph(req).await }
         })
-        .await
-        .map_err(Into::into)
+        .await?;
+
+        Ok(data.try_into()?)
     }
 
     pub async fn initialize_schema(
         &self,
-        graph_id: impl std::fmt::Display,
-        node_keys: Vec<String>,
-    ) -> Result<(), GrpcClientError> {
-        let client = self.client.clone();
-        let graph_id = graph_id.to_string();
-        with_retry(
-            GrpcServiceKind::Knowledge,
-            "Failed to initialize schema",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(InitializeSchemaRequest {
-                    graph_id: graph_id.clone(),
-                    node_keys: node_keys.clone(),
-                });
-                async move { c.initialize_schema(req).await }
-            },
-        )
-        .await
-        .map_err(GrpcClientError::from)?;
+        graph_id: GraphIdDto,
+        node_keys: Vec<KeyDto>,
+    ) -> Result<(), InfraError> {
+        with_retry(|| {
+            let mut c = self.client.clone();
+            let req = Request::new(InitializeSchemaRequest {
+                graph_id: graph_id.to_string(),
+                node_keys: node_keys
+                    .clone()
+                    .into_iter()
+                    .map(|k| k.as_str().to_owned())
+                    .collect(),
+            });
+            async move { c.initialize_schema(req).await }
+        })
+        .await?;
+
         Ok(())
     }
 
     pub async fn delete_graph(
         &self,
-        graph_id: impl std::fmt::Display,
-        node_keys: Vec<String>,
-    ) -> Result<(), GrpcClientError> {
-        let client = self.client.clone();
-        let graph_id = graph_id.to_string();
-        with_retry(
-            GrpcServiceKind::Knowledge,
-            "Failed to delete graph data",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(DeleteGraphRequest {
-                    graph_id: graph_id.clone(),
-                    node_keys: node_keys.clone(),
-                });
-                async move { c.delete_graph(req).await }
-            },
-        )
-        .await
-        .map_err(GrpcClientError::from)?;
+        graph_id: GraphIdDto,
+        node_keys: Vec<KeyDto>,
+    ) -> Result<(), InfraError> {
+        with_retry(|| {
+            let mut c = self.client.clone();
+            let req = Request::new(DeleteGraphRequest {
+                graph_id: graph_id.to_string(),
+                node_keys: node_keys
+                    .clone()
+                    .into_iter()
+                    .map(|k| k.as_str().to_owned())
+                    .collect(),
+            });
+            async move { c.delete_graph(req).await }
+        })
+        .await?;
+
         Ok(())
     }
 }

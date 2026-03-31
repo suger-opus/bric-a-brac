@@ -1,4 +1,4 @@
-use knowledge::{infrastructure::Config, presentation::setup_tracing, run};
+use knowledge::{run, setup_tracing, Config};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

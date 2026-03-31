@@ -1,10 +1,25 @@
 CREATE TYPE role_type AS ENUM
 (
-    'Owner',
-    'Admin',
-    'Editor',
-    'Viewer',
-    'None'
+    'owner',
+    'admin',
+    'editor',
+    'viewer',
+    'none'
+);
+
+CREATE TYPE session_status_type AS ENUM
+(
+    'active',
+    'completed',
+    'error'
+);
+
+CREATE TYPE session_message_role_type AS ENUM
+(
+    'system',
+    'user',
+    'assistant',
+    'tool'
 );
 
 CREATE TABLE users
@@ -30,7 +45,7 @@ CREATE TABLE accesses
 (
     user_id             UUID                            NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     graph_id            UUID                            NOT NULL REFERENCES graphs(graph_id) ON DELETE CASCADE,
-    role                role_type                       NOT NULL DEFAULT 'None',
+    role                role_type                       NOT NULL DEFAULT 'none',
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, graph_id)
@@ -42,7 +57,7 @@ CREATE TABLE nodes_schemas (
     label               VARCHAR(25)                     NOT NULL,
     key                 VARCHAR(8)                      UNIQUE NOT NULL,
     color               VARCHAR(7)                      NOT NULL,
-    description         TEXT                            NOT NULL DEFAULT '',
+    description         TEXT                            NOT NULL,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT node_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
@@ -54,7 +69,7 @@ CREATE TABLE edges_schemas (
     label               VARCHAR(25)                     NOT NULL,
     key                 VARCHAR(8)                      UNIQUE NOT NULL,
     color               VARCHAR(7)                      NOT NULL,
-    description         TEXT                            NOT NULL DEFAULT '',
+    description         TEXT                            NOT NULL,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT edge_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
@@ -64,13 +79,10 @@ CREATE TABLE sessions (
     session_id          UUID PRIMARY KEY                NOT NULL,
     graph_id            UUID                            NOT NULL REFERENCES graphs(graph_id) ON DELETE CASCADE,
     user_id             UUID                            NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    status              VARCHAR(20)                     NOT NULL DEFAULT 'active',
+    status              session_status_type             NOT NULL DEFAULT 'active',
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT session_status_check                     CHECK (status IN ('active', 'completed', 'error'))
+    updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX idx_sessions_graph_id ON sessions(graph_id);
 
 CREATE TABLE session_documents (
     document_id         UUID PRIMARY KEY                NOT NULL,
@@ -84,14 +96,13 @@ CREATE TABLE session_documents (
 CREATE TABLE session_messages (
     message_id          UUID PRIMARY KEY                NOT NULL,
     session_id          UUID                            NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
-    position            INTEGER                         NOT NULL,
-    role                VARCHAR(20)                     NOT NULL,
-    content             TEXT                            NOT NULL DEFAULT '',
-    tool_calls          JSONB,
-    tool_call_id        VARCHAR,
     document_id         UUID                            REFERENCES session_documents(document_id) ON DELETE SET NULL,
+    position            INTEGER                         NOT NULL,
+    role                session_message_role_type       NOT NULL,
+    content             TEXT                            NOT NULL,
+    tool_calls          TEXT,
+    tool_call_id        VARCHAR,
     chunk_index         INTEGER,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT message_role_check                       CHECK (role IN ('system', 'user', 'assistant', 'tool')),
     CONSTRAINT unique_session_position                  UNIQUE (session_id, position)
 );

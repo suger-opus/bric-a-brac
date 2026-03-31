@@ -1,4 +1,7 @@
-use bric_a_brac_protos::ai::agent_event_proto;
+use bric_a_brac_protos::ai::{
+    agent_event_proto, AgentDoneProto, AgentErrorProto, AgentEventProto, AgentProgressProto,
+    AgentTextProto, AgentToolCallProto, AgentToolResultProto,
+};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -61,6 +64,41 @@ impl From<Option<agent_event_proto::Event>> for AgentEventDto {
             None => Self::Error {
                 message: "empty event".to_owned(),
             },
+        }
+    }
+}
+
+impl From<AgentEventDto> for agent_event_proto::Event {
+    fn from(event: AgentEventDto) -> Self {
+        match event {
+            AgentEventDto::Text { content } => Self::Text(AgentTextProto { content }),
+            AgentEventDto::ToolCall {
+                tool_call_id,
+                name,
+                arguments,
+            } => Self::ToolCall(AgentToolCallProto {
+                tool_call_id,
+                name,
+                arguments,
+            }),
+            AgentEventDto::ToolResult {
+                tool_call_id,
+                content,
+            } => Self::ToolResult(AgentToolResultProto {
+                tool_call_id,
+                content,
+            }),
+            AgentEventDto::Done { summary } => Self::Done(AgentDoneProto { summary }),
+            AgentEventDto::Error { message } => Self::Error(AgentErrorProto { message }),
+            AgentEventDto::Progress { content } => Self::Progress(AgentProgressProto { content }),
+        }
+    }
+}
+
+impl From<AgentEventDto> for AgentEventProto {
+    fn from(event: AgentEventDto) -> Self {
+        Self {
+            event: Some(event.into()),
         }
     }
 }

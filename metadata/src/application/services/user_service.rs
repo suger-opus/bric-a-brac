@@ -1,8 +1,8 @@
 use crate::{
-    application::dtos::{CreateUserDto, UserDto, UserIdDto},
-    infrastructure::repositories::UserRepository,
-    application::errors::AppError,
+    application::{AppError, CreateUserDto, UserDto},
+    infrastructure::UserRepository,
 };
+use bric_a_brac_dtos::UserIdDto;
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -16,7 +16,12 @@ impl UserService {
         Self { pool, repository }
     }
 
-    #[tracing::instrument(level = "trace", name = "user_service.create", skip(self, create_user), err)]
+    #[tracing::instrument(
+        level = "trace",
+        name = "user_service.create",
+        skip(self, create_user),
+        err
+    )]
     pub async fn create(&self, create_user: CreateUserDto) -> Result<UserDto, AppError> {
         let mut txn = self.pool.begin().await?;
         let user = self.repository.create(&mut txn, create_user.into()).await?;

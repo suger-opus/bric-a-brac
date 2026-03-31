@@ -1,11 +1,9 @@
 use crate::infrastructure::{
-    config::OpenRouterConfig, errors::OpenRouterClientError, http_retry::send_with_retry,
+    http_retry::send_with_retry, InfraError, OpenRouterClientError, OpenRouterConfig,
 };
 use futures_util::StreamExt;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
-
-// --- Request types ---
 
 #[derive(Debug, Serialize)]
 struct Plugin {
@@ -73,8 +71,6 @@ impl Message {
     }
 }
 
-// --- Tool types ---
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDefinition {
     #[serde(rename = "type")]
@@ -103,13 +99,6 @@ pub struct FunctionCall {
     pub arguments: String,
 }
 
-// --- Response types (non-streaming) ---
-
-pub struct ChatResult {
-    pub raw_content: String,
-    pub value: serde_json::Value,
-}
-
 #[derive(Debug, Serialize)]
 struct ResponseFormat {
     #[serde(rename = "type")]
@@ -123,25 +112,6 @@ struct JsonSchemaFormat {
     strict: bool,
     schema: serde_json::Value,
 }
-
-#[derive(Debug, Deserialize)]
-struct ChatResponse {
-    choices: Vec<Choice>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Choice {
-    message: ChatMessage,
-}
-
-#[derive(Debug, Deserialize)]
-struct ChatMessage {
-    content: Option<String>,
-    #[allow(dead_code)]
-    tool_calls: Option<Vec<ToolCall>>,
-}
-
-// --- Streaming response types ---
 
 #[derive(Debug, Deserialize)]
 struct StreamResponse {
@@ -174,19 +144,23 @@ struct StreamFunctionCall {
     arguments: Option<String>,
 }
 
-/// A complete response from a streaming chat call
 pub struct StreamChatResult {
     pub content: Option<String>,
     pub tool_calls: Vec<ToolCall>,
 }
-
-// --- Client ---
 
 #[derive(Clone)]
 pub struct OpenRouterClient {
     api_key: SecretString,
     default_model: String,
     client: reqwest::Client,
+}
+
+#[derive(Default)]
+struct ToolCallBuilder {
+    id: Option<String>,
+    name: Option<String>,
+    arguments: String,
 }
 
 impl OpenRouterClient {
@@ -196,115 +170,6 @@ impl OpenRouterClient {
             default_model: config.default_model().to_owned(),
             client: reqwest::Client::new(),
         }
-    }
-
-    /// Non-streaming chat with optional structured JSON output
-    #[tracing::instrument(
-        level = "debug",
-        name = "openrouter_client.chat",
-        skip(self, messages, schema),
-        err
-    )]
-    pub async fn chat(
-        &self,
-        messages: Vec<Message>,
-        schema: Option<serde_json::Value>,
-    ) -> Result<ChatResult, OpenRouterClientError> {
-        tracing::debug!(
-            message_count = messages.len(),
-            has_schema = schema.is_some(),
-        );
-
-        let is_structured_output_needed = schema.is_some();
-
-        let response_format = schema.map(|s| ResponseFormat {
-            type_: "json_schema".to_owned(),
-            json_schema: JsonSchemaFormat {
-                name: "schema_generation".to_owned(),
-                strict: true,
-                schema: s,
-            },
-        });
-
-        let plugins = match response_format {
-            Some(_) => vec![Plugin {
-                id: "response-healing".to_owned(),
-            }],
-            None => vec![],
-        };
-
-        let request = ChatRequest {
-            model: self.default_model.clone(),
-            messages,
-            response_format,
-            plugins,
-            tools: None,
-            stream: false,
-        };
-
-        let response = send_with_retry("OpenRouter chat", || {
-            self.client
-                .post("https://openrouter.ai/api/v1/chat/completions")
-                .header(
-                    "Authorization",
-                    format!("Bearer {}", &self.api_key.expose_secret()),
-                )
-                .header("Content-Type", "application/json")
-                .json(&request)
-        })
-        .await?;
-
-        let status = response.status();
-        let response_text =
-            response
-                .text()
-                .await
-                .map_err(|err| OpenRouterClientError::ReadResponse {
-                    message: "Failed to read OpenRouter API response".to_owned(),
-                    source: err,
-                })?;
-
-        if !status.is_success() {
-            return Err(OpenRouterClientError::NoSuccessResponse {
-                status,
-                body: response_text,
-            });
-        }
-
-        let chat_response: ChatResponse = serde_json::from_str(&response_text).map_err(|err| {
-            OpenRouterClientError::Deserialization {
-                message: "Failed to deserialize ChatResponse from OpenRouter response_text"
-                    .to_owned(),
-                source: err,
-            }
-        })?;
-
-        let content = chat_response
-            .choices
-            .first()
-            .ok_or_else(|| OpenRouterClientError::ResponseFormat {
-                message: "No choices in OpenRouter response".to_owned(),
-            })?
-            .message
-            .content
-            .clone()
-            .unwrap_or_default();
-
-        let value = if is_structured_output_needed {
-            serde_json::from_str::<serde_json::Value>(&content).map_err(|err| {
-                OpenRouterClientError::Deserialization {
-                    message: "Failed to deserialize content field as JSON value".to_owned(),
-                    source: err,
-                }
-            })?
-        } else {
-            serde_json::Value::String(content.clone())
-        };
-
-        Ok(ChatResult {
-            raw_content: content,
-            value,
-        })
     }
 
     /// Streaming chat with tool calling support.
@@ -319,7 +184,7 @@ impl OpenRouterClient {
         &self,
         messages: Vec<Message>,
         tools: Option<Vec<ToolDefinition>>,
-    ) -> Result<StreamChatResult, OpenRouterClientError> {
+    ) -> Result<StreamChatResult, InfraError> {
         tracing::debug!(message_count = messages.len(), has_tools = tools.is_some(),);
 
         let request = ChatRequest {
@@ -331,7 +196,7 @@ impl OpenRouterClient {
             stream: true,
         };
 
-        let response = send_with_retry("OpenRouter chat_stream", || {
+        let response = send_with_retry(|| {
             self.client
                 .post("https://openrouter.ai/api/v1/chat/completions")
                 .header(
@@ -341,12 +206,13 @@ impl OpenRouterClient {
                 .header("Content-Type", "application/json")
                 .json(&request)
         })
-        .await?;
+        .await
+        .map_err(OpenRouterClientError::from)?;
 
         let status = response.status();
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            return Err(OpenRouterClientError::NoSuccessResponse { status, body });
+            return Err(OpenRouterClientError::NoSuccessResponse { status, body }.into());
         }
 
         // Parse SSE stream
@@ -357,11 +223,7 @@ impl OpenRouterClient {
         let mut buffer = String::new();
 
         while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|err| OpenRouterClientError::ReadResponse {
-                message: "Failed to read stream chunk".to_owned(),
-                source: err,
-            })?;
-
+            let chunk = chunk.map_err(|err| OpenRouterClientError::ReadResponse { source: err })?;
             buffer.push_str(&String::from_utf8_lossy(&chunk));
 
             // Process complete SSE lines
@@ -432,11 +294,4 @@ impl OpenRouterClient {
             tool_calls,
         })
     }
-}
-
-#[derive(Default)]
-struct ToolCallBuilder {
-    id: Option<String>,
-    name: Option<String>,
-    arguments: String,
 }

@@ -1,6 +1,6 @@
 use crate::{
-    domain::models::{CreateUserModel, UserIdModel, UserModel},
-    infrastructure::errors::DatabaseError,
+    domain::{CreateUserModel, UserIdModel, UserModel},
+    infrastructure::InfraError,
 };
 use sqlx::PgConnection;
 
@@ -22,7 +22,7 @@ impl UserRepository {
         &self,
         connection: &mut PgConnection,
         create_user: CreateUserModel,
-    ) -> Result<UserModel, DatabaseError> {
+    ) -> Result<UserModel, InfraError> {
         tracing::debug!(user_id = ?create_user.user_id);
 
         let user = sqlx::query_as!(
@@ -57,7 +57,7 @@ RETURNING
         &self,
         connection: &mut PgConnection,
         user_id: UserIdModel,
-    ) -> Result<UserModel, DatabaseError> {
+    ) -> Result<UserModel, InfraError> {
         tracing::debug!(user_id = ?user_id);
 
         let user = sqlx::query_as!(

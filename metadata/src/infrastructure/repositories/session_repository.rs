@@ -1,10 +1,11 @@
 use crate::{
-    domain::models::{
-        CreateSessionMessageModel, CreateSessionModel, GraphIdModel, RoleModel,
-        SessionDocumentIdModel, SessionIdModel, SessionMessageIdModel, SessionMessageModel,
-        SessionMessageRoleModel, SessionModel, SessionStatusModel, UserIdModel,
+    domain::{
+        CreateSessionDocumentModel, CreateSessionMessageModel, CreateSessionModel, GraphIdModel,
+        RoleModel, SessionDocumentIdModel, SessionDocumentModel, SessionIdModel,
+        SessionMessageIdModel, SessionMessageModel, SessionMessageRoleModel, SessionModel,
+        SessionStatusModel, UserIdModel,
     },
-    infrastructure::errors::DatabaseError,
+    infrastructure::InfraError,
 };
 use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
@@ -27,7 +28,7 @@ impl SessionRepository {
         &self,
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
-    ) -> Result<bool, DatabaseError> {
+    ) -> Result<bool, InfraError> {
         tracing::debug!(graph_id = ?graph_id);
 
         let row = sqlx::query_scalar!(
@@ -51,7 +52,7 @@ impl SessionRepository {
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
         user_id: UserIdModel,
-    ) -> Result<Option<SessionModel>, DatabaseError> {
+    ) -> Result<Option<SessionModel>, InfraError> {
         tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
         let row: Option<SessionRow> = sqlx::query_as!(
@@ -62,7 +63,7 @@ SELECT
     s.graph_id,
     s.user_id,
     s.status AS "status!:_",
-    COALESCE(a.role, 'None'::role_type) AS "role!:_",
+    COALESCE(a.role, 'none'::role_type) AS "role!:_",
     s.created_at,
     s.updated_at
 FROM sessions s
@@ -89,7 +90,7 @@ LIMIT 1
         &self,
         connection: &mut PgConnection,
         create_session: CreateSessionModel,
-    ) -> Result<SessionModel, DatabaseError> {
+    ) -> Result<SessionModel, InfraError> {
         tracing::debug!(session_id = ?create_session.session_id, graph_id = ?create_session.graph_id);
 
         let row = sqlx::query_as!(
@@ -105,7 +106,7 @@ SELECT
     i.graph_id,
     i.user_id,
     i.status AS "status!:_",
-    COALESCE(a.role, 'None'::role_type) AS "role!:_",
+    COALESCE(a.role, 'none'::role_type) AS "role!:_",
     i.created_at,
     i.updated_at
 FROM inserted i
@@ -131,7 +132,7 @@ LEFT JOIN accesses a ON i.user_id = a.user_id AND i.graph_id = a.graph_id
         &self,
         connection: &mut PgConnection,
         session_id: SessionIdModel,
-    ) -> Result<SessionModel, DatabaseError> {
+    ) -> Result<SessionModel, InfraError> {
         tracing::debug!(session_id = ?session_id);
 
         let row = sqlx::query_as!(
@@ -142,7 +143,7 @@ SELECT
     s.graph_id,
     s.user_id,
     s.status AS "status!:_",
-    COALESCE(a.role, 'None'::role_type) AS "role!:_",
+    COALESCE(a.role, 'none'::role_type) AS "role!:_",
     s.created_at,
     s.updated_at
 FROM sessions s
@@ -168,7 +169,7 @@ WHERE s.session_id = $1
         connection: &mut PgConnection,
         session_id: SessionIdModel,
         status: SessionStatusModel,
-    ) -> Result<SessionModel, DatabaseError> {
+    ) -> Result<SessionModel, InfraError> {
         tracing::debug!(session_id = ?session_id, status = ?status);
 
         let row = sqlx::query_as!(
@@ -185,14 +186,14 @@ SELECT
     u.graph_id,
     u.user_id,
     u.status AS "status!:_",
-    COALESCE(a.role, 'None'::role_type) AS "role!:_",
+    COALESCE(a.role, 'none'::role_type) AS "role!:_",
     u.created_at,
     u.updated_at
 FROM updated u
 LEFT JOIN accesses a ON u.user_id = a.user_id AND u.graph_id = a.graph_id
             "#,
             session_id as _,
-            status.to_string(),
+            status as _,
         )
         .fetch_one(connection)
         .await?;
@@ -210,7 +211,7 @@ LEFT JOIN accesses a ON u.user_id = a.user_id AND u.graph_id = a.graph_id
         &self,
         connection: &mut PgConnection,
         session_id: SessionIdModel,
-    ) -> Result<Vec<SessionMessageModel>, DatabaseError> {
+    ) -> Result<Vec<SessionMessageModel>, InfraError> {
         tracing::debug!(session_id = ?session_id);
 
         let rows = sqlx::query_as!(
@@ -251,7 +252,7 @@ ORDER BY sm.position ASC
         &self,
         connection: &mut PgConnection,
         session_id: SessionIdModel,
-    ) -> Result<i32, DatabaseError> {
+    ) -> Result<i32, InfraError> {
         tracing::debug!(session_id = ?session_id);
 
         let row = sqlx::query_scalar!(
@@ -274,7 +275,7 @@ ORDER BY sm.position ASC
         &self,
         connection: &mut PgConnection,
         messages: Vec<CreateSessionMessageModel>,
-    ) -> Result<Vec<SessionMessageModel>, DatabaseError> {
+    ) -> Result<Vec<SessionMessageModel>, InfraError> {
         let mut result = Vec::with_capacity(messages.len());
 
         for msg in messages {
@@ -304,7 +305,7 @@ LEFT JOIN session_documents sd ON i.document_id = sd.document_id
                 SessionMessageIdModel::new() as _,
                 msg.session_id as _,
                 msg.position,
-                msg.role.to_string(),
+                msg.role as _,
                 msg.content,
                 msg.tool_calls,
                 msg.tool_call_id,
@@ -319,15 +320,81 @@ LEFT JOIN session_documents sd ON i.document_id = sd.document_id
 
         Ok(result)
     }
-}
 
-// --- Row types ---
+    #[tracing::instrument(
+        level = "debug",
+        name = "session_repository.create_document",
+        skip(self, connection, create),
+        err
+    )]
+    pub async fn create_document(
+        &self,
+        connection: &mut PgConnection,
+        create: CreateSessionDocumentModel,
+    ) -> Result<SessionDocumentModel, InfraError> {
+        let row = sqlx::query_as!(
+            DocumentRow,
+            r#"
+INSERT INTO session_documents (document_id, session_id, filename, content_hash, content)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING
+    document_id,
+    session_id,
+    filename,
+    content_hash,
+    content,
+    created_at
+            "#,
+            create.document_id as _,
+            create.session_id as _,
+            create.filename,
+            create.content_hash,
+            create.content,
+        )
+        .fetch_one(connection)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    #[tracing::instrument(
+        level = "debug",
+        name = "session_repository.get_document",
+        skip(self, connection, document_id),
+        err
+    )]
+    pub async fn get_document(
+        &self,
+        connection: &mut PgConnection,
+        document_id: SessionDocumentIdModel,
+    ) -> Result<SessionDocumentModel, InfraError> {
+        let row = sqlx::query_as!(
+            DocumentRow,
+            r#"
+SELECT
+    document_id,
+    session_id,
+    filename,
+    content_hash,
+    content,
+    created_at
+FROM session_documents
+WHERE document_id = $1
+            "#,
+            document_id as _,
+        )
+        .fetch_one(connection)
+        .await?;
+
+        Ok(row.into())
+    }
+}
 
 #[derive(sqlx::FromRow)]
 struct SessionRow {
     session_id: SessionIdModel,
     graph_id: GraphIdModel,
-    user_id: crate::domain::models::UserIdModel,
+    user_id: UserIdModel,
     status: SessionStatusModel,
     role: RoleModel,
     created_at: DateTime<Utc>,
@@ -355,7 +422,7 @@ struct SessionMessageRow {
     position: i32,
     role: SessionMessageRoleModel,
     content: String,
-    tool_calls: Option<serde_json::Value>,
+    tool_calls: Option<String>,
     tool_call_id: Option<String>,
     document_id: Option<uuid::Uuid>,
     document_name: Option<String>,
@@ -376,6 +443,29 @@ impl From<SessionMessageRow> for SessionMessageModel {
             document_id: row.document_id.map(SessionDocumentIdModel::from),
             document_name: row.document_name,
             chunk_index: row.chunk_index,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct DocumentRow {
+    document_id: SessionDocumentIdModel,
+    session_id: SessionIdModel,
+    filename: String,
+    content_hash: String,
+    content: String,
+    created_at: DateTime<Utc>,
+}
+
+impl From<DocumentRow> for SessionDocumentModel {
+    fn from(row: DocumentRow) -> Self {
+        Self {
+            document_id: row.document_id,
+            session_id: row.session_id,
+            filename: row.filename,
+            content_hash: row.content_hash,
+            content: row.content,
             created_at: row.created_at,
         }
     }

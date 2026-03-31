@@ -1,16 +1,18 @@
 mod application;
 mod domain;
-pub mod infrastructure;
-pub mod presentation;
+mod infrastructure;
+mod presentation;
 
-use std::sync::Arc;
+pub use infrastructure::Config;
+pub use presentation::setup_tracing;
 
 use crate::{
     application::{MutateService, QueryService},
-    infrastructure::{database, Config, MutateRepository, QueryRepository},
+    infrastructure::{database, MutateRepository, QueryRepository},
     presentation::KnowledgeService,
 };
 use bric_a_brac_protos::{build_grpc_server, knowledge::knowledge_server::KnowledgeServer};
+use std::sync::Arc;
 
 pub async fn run(config: &Config) -> anyhow::Result<()> {
     let graph = database::connect(config.knowledge_db()).await?;

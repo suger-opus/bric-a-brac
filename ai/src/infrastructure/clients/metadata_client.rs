@@ -1,13 +1,15 @@
-use crate::infrastructure::{config::MetadataServerConfig, errors::GrpcClientError};
+use crate::infrastructure::{InfraError, MetadataServerConfig};
+use bric_a_brac_dtos::{
+    CreateSessionMessageDto, EdgeSchemaDto, GraphIdDto, GraphSchemaDto, LabelDto, NodeSchemaDto,
+    SessionDocumentDto, SessionDocumentIdDto, SessionDto, SessionIdDto, SessionMessageDto,
+};
 use bric_a_brac_protos::{
-    common::{EdgeSchemaProto, GraphSchemaProto, NodeSchemaProto},
     metadata::{
         metadata_client::MetadataClient as MetadataGrpcClient, AppendSessionMessagesRequest,
-        CloseSessionRequest, CreateEdgeSchemaRequest, CreateNodeSchemaRequest, GetSchemaRequest,
+        CreateEdgeSchemaRequest, CreateNodeSchemaRequest, GetSchemaRequest,
         GetSessionDocumentRequest, GetSessionMessagesRequest, GetSessionRequest,
-        NewSessionMessageProto, SessionDocumentProto, SessionMessageProto, SessionProto,
     },
-    with_retry, GrpcServiceKind,
+    with_retry,
 };
 use tonic::transport::Channel;
 use tonic::Request;
@@ -26,53 +28,48 @@ impl MetadataClient {
         })
     }
 
-    // --- Session RPCs ---
-    // TODO: might need a session DTO
     #[tracing::instrument(
         level = "debug",
         name = "metadata_client.get_session",
         skip(self, session_id),
         err
     )]
-    pub async fn get_session(&self, session_id: &str) -> Result<SessionProto, GrpcClientError> {
-        let client = self.client.clone();
-        let session_id = session_id.to_owned();
-        with_retry(GrpcServiceKind::Metadata, "Failed to get session", || {
-            let mut c = client.clone();
+    pub async fn get_session(&self, session_id: SessionIdDto) -> Result<SessionDto, InfraError> {
+        let data = with_retry(|| {
+            let mut c = self.client.clone();
             let req = Request::new(GetSessionRequest {
-                session_id: session_id.clone(),
+                session_id: session_id.to_string(),
             });
             async move { c.get_session(req).await }
         })
-        .await
-        .map_err(Into::into)
+        .await?;
+
+        Ok(data.try_into()?)
     }
 
-    #[tracing::instrument(
-        level = "debug",
-        name = "metadata_client.close_session",
-        skip(self, session_id, status),
-        err
-    )]
-    pub async fn close_session(
-        &self,
-        session_id: &str,
-        status: &str,
-    ) -> Result<SessionProto, GrpcClientError> {
-        let client = self.client.clone();
-        let session_id = session_id.to_owned();
-        let status = status.to_owned();
-        with_retry(GrpcServiceKind::Metadata, "Failed to close session", || {
-            let mut c = client.clone();
-            let req = Request::new(CloseSessionRequest {
-                session_id: session_id.clone(),
-                status: status.clone(),
-            });
-            async move { c.close_session(req).await }
-        })
-        .await
-        .map_err(Into::into)
-    }
+    // #[tracing::instrument(
+    //     level = "debug",
+    //     name = "metadata_client.close_session",
+    //     skip(self, session_id, status),
+    //     err
+    // )]
+    // pub async fn close_session(
+    //     &self,
+    //     session_id: SessionIdDto,
+    //     status: SessionStatusDto,
+    // ) -> Result<SessionDto, InfraError> {
+    //     let data = with_retry(|| {
+    //         let mut c = self.client.clone();
+    //         let req = Request::new(CloseSessionRequest {
+    //             session_id: session_id.to_string(),
+    //             status: status.into(),
+    //         });
+    //         async move { c.close_session(req).await }
+    //     })
+    //     .await?;
+
+    //     Ok(data.try_into()?)
+    // }
 
     #[tracing::instrument(
         level = "debug",
@@ -82,24 +79,22 @@ impl MetadataClient {
     )]
     pub async fn get_session_messages(
         &self,
-        session_id: &str,
-    ) -> Result<Vec<SessionMessageProto>, GrpcClientError> {
-        let client = self.client.clone();
-        let session_id = session_id.to_owned();
-        let response = with_retry(
-            GrpcServiceKind::Metadata,
-            "Failed to get session messages",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(GetSessionMessagesRequest {
-                    session_id: session_id.clone(),
-                });
-                async move { c.get_session_messages(req).await }
-            },
-        )
-        .await
-        .map_err(GrpcClientError::from)?;
-        Ok(response.messages)
+        session_id: SessionIdDto,
+    ) -> Result<Vec<SessionMessageDto>, InfraError> {
+        let data = with_retry(|| {
+            let mut c = self.client.clone();
+            let req = Request::new(GetSessionMessagesRequest {
+                session_id: session_id.to_string(),
+            });
+            async move { c.get_session_messages(req).await }
+        })
+        .await?;
+
+        Ok(data
+            .messages
+            .into_iter()
+            .map(SessionMessageDto::try_from)
+            .collect::<Result<_, _>>()?)
     }
 
     #[tracing::instrument(
@@ -110,30 +105,25 @@ impl MetadataClient {
     )]
     pub async fn append_session_messages(
         &self,
-        session_id: &str,
-        messages: Vec<NewSessionMessageProto>,
-    ) -> Result<(), GrpcClientError> {
-        let client = self.client.clone();
-        let session_id = session_id.to_owned();
-        let messages = messages.clone();
-        with_retry(
-            GrpcServiceKind::Metadata,
-            "Failed to append session messages",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(AppendSessionMessagesRequest {
-                    session_id: session_id.clone(),
-                    messages: messages.clone(),
-                });
-                async move { c.append_session_messages(req).await }
-            },
-        )
-        .await
-        .map_err(GrpcClientError::from)?;
+        session_id: SessionIdDto,
+        messages: Vec<CreateSessionMessageDto>,
+    ) -> Result<(), InfraError> {
+        with_retry(|| {
+            let mut c = self.client.clone();
+            let req = Request::new(AppendSessionMessagesRequest {
+                session_id: session_id.to_string(),
+                messages: messages
+                    .clone()
+                    .into_iter()
+                    .map(CreateSessionMessageDto::into)
+                    .collect(),
+            });
+            async move { c.append_session_messages(req).await }
+        })
+        .await?;
+
         Ok(())
     }
-
-    // --- Document RPCs ---
 
     #[tracing::instrument(
         level = "debug",
@@ -143,26 +133,19 @@ impl MetadataClient {
     )]
     pub async fn get_session_document(
         &self,
-        document_id: &str,
-    ) -> Result<SessionDocumentProto, GrpcClientError> {
-        let client = self.client.clone();
-        let document_id = document_id.to_owned();
-        with_retry(
-            GrpcServiceKind::Metadata,
-            "Failed to get session document",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(GetSessionDocumentRequest {
-                    document_id: document_id.clone(),
-                });
-                async move { c.get_session_document(req).await }
-            },
-        )
-        .await
-        .map_err(Into::into)
-    }
+        document_id: SessionDocumentIdDto,
+    ) -> Result<SessionDocumentDto, InfraError> {
+        let data = with_retry(|| {
+            let mut c = self.client.clone();
+            let req = Request::new(GetSessionDocumentRequest {
+                document_id: document_id.to_string(),
+            });
+            async move { c.get_session_document(req).await }
+        })
+        .await?;
 
-    // --- Schema RPCs ---
+        Ok(data.try_into()?)
+    }
 
     #[tracing::instrument(
         level = "debug",
@@ -172,29 +155,22 @@ impl MetadataClient {
     )]
     pub async fn create_node_schema(
         &self,
-        graph_id: &str,
-        label: &str,
+        graph_id: GraphIdDto,
+        label: LabelDto,
         description: &str,
-    ) -> Result<NodeSchemaProto, GrpcClientError> {
-        let client = self.client.clone();
-        let graph_id = graph_id.to_owned();
-        let label = label.to_owned();
-        let description = description.to_owned();
-        with_retry(
-            GrpcServiceKind::Metadata,
-            "Failed to create node schema",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(CreateNodeSchemaRequest {
-                    graph_id: graph_id.clone(),
-                    label: label.clone(),
-                    description: description.clone(),
-                });
-                async move { c.create_node_schema(req).await }
-            },
-        )
-        .await
-        .map_err(Into::into)
+    ) -> Result<NodeSchemaDto, InfraError> {
+        let data = with_retry(|| {
+            let mut c = self.client.clone();
+            let req = Request::new(CreateNodeSchemaRequest {
+                graph_id: graph_id.to_string(),
+                label: label.to_string(),
+                description: description.to_owned(),
+            });
+            async move { c.create_node_schema(req).await }
+        })
+        .await?;
+
+        Ok(data.try_into()?)
     }
 
     #[tracing::instrument(
@@ -205,29 +181,22 @@ impl MetadataClient {
     )]
     pub async fn create_edge_schema(
         &self,
-        graph_id: &str,
-        label: &str,
+        graph_id: GraphIdDto,
+        label: LabelDto,
         description: &str,
-    ) -> Result<EdgeSchemaProto, GrpcClientError> {
-        let client = self.client.clone();
-        let graph_id = graph_id.to_owned();
-        let label = label.to_owned();
-        let description = description.to_owned();
-        with_retry(
-            GrpcServiceKind::Metadata,
-            "Failed to create edge schema",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(CreateEdgeSchemaRequest {
-                    graph_id: graph_id.clone(),
-                    label: label.clone(),
-                    description: description.clone(),
-                });
-                async move { c.create_edge_schema(req).await }
-            },
-        )
-        .await
-        .map_err(Into::into)
+    ) -> Result<EdgeSchemaDto, InfraError> {
+        let data = with_retry(|| {
+            let mut c = self.client.clone();
+            let req = Request::new(CreateEdgeSchemaRequest {
+                graph_id: graph_id.to_string(),
+                label: label.to_string(),
+                description: description.to_owned(),
+            });
+            async move { c.create_edge_schema(req).await }
+        })
+        .await?;
+
+        Ok(data.try_into()?)
     }
 
     #[tracing::instrument(
@@ -236,17 +205,16 @@ impl MetadataClient {
         skip(self, graph_id),
         err
     )]
-    pub async fn get_schema(&self, graph_id: &str) -> Result<GraphSchemaProto, GrpcClientError> {
-        let client = self.client.clone();
-        let graph_id = graph_id.to_owned();
-        with_retry(GrpcServiceKind::Metadata, "Failed to get schema", || {
-            let mut c = client.clone();
+    pub async fn get_schema(&self, graph_id: GraphIdDto) -> Result<GraphSchemaDto, InfraError> {
+        let data = with_retry(|| {
+            let mut c = self.client.clone();
             let req = Request::new(GetSchemaRequest {
-                graph_id: graph_id.clone(),
+                graph_id: graph_id.to_string(),
             });
             async move { c.get_schema(req).await }
         })
-        .await
-        .map_err(Into::into)
+        .await?;
+
+        Ok(data.try_into()?)
     }
 }

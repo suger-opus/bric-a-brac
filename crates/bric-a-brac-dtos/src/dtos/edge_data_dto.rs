@@ -1,7 +1,7 @@
 use super::{KeyDto, NodeDataIdDto, PropertiesDataDto};
 use crate::DtosConversionError;
 use bric_a_brac_id::id;
-use bric_a_brac_protos::common::{EdgeDataProto, CreateEdgeDataProto, UpdateEdgeDataProto};
+use bric_a_brac_protos::common::{CreateEdgeDataProto, EdgeDataProto, UpdateEdgeDataProto};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use utoipa::ToSchema;
@@ -17,7 +17,7 @@ impl TryFrom<String> for EdgeDataIdDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct EdgeDataDto {
     pub edge_data_id: EdgeDataIdDto,
     #[validate(nested)]
@@ -54,7 +54,7 @@ impl From<EdgeDataDto> for EdgeDataProto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 #[validate(schema(function = "validate_no_self_loop"))]
 pub struct CreateEdgeDataDto {
     #[validate(nested)]
@@ -94,7 +94,18 @@ impl TryFrom<CreateEdgeDataProto> for CreateEdgeDataDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+impl From<CreateEdgeDataDto> for CreateEdgeDataProto {
+    fn from(dto: CreateEdgeDataDto) -> Self {
+        Self {
+            key: dto.key.into(),
+            from_node_data_id: dto.from_node_data_id.to_string(),
+            to_node_data_id: dto.to_node_data_id.to_string(),
+            properties: dto.properties.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct UpdateEdgeDataDto {
     pub edge_data_id: EdgeDataIdDto,
     #[validate(nested)]
@@ -109,5 +120,14 @@ impl TryFrom<UpdateEdgeDataProto> for UpdateEdgeDataDto {
             edge_data_id: proto.edge_data_id.try_into()?,
             properties: proto.properties.try_into()?,
         })
+    }
+}
+
+impl From<UpdateEdgeDataDto> for UpdateEdgeDataProto {
+    fn from(dto: UpdateEdgeDataDto) -> Self {
+        Self {
+            edge_data_id: dto.edge_data_id.to_string(),
+            properties: dto.properties.into(),
+        }
     }
 }

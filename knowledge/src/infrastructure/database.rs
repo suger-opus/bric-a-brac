@@ -1,4 +1,4 @@
-use super::config::KnowledgeDatabaseConfig;
+use super::KnowledgeDatabaseConfig;
 use neo4rs::{ConfigBuilder, Graph};
 use std::sync::Arc;
 

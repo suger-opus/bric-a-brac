@@ -1,4 +1,4 @@
-use crate::domain::models::{NodeSchemaIdModel, NodeSchemaModel};
+use crate::domain::{NodeSchemaIdModel, NodeSchemaModel};
 use bric_a_brac_dtos::{NodeSchemaDto, NodeSchemaIdDto};
 
 impl From<NodeSchemaIdModel> for NodeSchemaIdDto {

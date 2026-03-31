@@ -1,6 +1,5 @@
-use super::UserIdDto;
-use crate::domain::models::{AccessModel, CreateAccessModel, GraphIdModel, RoleModel};
-use bric_a_brac_dtos::GraphIdDto;
+use crate::domain::{AccessModel, RoleModel};
+use bric_a_brac_dtos::{GraphIdDto, RoleDto, UserIdDto};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -30,25 +29,6 @@ impl From<AccessModel> for AccessDto {
 pub struct CreateAccessDto {
     pub user_id: UserIdDto,
     pub role: RoleDto,
-}
-
-impl CreateAccessDto {
-    pub fn into_domain(self, graph_id: GraphIdModel) -> CreateAccessModel {
-        CreateAccessModel {
-            graph_id,
-            user_id: self.user_id.into(),
-            role: self.role.into(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub enum RoleDto {
-    Owner,
-    Admin,
-    Editor,
-    Viewer,
-    None,
 }
 
 impl From<RoleDto> for RoleModel {

@@ -1,6 +1,6 @@
 use crate::{
-    domain::models::{AccessModel, CreateAccessModel},
-    infrastructure::errors::DatabaseError,
+    domain::{AccessModel, CreateAccessModel},
+    infrastructure::InfraError,
 };
 use sqlx::PgConnection;
 
@@ -22,7 +22,7 @@ impl AccessRepository {
         &self,
         connection: &mut PgConnection,
         create_access: CreateAccessModel,
-    ) -> Result<AccessModel, DatabaseError> {
+    ) -> Result<AccessModel, InfraError> {
         tracing::debug!(graph_id = ?create_access.graph_id, user_id = ?create_access.user_id, role = ?create_access.role);
 
         let access = sqlx::query_as!(

@@ -15,6 +15,7 @@ static COLOR_REGEX: LazyLock<Regex> =
 static KEY_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9]{7}$").expect("Invalid key regex"));
 
+// TODO: same for description ?
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display)]
 #[display("{value}")]
 #[serde(transparent)]
@@ -48,6 +49,14 @@ impl ToSchema for LabelDto {
     }
 }
 
+impl From<&str> for LabelDto {
+    fn from(s: &str) -> Self {
+        Self {
+            value: s.to_owned(),
+        }
+    }
+}
+
 impl From<String> for LabelDto {
     fn from(s: String) -> Self {
         Self { value: s }
@@ -60,7 +69,9 @@ impl From<LabelDto> for String {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display)]
+#[derive(
+    Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display,
+)]
 #[display("{value}")]
 #[serde(transparent)]
 pub struct ColorDto {

@@ -1,5 +1,8 @@
-use super::super::dtos::{AccessDto, CreateAccessDto};
-use crate::{infrastructure::repositories::AccessRepository, application::errors::AppError};
+use crate::{
+    application::{AccessDto, AppError, CreateAccessDto},
+    domain::CreateAccessModel,
+    infrastructure::AccessRepository,
+};
 use bric_a_brac_dtos::GraphIdDto;
 use sqlx::PgPool;
 
@@ -28,7 +31,14 @@ impl AccessService {
         let mut txn = self.pool.begin().await?;
         let access = self
             .repository
-            .create(&mut txn, create_access_dto.into_domain(graph_id.into()))
+            .create(
+                &mut txn,
+                CreateAccessModel {
+                    graph_id: graph_id.into(),
+                    user_id: create_access_dto.user_id.into(),
+                    role: create_access_dto.role.into(),
+                },
+            )
             .await?;
         txn.commit().await?;
 

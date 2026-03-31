@@ -1,5 +1,5 @@
 use crate::infrastructure::{
-    config::OpenRouterConfig, errors::OpenRouterClientError, http_retry::send_with_retry,
+    http_retry::send_with_retry, InfraError, OpenRouterClientError, OpenRouterConfig,
 };
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -42,15 +42,15 @@ impl EmbeddingClient {
         skip(self, texts),
         err
     )]
-    pub async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>, OpenRouterClientError> {
-        tracing::debug!(text_count = texts.len());
+    pub async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>, InfraError> {
+        tracing::debug!(texts_len = texts.len());
 
         let request = EmbeddingRequest {
             model: self.embedding_model.clone(),
             input: texts,
         };
 
-        let response = send_with_retry("OpenRouter embed", || {
+        let response = send_with_retry(|| {
             self.client
                 .post("https://openrouter.ai/api/v1/embeddings")
                 .header(
@@ -60,30 +60,27 @@ impl EmbeddingClient {
                 .header("Content-Type", "application/json")
                 .json(&request)
         })
-        .await?;
+        .await
+        .map_err(OpenRouterClientError::from)?;
 
         let status = response.status();
-        let response_text =
-            response
-                .text()
-                .await
-                .map_err(|err| OpenRouterClientError::ReadResponse {
-                    message: "Failed to read OpenRouter Embeddings API response".to_owned(),
-                    source: err,
-                })?;
+        let response_text = response
+            .text()
+            .await
+            .map_err(|err| OpenRouterClientError::ReadResponse { source: err })?;
 
         if !status.is_success() {
             return Err(OpenRouterClientError::NoSuccessResponse {
                 status,
                 body: response_text,
-            });
+            }
+            .into());
         }
 
         let embedding_response: EmbeddingResponse =
             serde_json::from_str(&response_text).map_err(|err| {
-                tracing::error!(body = %response_text, "Failed to deserialize embedding response");
                 OpenRouterClientError::Deserialization {
-                    message: "Failed to deserialize EmbeddingResponse".to_owned(),
+                    body: response_text,
                     source: err,
                 }
             })?;
@@ -95,17 +92,19 @@ impl EmbeddingClient {
             .collect())
     }
 
-    /// Embed a single text and return the embedding vector
     #[tracing::instrument(
         level = "debug",
         name = "embedding_client.embed_one",
         skip(self, text),
         err
     )]
-    pub async fn embed_one(&self, text: String) -> Result<Vec<f32>, OpenRouterClientError> {
+    pub async fn embed_one(&self, text: String) -> Result<Vec<f32>, InfraError> {
         let mut results = self.embed(vec![text]).await?;
-        results.pop().ok_or(OpenRouterClientError::ResponseFormat {
-            message: "No embedding data in response".to_owned(),
-        })
+        results.pop().ok_or(
+            OpenRouterClientError::ResponseFormat {
+                message: "No embedding data in response".to_owned(),
+            }
+            .into(),
+        )
     }
 }

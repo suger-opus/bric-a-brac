@@ -6,43 +6,15 @@ import "common.proto";
 import "google/protobuf/timestamp.proto";
 
 service Metadata {
-    rpc GetSession(GetSessionRequest) returns (SessionProto);
-    rpc CloseSession(CloseSessionRequest) returns (SessionProto);
+    rpc GetSession(GetSessionRequest) returns (common.SessionProto);
+    rpc CloseSession(CloseSessionRequest) returns (common.SessionProto);
     rpc GetSessionMessages(GetSessionMessagesRequest) returns (GetSessionMessagesResponse);
-    rpc AppendSessionMessages(AppendSessionMessagesRequest) returns (AppendSessionMessagesResponse);
-    rpc GetSessionDocument(GetSessionDocumentRequest) returns (SessionDocumentProto);
+    rpc AppendSessionMessages(AppendSessionMessagesRequest) returns (common.Empty);
+    rpc GetSessionDocument(GetSessionDocumentRequest) returns (common.SessionDocumentProto);
     rpc CreateNodeSchema(CreateNodeSchemaRequest) returns (common.NodeSchemaProto);
     rpc CreateEdgeSchema(CreateEdgeSchemaRequest) returns (common.EdgeSchemaProto);
     rpc GetSchema(GetSchemaRequest) returns (common.GraphSchemaProto);
 }
-
-// --- Session ---
-
-message SessionProto {
-    string session_id = 1;
-    string graph_id = 2;
-    string user_id = 3;
-    string status = 4;
-    google.protobuf.Timestamp created_at = 5;
-    google.protobuf.Timestamp updated_at = 6;
-    string role = 7;
-}
-
-message SessionMessageProto {
-    string message_id = 1;
-    string session_id = 2;
-    int32 position = 3;
-    string role = 4;
-    string content = 5;
-    optional string tool_calls = 6;
-    optional string tool_call_id = 7;
-    google.protobuf.Timestamp created_at = 8;
-    optional string document_id = 9;
-    optional string document_name = 10;
-    optional int32 chunk_index = 11;
-}
-
-// --- Session RPCs ---
 
 message GetSessionRequest {
     string session_id = 1;
@@ -50,7 +22,7 @@ message GetSessionRequest {
 
 message CloseSessionRequest {
     string session_id = 1;
-    string status = 2;
+    common.SessionStatusProto status = 2;
 }
 
 message GetSessionMessagesRequest {
@@ -58,42 +30,17 @@ message GetSessionMessagesRequest {
 }
 
 message GetSessionMessagesResponse {
-    repeated SessionMessageProto messages = 1;
+    repeated common.SessionMessageProto messages = 1;
 }
 
 message AppendSessionMessagesRequest {
     string session_id = 1;
-    repeated NewSessionMessageProto messages = 2;
-}
-
-message NewSessionMessageProto {
-    string role = 1;
-    string content = 2;
-    optional string tool_calls = 3;
-    optional string tool_call_id = 4;
-    optional string document_id = 5;
-    optional string document_name = 6;
-    optional int32 chunk_index = 7;
-}
-
-message AppendSessionMessagesResponse {}
-
-// --- Session Documents ---
-
-message SessionDocumentProto {
-    string document_id = 1;
-    string session_id = 2;
-    string filename = 3;
-    string content_hash = 4;
-    string content = 5;
-    google.protobuf.Timestamp created_at = 6;
+    repeated common.CreateSessionMessageProto messages = 2;
 }
 
 message GetSessionDocumentRequest {
     string document_id = 1;
 }
-
-// --- Schema RPCs ---
 
 message CreateNodeSchemaRequest {
     string graph_id = 1;

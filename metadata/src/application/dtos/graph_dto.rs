@@ -1,6 +1,5 @@
-use super::RoleDto;
-use crate::domain::models::{CreateGraphModel, GraphIdModel, GraphMetadataModel};
-use bric_a_brac_dtos::GraphIdDto;
+use crate::domain::{CreateGraphModel, GraphIdModel, GraphMetadataModel};
+use bric_a_brac_dtos::{GraphIdDto, RoleDto};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;

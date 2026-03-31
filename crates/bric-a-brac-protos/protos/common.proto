@@ -4,6 +4,16 @@ package common;
 
 import "google/protobuf/timestamp.proto";
 
+message Empty {}
+
+enum RoleProto {
+    ROLE_NONE = 0;
+    ROLE_OWNER = 1;
+    ROLE_ADMIN = 2;
+    ROLE_EDITOR = 3;
+    ROLE_VIEWER = 4;
+}
+
 message GraphSchemaProto {
     repeated NodeSchemaProto nodes = 1;
     repeated EdgeSchemaProto edges = 2;
@@ -88,4 +98,60 @@ message UpdateNodeDataProto {
 message UpdateEdgeDataProto {
     string edge_data_id = 1;
     map<string, PropertyValueProto> properties = 2;
+}
+
+message SessionProto {
+    string session_id = 1;
+    string graph_id = 2;
+    string user_id = 3;
+    SessionStatusProto status = 4;
+    google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 6;
+    RoleProto role = 7;
+}
+
+message SessionMessageProto {
+    string message_id = 1;
+    string session_id = 2;
+    int32 position = 3;
+    SessionMessageRoleProto role = 4;
+    string content = 5;
+    optional string tool_calls = 6;
+    optional string tool_call_id = 7;
+    google.protobuf.Timestamp created_at = 8;
+    optional string document_id = 9;
+    optional string document_name = 10;
+    optional int32 chunk_index = 11;
+}
+
+message CreateSessionMessageProto {
+    SessionMessageRoleProto role = 1;
+    string content = 2;
+    optional string tool_calls = 3;
+    optional string tool_call_id = 4;
+    optional string document_id = 5;
+    optional string document_name = 6;
+    optional int32 chunk_index = 7;
+}
+
+message SessionDocumentProto {
+    string document_id = 1;
+    string session_id = 2;
+    string filename = 3;
+    string content_hash = 4;
+    string content = 5;
+    google.protobuf.Timestamp created_at = 6;
+}
+
+enum SessionStatusProto {
+    SESSION_STATUS_ACTIVE = 0;
+    SESSION_STATUS_COMPLETED = 1;
+    SESSION_STATUS_ERROR = 2;
+}
+
+enum SessionMessageRoleProto {
+    SESSION_MESSAGE_ROLE_SYSTEM = 0;
+    SESSION_MESSAGE_ROLE_USER = 1;
+    SESSION_MESSAGE_ROLE_ASSISTANT = 2;
+    SESSION_MESSAGE_ROLE_TOOL = 3;
 }

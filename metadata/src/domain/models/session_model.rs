@@ -4,42 +4,33 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 id!(SessionIdModel);
+id!(SessionMessageIdModel);
+id!(SessionDocumentIdModel);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, sqlx::Type)]
-#[sqlx(type_name = "VARCHAR", rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, sqlx::Type, derive_more::Display)]
+#[sqlx(type_name = "session_status_type")]
 pub enum SessionStatusModel {
+    #[display("active")]
     Active,
+    #[display("completed")]
     Completed,
+    #[display("error")]
     Error,
 }
 
-impl std::str::FromStr for SessionStatusModel {
-    type Err = std::io::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "active" => Ok(Self::Active),
-            "completed" => Ok(Self::Completed),
-            "error" => Ok(Self::Error),
-            _ => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("Unknown session status: {s}"),
-            )),
-        }
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, sqlx::Type, derive_more::Display)]
+#[sqlx(type_name = "session_message_role_type")]
+pub enum SessionMessageRoleModel {
+    #[display("system")]
+    System,
+    #[display("user")]
+    User,
+    #[display("assistant")]
+    Assistant,
+    #[display("tool")]
+    Tool,
 }
 
-impl std::fmt::Display for SessionStatusModel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Active => write!(f, "active"),
-            Self::Completed => write!(f, "completed"),
-            Self::Error => write!(f, "error"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize)]
 pub struct SessionModel {
     pub session_id: SessionIdModel,
     pub graph_id: GraphIdModel,
@@ -50,8 +41,51 @@ pub struct SessionModel {
     pub updated_at: DateTime<Utc>,
 }
 
+#[allow(clippy::struct_field_names)]
 pub struct CreateSessionModel {
     pub session_id: SessionIdModel,
     pub graph_id: GraphIdModel,
     pub user_id: UserIdModel,
+}
+
+pub struct SessionMessageModel {
+    pub message_id: SessionMessageIdModel,
+    pub session_id: SessionIdModel,
+    pub position: i32,
+    pub role: SessionMessageRoleModel,
+    pub content: String,
+    pub tool_calls: Option<String>,
+    pub tool_call_id: Option<String>,
+    pub document_id: Option<SessionDocumentIdModel>,
+    pub document_name: Option<String>,
+    pub chunk_index: Option<i32>,
+    pub created_at: DateTime<Utc>,
+}
+
+pub struct CreateSessionMessageModel {
+    pub session_id: SessionIdModel,
+    pub position: i32,
+    pub role: SessionMessageRoleModel,
+    pub content: String,
+    pub tool_calls: Option<String>,
+    pub tool_call_id: Option<String>,
+    pub document_id: Option<SessionDocumentIdModel>,
+    pub chunk_index: Option<i32>,
+}
+
+pub struct SessionDocumentModel {
+    pub document_id: SessionDocumentIdModel,
+    pub session_id: SessionIdModel,
+    pub filename: String,
+    pub content_hash: String,
+    pub content: String,
+    pub created_at: DateTime<Utc>,
+}
+
+pub struct CreateSessionDocumentModel {
+    pub document_id: SessionDocumentIdModel,
+    pub session_id: SessionIdModel,
+    pub filename: String,
+    pub content_hash: String,
+    pub content: String,
 }

@@ -1,6 +1,6 @@
 use crate::{
-    application::dtos::{CreateUserDto, UserDto},
-    presentation::{extractors::AuthenticatedUser, state::ApiState},
+    application::{CreateUserDto, UserDto},
+    presentation::http::{ApiState, AuthenticatedUser},
 };
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 

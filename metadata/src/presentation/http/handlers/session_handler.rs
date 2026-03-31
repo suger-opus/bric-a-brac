@@ -1,6 +1,6 @@
 use crate::{
-    application::dtos::{CreateSessionDto, SessionDto, SessionIdDto, SessionMessageDto},
-    presentation::{extractors::AuthenticatedUser, state::ApiState},
+    application::CreateSessionDto,
+    presentation::http::{ApiState, AuthenticatedUser},
 };
 use axum::{
     extract::{Path, State},
@@ -8,7 +8,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use bric_a_brac_dtos::GraphIdDto;
+use bric_a_brac_dtos::{GraphIdDto, SessionDto, SessionIdDto, SessionMessageDto, SessionStatusDto};
 
 #[utoipa::path(
     post,
@@ -124,7 +124,7 @@ pub async fn close(
 ) -> impl IntoResponse {
     state
         .session_service
-        .close_session(session_id, "completed")
+        .close_session(session_id, SessionStatusDto::Completed)
         .await
         .map(|s| (StatusCode::OK, Json(s)))
 }

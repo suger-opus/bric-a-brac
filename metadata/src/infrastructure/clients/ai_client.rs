@@ -1,10 +1,12 @@
-use crate::infrastructure::{config::AiServerConfig, errors::GrpcClientError};
+use crate::infrastructure::{AiServerConfig, InfraError};
+use bric_a_brac_dtos::{AgentEventDto, SessionDocumentIdDto, SessionIdDto};
 use bric_a_brac_protos::{
-    ai::{ai_client::AiClient as AiGrpcClient, AgentEventProto, SendMessageRequest},
-    with_retry, GrpcServiceKind,
+    ai::{ai_client::AiClient as AiGrpcClient, SendMessageRequest},
+    with_retry,
 };
+use futures_util::{Stream, StreamExt};
 use tonic::transport::Channel;
-use tonic::{Request, Streaming};
+use tonic::Request;
 
 #[derive(Clone)]
 pub struct AiClient {
@@ -13,8 +15,8 @@ pub struct AiClient {
 
 impl AiClient {
     pub fn new(config: &AiServerConfig) -> anyhow::Result<Self> {
-        let channel = tonic::transport::Endpoint::from_shared(config.url().to_string())?
-            .connect_lazy();
+        let channel =
+            tonic::transport::Endpoint::from_shared(config.url().to_string())?.connect_lazy();
         Ok(Self {
             client: AiGrpcClient::new(channel),
         })
@@ -22,25 +24,26 @@ impl AiClient {
 
     pub async fn send_message(
         &self,
-        session_id: String,
+        session_id: SessionIdDto,
         content: String,
-        document_id: Option<String>,
-    ) -> Result<Streaming<AgentEventProto>, GrpcClientError> {
-        let client = self.client.clone();
-        with_retry(
-            GrpcServiceKind::Ai,
-            "Failed to send message to AI agent",
-            || {
-                let mut c = client.clone();
-                let req = Request::new(SendMessageRequest {
-                    session_id: session_id.clone(),
-                    content: content.clone(),
-                    document_id: document_id.clone(),
-                });
-                async move { c.send_message(req).await }
+        document_id: Option<SessionDocumentIdDto>,
+    ) -> Result<impl Stream<Item = AgentEventDto>, InfraError> {
+        let stream = with_retry(|| {
+            let mut c = self.client.clone();
+            let req = Request::new(SendMessageRequest {
+                session_id: session_id.to_string(),
+                content: content.clone(),
+                document_id: document_id.map(|id| id.to_string()),
+            });
+            async move { c.send_message(req).await }
+        })
+        .await?;
+
+        Ok(stream.map(|result| match result {
+            Ok(event) => AgentEventDto::from(event.event),
+            Err(status) => AgentEventDto::Error {
+                message: status.message().to_owned(),
             },
-        )
-        .await
-        .map_err(Into::into)
+        }))
     }
 }

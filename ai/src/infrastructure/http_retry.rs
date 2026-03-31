@@ -1,4 +1,4 @@
-use crate::infrastructure::errors::OpenRouterClientError;
+use crate::infrastructure::HttpRequestError;
 use std::time::Duration;
 
 const MAX_RETRIES: u32 = 2;
@@ -25,10 +25,7 @@ fn parse_retry_after(response: &reqwest::Response) -> Option<Duration> {
 ///
 /// The closure must return a fresh `RequestBuilder` on each call because
 /// `send()` consumes the builder.
-pub async fn send_with_retry<F>(
-    operation: &str,
-    build_request: F,
-) -> Result<reqwest::Response, OpenRouterClientError>
+pub async fn send_with_retry<F>(build_request: F) -> Result<reqwest::Response, HttpRequestError>
 where
     F: Fn() -> reqwest::RequestBuilder,
 {
@@ -42,7 +39,7 @@ where
                 tracing::warn!(
                     attempt = attempt + 1,
                     %status,
-                    "{operation}: retryable HTTP status, retrying"
+                    "HTTP request failed with retryable status, retrying"
                 );
                 tokio::time::sleep(delay).await;
             }
@@ -51,15 +48,12 @@ where
                 let delay = Duration::from_millis(BASE_DELAY_MS * 2u64.pow(attempt));
                 tracing::warn!(
                     attempt = attempt + 1,
-                    "{operation}: transient network error, retrying"
+                    "HTTP request failed with transient network error, retrying"
                 );
                 tokio::time::sleep(delay).await;
             }
             Err(err) => {
-                return Err(OpenRouterClientError::Request {
-                    message: operation.to_owned(),
-                    source: err,
-                });
+                return Err(HttpRequestError { source: err });
             }
         }
     }

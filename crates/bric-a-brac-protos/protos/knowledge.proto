@@ -6,18 +6,18 @@ import "common.proto";
 
 service Knowledge {
     rpc LoadGraph(LoadGraphRequest) returns (common.GraphDataProto);
-    rpc InitializeSchema(InitializeSchemaRequest) returns (InitializeSchemaResponse);
+    rpc InitializeSchema(InitializeSchemaRequest) returns (common.Empty);
     rpc CreateNode(CreateNodeRequest) returns (common.NodeDataProto);
     rpc UpdateNode(UpdateNodeRequest) returns (common.NodeDataProto);
-    rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
+    rpc DeleteNode(DeleteNodeRequest) returns (common.Empty);
     rpc CreateEdge(CreateEdgeRequest) returns (common.EdgeDataProto);
     rpc UpdateEdge(UpdateEdgeRequest) returns (common.EdgeDataProto);
-    rpc DeleteEdge(DeleteEdgeRequest) returns (DeleteEdgeResponse);
+    rpc DeleteEdge(DeleteEdgeRequest) returns (common.Empty);
     rpc SearchNodes(SearchNodesRequest) returns (SearchNodesResponse);
     rpc GetNode(GetNodeRequest) returns (common.NodeDataProto);
-    rpc GetNeighbors(GetNeighborsRequest) returns (GetNeighborsResponse);
+    rpc GetNeighbors(GetNeighborsRequest) returns (common.GraphDataProto);
     rpc FindPaths(FindPathsRequest) returns (FindPathsResponse);
-    rpc DeleteGraph(DeleteGraphRequest) returns (DeleteGraphResponse);
+    rpc DeleteGraph(DeleteGraphRequest) returns (common.Empty);
 }
 
 message LoadGraphRequest {
@@ -28,8 +28,6 @@ message InitializeSchemaRequest {
     string graph_id = 1;
     repeated string node_keys = 2;
 }
-message InitializeSchemaResponse {}
-
 message CreateNodeRequest {
     string graph_id = 1;
     common.CreateNodeDataProto node = 2;
@@ -44,8 +42,6 @@ message DeleteNodeRequest {
     string graph_id = 1;
     string node_data_id = 2;
 }
-message DeleteNodeResponse {}
-
 message CreateEdgeRequest {
     string graph_id = 1;
     common.CreateEdgeDataProto edge = 2;
@@ -60,7 +56,6 @@ message DeleteEdgeRequest {
     string graph_id = 1;
     string edge_data_id = 2;
 }
-message DeleteEdgeResponse {}
 
 message SearchNodesRequest {
     string graph_id = 1;
@@ -68,6 +63,7 @@ message SearchNodesRequest {
     repeated float query_embedding = 3;
     int32 limit = 4;
 }
+
 message SearchNodesResponse {
     repeated common.NodeSearchProto nodes = 1;
 }
@@ -82,9 +78,6 @@ message GetNeighborsRequest {
     string node_data_id = 2;
     optional string edge_key = 3;
     int32 depth = 4;
-}
-message GetNeighborsResponse {
-    common.GraphDataProto subgraph = 1;
 }
 
 message FindPathsRequest {
@@ -101,4 +94,3 @@ message DeleteGraphRequest {
     string graph_id = 1;
     repeated string node_keys = 2;
 }
-message DeleteGraphResponse {}

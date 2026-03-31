@@ -1,11 +1,9 @@
-use crate::domain::models::{CreateUserModel, UserIdModel, UserModel};
-use bric_a_brac_id::id;
+use crate::domain::{CreateUserModel, UserIdModel, UserModel};
+use bric_a_brac_dtos::UserIdDto;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
-
-id!(UserIdDto);
 
 impl From<UserIdModel> for UserIdDto {
     fn from(user_id: UserIdModel) -> Self {

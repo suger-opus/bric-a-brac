@@ -1,18 +1,14 @@
 use crate::{
-    application::dtos::{CreateGraphDto, GraphMetadataDto, UserIdDto},
-    application::errors::AppError,
-    domain::models::{
+    application::{AppError, CreateGraphDto, GraphMetadataDto},
+    domain::{
         CreateAccessModel, CreateEdgeSchemaModel, CreateNodeSchemaModel, EdgeSchemaIdModel,
         NodeSchemaIdModel, RoleModel,
     },
-    infrastructure::{
-        clients::KnowledgeClient,
-        errors::GrpcClientError,
-        repositories::{AccessRepository, GraphRepository},
-    },
+    infrastructure::{AccessRepository, GraphRepository, KnowledgeClient},
 };
 use bric_a_brac_dtos::{
-    ColorDto, EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto, KeyDto, NodeSchemaDto,
+    ColorDto, EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto, KeyDto, LabelDto,
+    NodeSchemaDto, UserIdDto,
 };
 use sqlx::PgPool;
 
@@ -56,7 +52,7 @@ impl GraphService {
             .await?;
         txn.commit().await?;
 
-        Ok(graphs.into_iter().map(GraphMetadataDto::from).collect())
+        Ok(graphs.into_iter().map(From::from).collect())
     }
 
     #[tracing::instrument(
@@ -71,12 +67,12 @@ impl GraphService {
         create_graph: CreateGraphDto,
     ) -> Result<GraphMetadataDto, AppError> {
         let mut txn = self.pool.begin().await?;
-        let graph = self
+        let graph_id = self
             .repository
             .create_graph(&mut txn, create_graph.into())
             .await?;
         let create_access = CreateAccessModel {
-            graph_id: graph.graph_id,
+            graph_id,
             user_id: user_id.into(),
             role: RoleModel::Owner,
         };
@@ -85,7 +81,7 @@ impl GraphService {
             .await?;
         let graph = self
             .repository
-            .get_metadata(&mut txn, graph.graph_id, user_id.into())
+            .get_metadata(&mut txn, graph_id, user_id.into())
             .await?;
         txn.commit().await?;
 
@@ -137,10 +133,10 @@ impl GraphService {
         err
     )]
     pub async fn get_data(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, AppError> {
-        let proto = self.knowledge_client.load_graph(graph_id).await?;
-        proto
-            .try_into()
-            .map_err(|err| GrpcClientError::Conversion(err).into())
+        self.knowledge_client
+            .load_graph(graph_id)
+            .await
+            .map_err(From::from)
     }
 
     #[tracing::instrument(
@@ -152,18 +148,16 @@ impl GraphService {
     pub async fn create_node_schema(
         &self,
         graph_id: GraphIdDto,
-        label: String,
+        label: LabelDto,
         description: String,
     ) -> Result<NodeSchemaDto, AppError> {
-        let key: String = KeyDto::new().into();
-        let color = ColorDto::new().into();
-
+        let key = KeyDto::new();
         let create = CreateNodeSchemaModel {
             node_schema_id: NodeSchemaIdModel::new(),
             graph_id: graph_id.into(),
-            label,
-            key: key.clone(),
-            color,
+            label: label.into(),
+            key: key.clone().into(),
+            color: ColorDto::new().into(),
             description,
         };
 
@@ -188,18 +182,15 @@ impl GraphService {
     pub async fn create_edge_schema(
         &self,
         graph_id: GraphIdDto,
-        label: String,
+        label: LabelDto,
         description: String,
     ) -> Result<EdgeSchemaDto, AppError> {
-        let key = KeyDto::new().into();
-        let color = ColorDto::new().into();
-
         let create = CreateEdgeSchemaModel {
             edge_schema_id: EdgeSchemaIdModel::new(),
             graph_id: graph_id.into(),
-            label,
-            key,
-            color,
+            label: label.into(),
+            key: KeyDto::new().into(),
+            color: ColorDto::new().into(),
             description,
         };
 
@@ -223,11 +214,13 @@ impl GraphService {
             .repository
             .get_schema(&mut txn, graph_id.into())
             .await?;
-        let node_keys: Vec<String> = schema.nodes.iter().map(|n| n.key.clone()).collect();
 
         // Delete all graph data from Memgraph (nodes, edges, vector indexes)
         self.knowledge_client
-            .delete_graph(graph_id, node_keys)
+            .delete_graph(
+                graph_id,
+                schema.nodes.into_iter().map(|n| n.key.into()).collect(),
+            )
             .await?;
 
         // Delete graph from Postgres (CASCADE handles schemas, sessions, accesses)

@@ -19,7 +19,7 @@ impl TryFrom<String> for EdgeSchemaIdDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct EdgeSchemaDto {
     pub edge_schema_id: EdgeSchemaIdDto,
     pub graph_id: GraphIdDto,

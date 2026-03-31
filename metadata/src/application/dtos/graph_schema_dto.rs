@@ -1,4 +1,4 @@
-use crate::domain::models::GraphSchemaModel;
+use crate::domain::GraphSchemaModel;
 use bric_a_brac_dtos::GraphSchemaDto;
 
 impl From<GraphSchemaModel> for GraphSchemaDto {

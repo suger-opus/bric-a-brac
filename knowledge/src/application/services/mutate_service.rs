@@ -116,6 +116,7 @@ impl MutateService {
             .delete_node(&mut txn, graph_id.into(), node_data_id.into())
             .await?;
         txn.commit().await?;
+
         Ok(())
     }
 
@@ -135,6 +136,7 @@ impl MutateService {
             .delete_edge(&mut txn, graph_id.into(), edge_data_id.into())
             .await?;
         txn.commit().await?;
+
         Ok(())
     }
 
@@ -152,6 +154,7 @@ impl MutateService {
         self.repository
             .delete_graph_data(&self.pool, graph_id.into(), node_keys)
             .await?;
+
         Ok(())
     }
 
@@ -165,6 +168,7 @@ impl MutateService {
         self.repository
             .initialize_schema(&self.pool, node_keys)
             .await?;
+
         Ok(())
     }
 }

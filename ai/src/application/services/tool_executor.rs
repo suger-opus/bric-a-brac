@@ -1,10 +1,8 @@
-use crate::infrastructure::clients::{EmbeddingClient, KnowledgeClient, MetadataClient};
-use bric_a_brac_protos::common::{
-    CreateEdgeDataProto, CreateNodeDataProto, GraphSchemaProto, PropertyValueProto,
-    UpdateEdgeDataProto, UpdateNodeDataProto,
+use crate::infrastructure::{EmbeddingClient, KnowledgeClient, MetadataClient};
+use bric_a_brac_dtos::{
+    CreateEdgeDataDto, CreateNodeDataDto, EdgeDataIdDto, GraphIdDto, GraphSchemaDto, KeyDto, LabelDto, NodeDataIdDto, PropertiesDataDto, RoleDto, SessionDocumentIdDto, SessionIdDto, UpdateEdgeDataDto, UpdateNodeDataDto
 };
 use serde_json::Value;
-use std::collections::HashMap;
 
 const ENTITY_RESOLUTION_LIMIT: i32 = 5;
 const SIMILARITY_THRESHOLD: f32 = 0.3;
@@ -38,8 +36,8 @@ const WRITE_TOOLS: &[&str] = &[
     "delete_edge",
 ];
 
-fn is_write_role(role: &str) -> bool {
-    matches!(role, "Owner" | "Admin" | "Editor")
+const fn is_write_role(role: RoleDto) -> bool {
+    matches!(role, RoleDto::Owner | RoleDto::Admin | RoleDto::Editor)
 }
 
 impl ToolExecutor {
@@ -65,10 +63,10 @@ impl ToolExecutor {
         &self,
         tool_name: &str,
         arguments: &str,
-        graph_id: &str,
-        session_id: &str,
-        schema: &GraphSchemaProto,
-        user_role: &str,
+        graph_id: GraphIdDto,
+        session_id: SessionIdDto,
+        schema: &GraphSchemaDto,
+        user_role: RoleDto,
     ) -> ToolResult {
         if WRITE_TOOLS.contains(&tool_name) && !is_write_role(user_role) {
             return ToolResult {
@@ -87,12 +85,8 @@ impl ToolExecutor {
             "get_neighbors" => self.exec_get_neighbors(arguments, graph_id).await,
             "find_paths" => self.exec_find_paths(arguments, graph_id).await,
             "read_document" => self.exec_read_document(arguments).await,
-            "create_schema" => {
-                return self.exec_create_schema(arguments, graph_id).await;
-            }
-            "create_edge_schema" => {
-                return self.exec_create_edge_schema(arguments, graph_id).await;
-            }
+            "create_schema" => self.exec_create_schema(arguments, graph_id).await,
+            "create_edge_schema" => self.exec_create_edge_schema(arguments, graph_id).await,
             "create_node" => self.exec_create_node(arguments, graph_id, schema).await,
             "create_edge" => self.exec_create_edge(arguments, graph_id, schema).await,
             "create_nodes" => self.exec_create_nodes(arguments, graph_id, schema).await,
@@ -101,9 +95,13 @@ impl ToolExecutor {
             "update_edge" => self.exec_update_edge(arguments, graph_id).await,
             "delete_node" => self.exec_delete_node(arguments, graph_id).await,
             "delete_edge" => self.exec_delete_edge(arguments, graph_id).await,
-            "done" => return self.exec_done(arguments),
+            "done" => Ok(self.exec_done(arguments)),
             _ => Err(format!("Unknown tool: {tool_name}")),
         };
+
+        let schema_changed =
+            matches!(tool_name, "create_schema" | "create_edge_schema") && result.is_ok();
+        let is_done = tool_name == "done" && result.is_ok();
 
         ToolResult {
             content: match result {
@@ -113,18 +111,22 @@ impl ToolExecutor {
                     format!("Error: {err}")
                 }
             },
-            schema_changed: false,
-            is_done: false,
+            schema_changed,
+            is_done,
         }
     }
 
-    async fn exec_search_nodes(&self, arguments: &str, graph_id: &str) -> Result<String, String> {
+    // TODO: tracing
+    async fn exec_search_nodes(
+        &self,
+        arguments: &str,
+        graph_id: GraphIdDto,
+    ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
         let query = get_str(&args, "query")?;
         let node_key = args
             .get("node_key")
-            .and_then(|v| v.as_str())
-            .map(String::from);
+            .and_then(|v| v.as_str().map(|s| KeyDto::from(String::from(s))));
         let limit = i32::try_from(
             args.get("limit")
                 .and_then(serde_json::Value::as_i64)
@@ -148,24 +150,13 @@ impl ToolExecutor {
             return Ok("No matching nodes found.".to_owned());
         }
 
-        let result: Vec<Value> = nodes
-            .into_iter()
-            .map(|n| {
-                serde_json::json!({
-                    "node_data_id": n.node_data_id,
-                    "key": n.key,
-                    "properties": proto_properties_to_json(&n.properties),
-                    "distance": n.distance,
-                })
-            })
-            .collect();
-
-        serde_json::to_string_pretty(&result).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_string(&nodes).map_err(|err| format!("Serialization failed: {err}"))
     }
 
-    async fn exec_get_node(&self, arguments: &str, graph_id: &str) -> Result<String, String> {
+    async fn exec_get_node(&self, arguments: &str, graph_id: GraphIdDto) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
-        let node_data_id = get_str(&args, "node_data_id")?;
+        let node_data_id = get_str(&args, "node_data_id")
+            .and_then(|s| NodeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
 
         let node = self
             .knowledge_client
@@ -173,22 +164,20 @@ impl ToolExecutor {
             .await
             .map_err(|err| format!("Get node failed: {err}"))?;
 
-        let result = serde_json::json!({
-            "node_data_id": node.node_data_id,
-            "key": node.key,
-            "properties": proto_properties_to_json(&node.properties),
-        });
-
-        serde_json::to_string_pretty(&result).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_string(&node).map_err(|err| format!("Serialization failed: {err}"))
     }
 
-    async fn exec_get_neighbors(&self, arguments: &str, graph_id: &str) -> Result<String, String> {
+    async fn exec_get_neighbors(
+        &self,
+        arguments: &str,
+        graph_id: GraphIdDto,
+    ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
-        let node_data_id = get_str(&args, "node_data_id")?;
+        let node_data_id = get_str(&args, "node_data_id")
+            .and_then(|s| NodeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
         let edge_key = args
             .get("edge_key")
-            .and_then(|v| v.as_str())
-            .map(String::from);
+            .and_then(|v| v.as_str().map(|s| KeyDto::from(String::from(s))));
         let depth = i32::try_from(
             args.get("depth")
                 .and_then(serde_json::Value::as_i64)
@@ -202,28 +191,19 @@ impl ToolExecutor {
             .await
             .map_err(|err| format!("Get neighbors failed: {err}"))?;
 
-        let result = serde_json::json!({
-            "nodes": subgraph.nodes.iter().map(|n| serde_json::json!({
-                "node_data_id": n.node_data_id,
-                "key": n.key,
-                "properties": proto_properties_to_json(&n.properties),
-            })).collect::<Vec<_>>(),
-            "edges": subgraph.edges.iter().map(|err| serde_json::json!({
-                "edge_data_id": err.edge_data_id,
-                "key": err.key,
-                "from_node_data_id": err.from_node_data_id,
-                "to_node_data_id": err.to_node_data_id,
-                "properties": proto_properties_to_json(&err.properties),
-            })).collect::<Vec<_>>(),
-        });
-
-        serde_json::to_string_pretty(&result).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_string(&subgraph).map_err(|err| format!("Serialization failed: {err}"))
     }
 
-    async fn exec_find_paths(&self, arguments: &str, graph_id: &str) -> Result<String, String> {
+    async fn exec_find_paths(
+        &self,
+        arguments: &str,
+        graph_id: GraphIdDto,
+    ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
-        let from_id = get_str(&args, "from_node_data_id")?;
-        let to_id = get_str(&args, "to_node_data_id")?;
+        let from_id = get_str(&args, "from_node_data_id")
+            .and_then(|s| NodeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
+        let to_id = get_str(&args, "to_node_data_id")
+            .and_then(|s| NodeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
         let max_depth = i32::try_from(
             args.get("max_depth")
                 .and_then(serde_json::Value::as_i64)
@@ -241,32 +221,13 @@ impl ToolExecutor {
             return Ok("No paths found between the specified nodes.".to_owned());
         }
 
-        let result: Vec<Value> = paths
-            .iter()
-            .map(|p| {
-                serde_json::json!({
-                    "nodes": p.nodes.iter().map(|n| serde_json::json!({
-                        "node_data_id": n.node_data_id,
-                        "key": n.key,
-                        "properties": proto_properties_to_json(&n.properties),
-                    })).collect::<Vec<_>>(),
-                    "edges": p.edges.iter().map(|err| serde_json::json!({
-                        "edge_data_id": err.edge_data_id,
-                        "key": err.key,
-                        "from_node_data_id": err.from_node_data_id,
-                        "to_node_data_id": err.to_node_data_id,
-                        "properties": proto_properties_to_json(&err.properties),
-                    })).collect::<Vec<_>>(),
-                })
-            })
-            .collect();
-
-        serde_json::to_string_pretty(&result).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_string(&paths).map_err(|err| format!("Serialization failed: {err}"))
     }
 
     async fn exec_read_document(&self, arguments: &str) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
-        let document_id = get_str(&args, "document_id")?;
+        let document_id = get_str(&args, "document_id")
+            .and_then(|s| SessionDocumentIdDto::try_from(s).map_err(|e| e.to_string()))?;
 
         let doc = self
             .metadata_client
@@ -274,83 +235,60 @@ impl ToolExecutor {
             .await
             .map_err(|err| format!("Failed to get document: {err}"))?;
 
-        let result = serde_json::json!({
-            "document_id": doc.document_id,
-            "filename": doc.filename,
-            "content": doc.content,
-        });
-
-        serde_json::to_string_pretty(&result).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_string(&doc).map_err(|err| format!("Serialization failed: {err}"))
     }
 
-    async fn exec_create_schema(&self, arguments: &str, graph_id: &str) -> ToolResult {
-        let result: Result<String, String> = async {
-            let args: Value = parse_args(arguments)?;
-            let label = get_str(&args, "label")?;
-            let description = get_str(&args, "description")?;
+    async fn exec_create_schema(
+        &self,
+        arguments: &str,
+        graph_id: GraphIdDto,
+    ) -> Result<String, String> {
+        let args: Value = parse_args(arguments)?;
+        let label = get_str(&args, "label").map(LabelDto::from)?;
+        let description = get_str(&args, "description")?;
 
-            let schema = self
-                .metadata_client
-                .create_node_schema(graph_id, label, description)
-                .await
-                .map_err(|err| format!("Failed to create node schema: {err}"))?;
+        let schema = self
+            .metadata_client
+            .create_node_schema(graph_id, label, description)
+            .await
+            .map_err(|err| format!("Failed to create node schema: {err}"))?;
 
-            Ok(format!(
+        Ok(format!(
                 "Created node schema '{}' with key '{}'. Use this key when creating nodes of this type.",
                 schema.label, schema.key
             ))
-        }
-        .await;
-
-        let schema_changed = result.is_ok();
-        ToolResult {
-            content: match result {
-                Ok(content) => content,
-                Err(err) => format!("Error: {err}"),
-            },
-            schema_changed,
-            is_done: false,
-        }
     }
 
-    async fn exec_create_edge_schema(&self, arguments: &str, graph_id: &str) -> ToolResult {
-        let result: Result<String, String> = async {
-            let args: Value = parse_args(arguments)?;
-            let label = get_str(&args, "label")?;
-            let description = get_str(&args, "description")?;
+    async fn exec_create_edge_schema(
+        &self,
+        arguments: &str,
+        graph_id: GraphIdDto,
+    ) -> Result<String, String> {
+        let args: Value = parse_args(arguments)?;
+        let label = get_str(&args, "label").map(LabelDto::from)?;
+        let description = get_str(&args, "description")?;
 
-            let schema = self
-                .metadata_client
-                .create_edge_schema(graph_id, label, description)
-                .await
-                .map_err(|err| format!("Failed to create edge schema: {err}"))?;
+        let schema = self
+            .metadata_client
+            .create_edge_schema(graph_id, label, description)
+            .await
+            .map_err(|err| format!("Failed to create edge schema: {err}"))?;
 
-            Ok(format!(
+        Ok(format!(
                 "Created edge schema '{}' with key '{}'. Use this key when creating edges of this type.",
                 schema.label, schema.key
             ))
-        }
-        .await;
-
-        let schema_changed = result.is_ok();
-        ToolResult {
-            content: match result {
-                Ok(content) => content,
-                Err(err) => format!("Error: {err}"),
-            },
-            schema_changed,
-            is_done: false,
-        }
     }
 
     async fn exec_create_node(
         &self,
         arguments: &str,
-        graph_id: &str,
-        schema: &GraphSchemaProto,
+        graph_id: GraphIdDto,
+        schema: &GraphSchemaDto,
     ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
-        let node_key = get_str(&args, "node_key")?;
+        // let node_key = get_str(&args, "node_key")?;
+        let node_key = get_str(&args, "node_key").map(|s| KeyDto::from(String::from(s)))?;
         let properties = get_properties(&args)?;
         let force = args
             .get("force")
@@ -358,7 +296,7 @@ impl ToolExecutor {
             .unwrap_or(false);
 
         // Validate schema exists
-        validate_node_key(schema, node_key)?;
+        validate_node_key(schema, &node_key)?;
 
         // Generate embedding from properties
         let props_text = properties_to_text(&properties);
@@ -374,7 +312,7 @@ impl ToolExecutor {
                 .knowledge_client
                 .search_nodes(
                     graph_id,
-                    Some(node_key.to_owned()),
+                    Some(node_key.clone()),
                     embedding.clone(),
                     ENTITY_RESOLUTION_LIMIT,
                 )
@@ -391,7 +329,7 @@ impl ToolExecutor {
                 for candidate in &close_matches {
                     let neighbors = self
                         .knowledge_client
-                        .get_neighbors(graph_id, &candidate.node_data_id, None, 1)
+                        .get_neighbors(graph_id, candidate.node_data_id, None, 1)
                         .await
                         .ok();
 
@@ -405,7 +343,7 @@ impl ToolExecutor {
                     candidates.push(serde_json::json!({
                         "node_data_id": candidate.node_data_id,
                         "key": candidate.key,
-                        "properties": proto_properties_to_json(&candidate.properties),
+                        "properties": candidate.properties,
                         "distance": candidate.distance,
                         "neighbors": neighbor_summary,
                     }));
@@ -419,80 +357,77 @@ impl ToolExecutor {
                     "similar_nodes": candidates,
                 });
 
-                return serde_json::to_string_pretty(&result)
+                return serde_json::to_string(&result)
                     .map_err(|err| format!("Serialization failed: {err}"));
             }
         }
 
         // No close matches (or force=true) — create the node
-        let node_data_id = uuid::Uuid::now_v7().to_string();
-        let proto_properties = json_properties_to_proto(&properties);
-
         let node = self
             .knowledge_client
             .create_node(
                 graph_id,
-                CreateNodeDataProto {
-                    node_data_id: node_data_id.clone(),
-                    key: node_key.to_owned(),
-                    properties: proto_properties,
+                CreateNodeDataDto {
+                    node_data_id: NodeDataIdDto::new(),
+                    key: node_key,
+                    properties,
                     embedding,
                 },
             )
             .await
             .map_err(|err| format!("Failed to create node: {err}"))?;
 
-        let result = serde_json::json!({
-            "created": true,
-            "node_data_id": node.node_data_id,
-            "key": node.key,
-            "properties": proto_properties_to_json(&node.properties),
-        });
-
-        serde_json::to_string_pretty(&result).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_value(&node)
+            .map(|mut value| {
+                if let Some(obj) = value.as_object_mut() {
+                    obj.insert("created".to_owned(), Value::Bool(true));
+                }
+                value
+            })
+            .and_then(|value| serde_json::to_string(&value))
+            .map_err(|err| format!("Serialization failed: {err}"))
     }
 
     async fn exec_create_edge(
         &self,
         arguments: &str,
-        graph_id: &str,
-        schema: &GraphSchemaProto,
+        graph_id: GraphIdDto,
+        schema: &GraphSchemaDto,
     ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
-        let edge_key = get_str(&args, "edge_key")?;
-        let from_id = get_str(&args, "from_node_data_id")?;
-        let to_id = get_str(&args, "to_node_data_id")?;
-        let properties = args
-            .get("properties")
-            .and_then(|v| v.as_object())
-            .map(|obj| {
-                obj.iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect::<HashMap<_, _>>()
-            })
-            .unwrap_or_default();
+        let edge_key = get_str(&args, "edge_key").map(|s| KeyDto::from(String::from(s)))?;
+        let from_id = get_str(&args, "from_node_data_id")
+            .and_then(|s| NodeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
+        let to_id = get_str(&args, "to_node_data_id")
+            .and_then(|s| NodeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
+        let properties = get_properties(&args)?;
 
         // Validate edge schema exists
-        validate_edge_key(schema, edge_key)?;
+        validate_edge_key(schema, &edge_key)?;
 
-        let proto_properties = json_properties_to_proto(&properties);
-
-        self.knowledge_client
+        let edge = self
+            .knowledge_client
             .create_edge(
                 graph_id,
-                CreateEdgeDataProto {
-                    from_node_data_id: from_id.to_owned(),
-                    to_node_data_id: to_id.to_owned(),
-                    key: edge_key.to_owned(),
-                    properties: proto_properties,
+                CreateEdgeDataDto {
+                    from_node_data_id: from_id,
+                    to_node_data_id: to_id,
+                    key: edge_key,
+                    properties,
                 },
             )
             .await
             .map_err(|err| format!("Failed to create edge: {err}"))?;
 
-        Ok(format!(
-            "Created edge '{edge_key}' from {from_id} to {to_id}."
-        ))
+        serde_json::to_value(&edge)
+            .map(|mut value| {
+                if let Some(obj) = value.as_object_mut() {
+                    obj.insert("created".to_owned(), serde_json::json!(true));
+                }
+                value
+            })
+            .and_then(|value| serde_json::to_string(&value))
+            .map_err(|err| format!("Serialization failed: {err}"))
     }
 
     /// Batch create up to 50 nodes. Embeddings are generated in a single API call.
@@ -503,15 +438,14 @@ impl ToolExecutor {
     async fn exec_create_nodes(
         &self,
         arguments: &str,
-        graph_id: &str,
-        schema: &GraphSchemaProto,
+        graph_id: GraphIdDto,
+        schema: &GraphSchemaDto,
     ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
         let nodes_arr = args
             .get("nodes")
             .and_then(|v| v.as_array())
             .ok_or("Missing required field: nodes")?;
-
         if nodes_arr.len() > 50 {
             return Err("Maximum 50 nodes per batch".to_owned());
         }
@@ -520,21 +454,24 @@ impl ToolExecutor {
         }
 
         // Parse all entries and validate schemas upfront
-        let mut entries: Vec<(&str, HashMap<String, Value>, bool)> =
-            Vec::with_capacity(nodes_arr.len());
-        for (i, item) in nodes_arr.iter().enumerate() {
-            let node_key = item
-                .get("node_key")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| format!("nodes[{i}]: missing node_key"))?;
-            validate_node_key(schema, node_key)?;
-            let properties = get_properties(item)?;
-            let force = item
-                .get("force")
-                .and_then(serde_json::Value::as_bool)
-                .unwrap_or(false);
-            entries.push((node_key, properties, force));
-        }
+        let entries: Vec<(KeyDto, PropertiesDataDto, bool)> = nodes_arr
+            .iter()
+            .enumerate()
+            .map(|(i, item)| {
+                let node_key = item
+                    .get("node_key")
+                    .and_then(|v| v.as_str())
+                    .map(|s| KeyDto::from(s.to_owned()))
+                    .ok_or_else(|| format!("nodes[{i}]: missing node_key"))?;
+                validate_node_key(schema, &node_key)?;
+                let properties = get_properties(item)?;
+                let force = item
+                    .get("force")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false);
+                Ok((node_key, properties, force))
+            })
+            .collect::<Result<_, String>>()?;
 
         // Batch embed all nodes in a single API call
         let texts: Vec<String> = entries
@@ -566,7 +503,7 @@ impl ToolExecutor {
                     .knowledge_client
                     .search_nodes(
                         graph_id,
-                        Some(node_key.to_owned()),
+                        Some(node_key.clone()),
                         embedding.clone(),
                         ENTITY_RESOLUTION_LIMIT,
                     )
@@ -579,40 +516,25 @@ impl ToolExecutor {
                     .collect();
 
                 if !close_matches.is_empty() {
-                    let candidates: Vec<Value> = close_matches
-                        .iter()
-                        .map(|c| {
-                            serde_json::json!({
-                                "node_data_id": c.node_data_id,
-                                "key": c.key,
-                                "properties": proto_properties_to_json(&c.properties),
-                                "distance": c.distance,
-                            })
-                        })
-                        .collect();
-
                     results.push(serde_json::json!({
                         "index": i,
                         "created": false,
                         "reason": "Similar node already exists",
-                        "similar_nodes": candidates,
+                        "similar_nodes": close_matches,
                     }));
                     continue;
                 }
             }
 
             // Create the node
-            let node_data_id = uuid::Uuid::now_v7().to_string();
-            let proto_properties = json_properties_to_proto(&properties);
-
             match self
                 .knowledge_client
                 .create_node(
                     graph_id,
-                    CreateNodeDataProto {
-                        node_data_id: node_data_id.clone(),
-                        key: node_key.to_owned(),
-                        properties: proto_properties,
+                    CreateNodeDataDto {
+                        node_data_id: NodeDataIdDto::new(),
+                        key: node_key,
+                        properties,
                         embedding,
                     },
                 )
@@ -624,7 +546,7 @@ impl ToolExecutor {
                         "created": true,
                         "node_data_id": node.node_data_id,
                         "key": node.key,
-                        "properties": proto_properties_to_json(&node.properties),
+                        "properties": node.properties,
                     }));
                 }
                 Err(err) => {
@@ -637,7 +559,7 @@ impl ToolExecutor {
             }
         }
 
-        serde_json::to_string_pretty(&results).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_string(&results).map_err(|err| format!("Serialization failed: {err}"))
     }
 
     /// Batch create up to 50 edges. Each edge is merged if it already exists.
@@ -646,8 +568,8 @@ impl ToolExecutor {
     async fn exec_create_edges(
         &self,
         arguments: &str,
-        graph_id: &str,
-        schema: &GraphSchemaProto,
+        graph_id: GraphIdDto,
+        schema: &GraphSchemaDto,
     ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
         let edges_arr = args
@@ -668,50 +590,48 @@ impl ToolExecutor {
             let edge_key = item
                 .get("edge_key")
                 .and_then(|v| v.as_str())
+                .map(|s| KeyDto::from(s.to_owned()))
                 .ok_or_else(|| format!("edges[{i}]: missing edge_key"))?;
             let from_id = item
                 .get("from_node_data_id")
                 .and_then(|v| v.as_str())
-                .ok_or_else(|| format!("edges[{i}]: missing from_node_data_id"))?;
+                .ok_or_else(|| format!("edges[{i}]: missing from_node_data_id"))
+                .and_then(|s| {
+                    NodeDataIdDto::try_from(s)
+                        .map_err(|e| format!("edges[{i}]: invalid from_node_data_id: {e}"))
+                })?;
             let to_id = item
                 .get("to_node_data_id")
                 .and_then(|v| v.as_str())
-                .ok_or_else(|| format!("edges[{i}]: missing to_node_data_id"))?;
+                .ok_or_else(|| format!("edges[{i}]: missing to_node_data_id"))
+                .and_then(|s| {
+                    NodeDataIdDto::try_from(s)
+                        .map_err(|e| format!("edges[{i}]: invalid to_node_data_id: {e}"))
+                })?;
 
-            validate_edge_key(schema, edge_key)?;
+            validate_edge_key(schema, &edge_key)?;
 
-            let properties = item
-                .get("properties")
-                .and_then(|v| v.as_object())
-                .map(|obj| {
-                    obj.iter()
-                        .map(|(k, v)| (k.clone(), v.clone()))
-                        .collect::<HashMap<_, _>>()
-                })
-                .unwrap_or_default();
-
-            let proto_properties = json_properties_to_proto(&properties);
-
+            let properties = get_properties(item)?;
             match self
                 .knowledge_client
                 .create_edge(
                     graph_id,
-                    CreateEdgeDataProto {
-                        from_node_data_id: from_id.to_owned(),
-                        to_node_data_id: to_id.to_owned(),
-                        key: edge_key.to_owned(),
-                        properties: proto_properties,
+                    CreateEdgeDataDto {
+                        from_node_data_id: from_id,
+                        to_node_data_id: to_id,
+                        key: edge_key,
+                        properties,
                     },
                 )
                 .await
             {
-                Ok(()) => {
+                Ok(edge) => {
                     results.push(serde_json::json!({
                         "index": i,
                         "created": true,
-                        "edge_key": edge_key,
-                        "from_node_data_id": from_id,
-                        "to_node_data_id": to_id,
+                        "edge_key": edge.key,
+                        "from_node_data_id": edge.from_node_data_id,
+                        "to_node_data_id": edge.to_node_data_id,
                     }));
                 }
                 Err(err) => {
@@ -724,12 +644,17 @@ impl ToolExecutor {
             }
         }
 
-        serde_json::to_string_pretty(&results).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_string(&results).map_err(|err| format!("Serialization failed: {err}"))
     }
 
-    async fn exec_update_node(&self, arguments: &str, graph_id: &str) -> Result<String, String> {
+    async fn exec_update_node(
+        &self,
+        arguments: &str,
+        graph_id: GraphIdDto,
+    ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
-        let node_data_id = get_str(&args, "node_data_id")?;
+        let node_data_id = get_str(&args, "node_data_id")
+            .and_then(|s| NodeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
         let properties = get_properties(&args)?;
 
         // Re-embed from updated properties
@@ -740,63 +665,56 @@ impl ToolExecutor {
             .await
             .map_err(|err| format!("Embedding failed: {err}"))?;
 
-        let proto_properties = json_properties_to_proto(&properties);
-
         let node = self
             .knowledge_client
             .update_node(
                 graph_id,
-                UpdateNodeDataProto {
-                    node_data_id: node_data_id.to_owned(),
-                    properties: proto_properties,
+                UpdateNodeDataDto {
+                    node_data_id,
+                    properties,
                     embedding,
                 },
             )
             .await
             .map_err(|err| format!("Failed to update node: {err}"))?;
 
-        let result = serde_json::json!({
-            "node_data_id": node.node_data_id,
-            "key": node.key,
-            "properties": proto_properties_to_json(&node.properties),
-        });
-
-        serde_json::to_string_pretty(&result).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_string(&node).map_err(|err| format!("Serialization failed: {err}"))
     }
 
-    async fn exec_update_edge(&self, arguments: &str, graph_id: &str) -> Result<String, String> {
+    // TODO: doesn't update embeddings ?
+    async fn exec_update_edge(
+        &self,
+        arguments: &str,
+        graph_id: GraphIdDto,
+    ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
-        let edge_data_id = get_str(&args, "edge_data_id")?;
+        let edge_data_id = get_str(&args, "edge_data_id")
+            .and_then(|s| EdgeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
         let properties = get_properties(&args)?;
-
-        let proto_properties = json_properties_to_proto(&properties);
 
         let edge = self
             .knowledge_client
             .update_edge(
                 graph_id,
-                UpdateEdgeDataProto {
-                    edge_data_id: edge_data_id.to_owned(),
-                    properties: proto_properties,
+                UpdateEdgeDataDto {
+                    edge_data_id,
+                    properties,
                 },
             )
             .await
             .map_err(|err| format!("Failed to update edge: {err}"))?;
 
-        let result = serde_json::json!({
-            "edge_data_id": edge.edge_data_id,
-            "key": edge.key,
-            "from_node_data_id": edge.from_node_data_id,
-            "to_node_data_id": edge.to_node_data_id,
-            "properties": proto_properties_to_json(&edge.properties),
-        });
-
-        serde_json::to_string_pretty(&result).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_string_pretty(&edge).map_err(|err| format!("Serialization failed: {err}"))
     }
 
-    async fn exec_delete_node(&self, arguments: &str, graph_id: &str) -> Result<String, String> {
+    async fn exec_delete_node(
+        &self,
+        arguments: &str,
+        graph_id: GraphIdDto,
+    ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
-        let node_data_id = get_str(&args, "node_data_id")?;
+        let node_data_id = get_str(&args, "node_data_id")
+            .and_then(|s| NodeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
 
         self.knowledge_client
             .delete_node(graph_id, node_data_id)
@@ -806,9 +724,14 @@ impl ToolExecutor {
         Ok(format!("Deleted node {node_data_id} and all its edges."))
     }
 
-    async fn exec_delete_edge(&self, arguments: &str, graph_id: &str) -> Result<String, String> {
+    async fn exec_delete_edge(
+        &self,
+        arguments: &str,
+        graph_id: GraphIdDto,
+    ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
-        let edge_data_id = get_str(&args, "edge_data_id")?;
+        let edge_data_id = get_str(&args, "edge_data_id")
+            .and_then(|s| EdgeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
 
         self.knowledge_client
             .delete_edge(graph_id, edge_data_id)
@@ -819,21 +742,15 @@ impl ToolExecutor {
     }
 
     #[allow(clippy::unused_self)]
-    fn exec_done(&self, arguments: &str) -> ToolResult {
-        let summary = parse_args(arguments)
+    fn exec_done(&self, arguments: &str) -> String {
+        parse_args(arguments)
             .ok()
             .and_then(|args| {
                 args.get("summary")
                     .and_then(|v| v.as_str())
                     .map(String::from)
             })
-            .unwrap_or_else(|| "Task completed.".to_owned());
-
-        ToolResult {
-            content: summary,
-            schema_changed: false,
-            is_done: true,
-        }
+            .unwrap_or_else(|| "Task completed.".to_owned())
     }
 }
 
@@ -849,7 +766,7 @@ fn get_str<'a>(args: &'a Value, field: &str) -> Result<&'a str, String> {
         .ok_or_else(|| format!("Missing required field: {field}"))
 }
 
-fn get_properties(args: &Value) -> Result<HashMap<String, Value>, String> {
+fn get_properties(args: &Value) -> Result<PropertiesDataDto, String> {
     // Keys that are tool parameters, not user-facing properties
     const NON_PROPERTY_KEYS: &[&str] = &[
         "node_key",
@@ -862,33 +779,36 @@ fn get_properties(args: &Value) -> Result<HashMap<String, Value>, String> {
     ];
 
     // Try nested "properties" key first (correct schema)
-    if let Some(obj) = args.get("properties").and_then(|v| v.as_object()) {
-        return Ok(obj
+    let props = if let Some(obj) = args.get("properties").and_then(|v| v.as_object()) {
+        obj.iter()
+            .filter(|(k, _)| !NON_PROPERTY_KEYS.contains(&k.as_str()))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<serde_json::Map<String, Value>>()
+    } else {
+        // Fallback: LLM sometimes puts properties at top level instead of nesting
+        let filtered = args
+            .as_object()
+            .ok_or("Missing required field: properties")?
             .iter()
             .filter(|(k, _)| !NON_PROPERTY_KEYS.contains(&k.as_str()))
             .map(|(k, v)| (k.clone(), v.clone()))
-            .collect());
-    }
+            .collect::<serde_json::Map<String, Value>>();
 
-    // Fallback: LLM sometimes puts properties at top level instead of nesting
-    let obj = args
-        .as_object()
-        .ok_or("Missing required field: properties")?;
-    let props: HashMap<String, Value> = obj
-        .iter()
-        .filter(|(k, _)| !NON_PROPERTY_KEYS.contains(&k.as_str()))
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect();
+        if filtered.is_empty() {
+            return Err("Missing required field: properties".to_owned());
+        }
+        filtered
+    };
 
-    if props.is_empty() {
-        return Err("Missing required field: properties".to_owned());
-    }
-
-    Ok(props)
+    serde_json::from_value(Value::Object(props)).map_err(|err| format!("Invalid properties: {err}"))
 }
 
-fn validate_node_key(schema: &GraphSchemaProto, node_key: &str) -> Result<(), String> {
-    if schema.nodes.iter().any(|n| n.key == node_key) {
+fn validate_node_key(schema: &GraphSchemaDto, node_key: &KeyDto) -> Result<(), String> {
+    if schema
+        .nodes
+        .iter()
+        .any(|n| n.key.as_str() == node_key.as_str())
+    {
         return Ok(());
     }
     let valid: Vec<String> = schema
@@ -902,8 +822,12 @@ fn validate_node_key(schema: &GraphSchemaProto, node_key: &str) -> Result<(), St
     ))
 }
 
-fn validate_edge_key(schema: &GraphSchemaProto, edge_key: &str) -> Result<(), String> {
-    if schema.edges.iter().any(|err| err.key == edge_key) {
+fn validate_edge_key(schema: &GraphSchemaDto, edge_key: &KeyDto) -> Result<(), String> {
+    if schema
+        .edges
+        .iter()
+        .any(|err| err.key.as_str() == edge_key.as_str())
+    {
         return Ok(());
     }
     let valid: Vec<String> = schema
@@ -917,61 +841,11 @@ fn validate_edge_key(schema: &GraphSchemaProto, edge_key: &str) -> Result<(), St
     ))
 }
 
-fn properties_to_text(properties: &HashMap<String, Value>) -> String {
+fn properties_to_text(properties: &PropertiesDataDto) -> String {
     properties
+        .values
         .iter()
-        .map(|(k, v)| {
-            let val = match v {
-                Value::String(s) => s.clone(),
-                other => other.to_string(),
-            };
-            format!("{k}: {val}")
-        })
+        .map(|(k, v)| format!("{k}: {v}"))
         .collect::<Vec<_>>()
         .join("; ")
-}
-
-fn proto_properties_to_json(properties: &HashMap<String, PropertyValueProto>) -> serde_json::Value {
-    let map: serde_json::Map<String, Value> = properties
-        .iter()
-        .map(|(k, v)| {
-            let val = match &v.value {
-                Some(bric_a_brac_protos::common::property_value_proto::Value::StringValue(s)) => {
-                    Value::String(s.clone())
-                }
-                Some(bric_a_brac_protos::common::property_value_proto::Value::NumberValue(n)) => {
-                    serde_json::json!(*n)
-                }
-                Some(bric_a_brac_protos::common::property_value_proto::Value::BoolValue(b)) => {
-                    Value::Bool(*b)
-                }
-                None => Value::Null,
-            };
-            (k.clone(), val)
-        })
-        .collect();
-    Value::Object(map)
-}
-
-fn json_properties_to_proto(
-    properties: &HashMap<String, Value>,
-) -> HashMap<String, PropertyValueProto> {
-    properties
-        .iter()
-        .filter_map(|(k, v)| {
-            let value = match v {
-                Value::String(s) => Some(
-                    bric_a_brac_protos::common::property_value_proto::Value::StringValue(s.clone()),
-                ),
-                Value::Number(n) => n
-                    .as_f64()
-                    .map(bric_a_brac_protos::common::property_value_proto::Value::NumberValue),
-                Value::Bool(b) => {
-                    Some(bric_a_brac_protos::common::property_value_proto::Value::BoolValue(*b))
-                }
-                _ => None,
-            };
-            value.map(|v| (k.clone(), PropertyValueProto { value: Some(v) }))
-        })
-        .collect()
 }

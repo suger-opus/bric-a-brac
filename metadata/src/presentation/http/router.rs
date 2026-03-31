@@ -1,8 +1,6 @@
 use super::{
-    http::{access_handler, chat_handler, graph_handler, session_handler, user_handler},
-    openapi::ApiDoc,
-    state::ApiState,
-    tracing::http_tracing_layer,
+    handlers::{access_handler, chat_handler, graph_handler, session_handler, user_handler},
+    http_tracing_layer, ApiDoc, ApiState,
 };
 use axum::{
     extract::DefaultBodyLimit,

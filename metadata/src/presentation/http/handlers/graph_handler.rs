@@ -1,9 +1,6 @@
 use crate::{
-    application::dtos::{CreateGraphDto, GraphMetadataDto},
-    presentation::{
-        extractors::AuthenticatedUser,
-        state::ApiState,
-    },
+    application::{CreateGraphDto, GraphMetadataDto},
+    presentation::http::{ApiState, AuthenticatedUser},
 };
 use axum::{
     extract::{Path, State},

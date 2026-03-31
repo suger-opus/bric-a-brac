@@ -1,6 +1,6 @@
 use crate::{
-    application::dtos::{AccessDto, CreateAccessDto},
-    presentation::{extractors::AuthenticatedUser, state::ApiState},
+    application::{AccessDto, CreateAccessDto},
+    presentation::http::{ApiState, AuthenticatedUser},
 };
 use axum::{
     extract::{Path, State},

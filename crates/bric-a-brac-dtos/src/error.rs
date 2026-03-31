@@ -6,6 +6,9 @@ pub enum DtosConversionError {
         source: uuid::Error,
     },
 
+    #[error("Unknown variant '{value}' for enum '{enum_name}'")]
+    UnknownEnumVariant { enum_name: String, value: i32 },
+
     #[error("Invalid timestamp '{value}'")]
     InvalidTimestamp { value: String },
 

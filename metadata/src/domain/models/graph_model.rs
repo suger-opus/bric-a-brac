@@ -4,15 +4,15 @@ use chrono::{DateTime, Utc};
 
 id!(GraphIdModel);
 
-#[derive(Debug)]
-pub struct GraphModel {
-    pub graph_id: GraphIdModel,
-    pub name: String,
-    pub description: String,
-    pub is_public: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
+// #[derive(Debug)]
+// pub struct GraphModel {
+//     pub graph_id: GraphIdModel,
+//     pub name: String,
+//     pub description: String,
+//     pub is_public: bool,
+//     pub created_at: DateTime<Utc>,
+//     pub updated_at: DateTime<Utc>,
+// }
 
 #[derive(Debug)]
 pub struct CreateGraphModel {

@@ -1,15 +1,12 @@
 use crate::{
-    application::{
-        dtos::{
-            CreateSessionDto, CreateSessionMessageDto, SessionDto, SessionIdDto, SessionMessageDto,
-            UserIdDto,
-        },
-        errors::{AppError, RequestError},
-    },
-    domain::models::{CreateSessionMessageModel, CreateSessionModel, SessionDocumentIdModel},
-    infrastructure::{errors::DatabaseError, repositories::SessionRepository},
+    application::{AppError, CreateSessionDocumentDto, CreateSessionDto},
+    domain::{CreateSessionDocumentModel, CreateSessionMessageModel, CreateSessionModel},
+    infrastructure::SessionRepository,
 };
-use bric_a_brac_dtos::GraphIdDto;
+use bric_a_brac_dtos::{
+    CreateSessionMessageDto, GraphIdDto, SessionDocumentDto, SessionDocumentIdDto, SessionDto,
+    SessionIdDto, SessionMessageDto, SessionStatusDto, UserIdDto,
+};
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -41,22 +38,19 @@ impl SessionService {
         };
 
         let mut txn = self.pool.begin().await?;
-
         let has_active = self
             .repository
             .has_active_session(&mut txn, model.graph_id)
             .await?;
 
         if has_active {
-            return Err(AppError::Database(DatabaseError::UnexpectedState {
-                reason: "An active session already exists for this graph".to_owned(),
-            }));
+            return Err(AppError::ActiveSessionAlreadyExists);
         }
 
         let session = self.repository.create_session(&mut txn, model).await?;
         txn.commit().await?;
 
-        Ok(SessionDto::from(session))
+        Ok(session.into())
     }
 
     #[tracing::instrument(
@@ -77,7 +71,7 @@ impl SessionService {
             .await?;
         txn.commit().await?;
 
-        Ok(session.map(SessionDto::from))
+        Ok(session.map(From::from))
     }
 
     #[tracing::instrument(
@@ -94,7 +88,7 @@ impl SessionService {
             .await?;
         txn.commit().await?;
 
-        Ok(SessionDto::from(session))
+        Ok(session.into())
     }
 
     #[tracing::instrument(
@@ -106,22 +100,16 @@ impl SessionService {
     pub async fn close_session(
         &self,
         session_id: SessionIdDto,
-        status: &str,
+        status: SessionStatusDto,
     ) -> Result<SessionDto, AppError> {
-        let status_model = status.parse().map_err(|err| RequestError::InvalidInput {
-            field: "status".to_owned(),
-            issue: format!("Invalid session status: {status}"),
-            source: Some(Box::new(err)),
-        })?;
-
         let mut txn = self.pool.begin().await?;
         let session = self
             .repository
-            .close_session(&mut txn, session_id.into(), status_model)
+            .close_session(&mut txn, session_id.into(), status.into())
             .await?;
         txn.commit().await?;
 
-        Ok(SessionDto::from(session))
+        Ok(session.into())
     }
 
     #[tracing::instrument(
@@ -141,7 +129,7 @@ impl SessionService {
             .await?;
         txn.commit().await?;
 
-        Ok(messages.into_iter().map(SessionMessageDto::from).collect())
+        Ok(messages.into_iter().map(From::from).collect())
     }
 
     #[tracing::instrument(
@@ -155,56 +143,75 @@ impl SessionService {
         session_id: SessionIdDto,
         messages: Vec<CreateSessionMessageDto>,
     ) -> Result<Vec<SessionMessageDto>, AppError> {
-        let session_id_model = session_id.into();
         let mut txn = self.pool.begin().await?;
         let max_pos = self
             .repository
-            .get_max_position(&mut txn, session_id_model)
+            .get_max_position(&mut txn, session_id.into())
             .await?;
 
         let models = messages
             .into_iter()
             .enumerate()
-            .map(|(i, dto)| {
-                let role = dto.role.parse().map_err(|err| RequestError::InvalidInput {
-                    field: "role".to_owned(),
-                    issue: format!("Invalid message role: {}", dto.role),
-                    source: Some(Box::new(err)),
-                })?;
-                let tool_calls = dto
-                    .tool_calls
-                    .map(|s| serde_json::from_str(&s))
-                    .transpose()
-                    .map_err(|err| RequestError::InvalidInput {
-                        field: "tool_calls".to_owned(),
-                        issue: "Invalid JSON in tool_calls".to_owned(),
-                        source: Some(Box::new(err)),
-                    })?;
-
-                Ok(CreateSessionMessageModel {
-                    session_id: session_id_model,
-                    position: max_pos + i32::try_from(i).unwrap_or_default() + 1,
-                    role,
-                    content: dto.content,
-                    tool_calls,
-                    tool_call_id: dto.tool_call_id,
-                    document_id: dto
-                        .document_id
-                        .map(|id| id.parse::<SessionDocumentIdModel>())
-                        .transpose()
-                        .map_err(|err| RequestError::InvalidInput {
-                            field: "document_id".to_owned(),
-                            issue: "Invalid document_id".to_owned(),
-                            source: Some(Box::new(err)),
-                        })?,
-                    chunk_index: dto.chunk_index,
-                })
+            .map(|(i, dto)| CreateSessionMessageModel {
+                session_id: session_id.into(),
+                position: max_pos + i32::try_from(i).unwrap_or_default() + 1,
+                role: dto.role.into(),
+                content: dto.content,
+                tool_calls: dto.tool_calls,
+                tool_call_id: dto.tool_call_id,
+                document_id: dto.document_id.map(From::from),
+                chunk_index: dto.chunk_index,
             })
-            .collect::<Result<Vec<_>, RequestError>>()?;
+            .collect();
 
         let result = self.repository.append_messages(&mut txn, models).await?;
         txn.commit().await?;
 
-        Ok(result.into_iter().map(SessionMessageDto::from).collect())
+        Ok(result.into_iter().map(From::from).collect())
+    }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "session_service.create_document",
+        skip(self, doc),
+        err
+    )]
+    pub async fn create_document(
+        &self,
+        doc: CreateSessionDocumentDto,
+    ) -> Result<SessionDocumentDto, AppError> {
+        let model = CreateSessionDocumentModel {
+            document_id: SessionDocumentIdDto::new().into(),
+            session_id: doc.session_id.into(),
+            filename: doc.filename,
+            content_hash: doc.content_hash,
+            content: doc.content,
+        };
+
+        let mut txn = self.pool.begin().await?;
+        let document = self.repository.create_document(&mut txn, model).await?;
+        txn.commit().await?;
+
+        Ok(SessionDocumentDto::from(document))
+    }
+
+    #[tracing::instrument(
+        level = "trace",
+        name = "session_service.get_document",
+        skip(self, document_id),
+        err
+    )]
+    pub async fn get_document(
+        &self,
+        document_id: SessionDocumentIdDto,
+    ) -> Result<SessionDocumentDto, AppError> {
+        let mut txn = self.pool.begin().await?;
+        let document = self
+            .repository
+            .get_document(&mut txn, document_id.into())
+            .await?;
+        txn.commit().await?;
+
+        Ok(SessionDocumentDto::from(document))
     }
 }

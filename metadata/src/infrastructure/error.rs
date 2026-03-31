@@ -1,25 +1,35 @@
 use bric_a_brac_dtos::DtosConversionError;
-use bric_a_brac_protos::BaseGrpcClientError;
+use bric_a_brac_protos::GrpcRequestError;
 use sqlx::{error::ErrorKind, postgres::PgDatabaseError};
 
 #[derive(Debug, thiserror::Error)]
-pub enum GrpcClientError {
+#[allow(clippy::enum_variant_names)]
+pub enum InfraError {
     #[error(transparent)]
-    Base(#[from] BaseGrpcClientError),
+    DatabaseError(#[from] DatabaseError),
 
     #[error(transparent)]
-    Conversion(#[from] DtosConversionError),
+    GrpcRequestError(#[from] GrpcRequestError),
+
+    #[error(transparent)]
+    DtosConversionError(#[from] DtosConversionError),
+}
+
+impl From<sqlx::Error> for InfraError {
+    fn from(err: sqlx::Error) -> Self {
+        Self::DatabaseError(DatabaseError::from(err))
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum DatabaseError {
-    #[error("Database: unknown error")]
+    #[error("Unknown database error")]
     Unknown {
         #[source]
         source: sqlx::Error,
     },
 
-    #[error("Database: unique constraint violation on {table}.{column}")]
+    #[error("Unique constraint violation on {table}.{column}")]
     UniqueConstraintViolation {
         table: String,
         column: String,
@@ -28,7 +38,7 @@ pub enum DatabaseError {
         source: sqlx::Error,
     },
 
-    #[error("Database: business constraint violation {constraint} on {table}.{column}")]
+    #[error("Business constraint violation {constraint} on {table}.{column}")]
     BusinessConstraintViolation {
         table: String,
         column: String,
@@ -38,7 +48,7 @@ pub enum DatabaseError {
         source: sqlx::Error,
     },
 
-    #[error("Database: primary constraint violation {constraint} on {table}.{column}")]
+    #[error("Primary constraint violation {constraint} on {table}.{column}")]
     PrimaryConstraintViolation {
         table: String,
         column: String,
@@ -48,20 +58,20 @@ pub enum DatabaseError {
         source: sqlx::Error,
     },
 
-    #[error("Database: resource not found")]
+    #[error("Resource not found")]
     NotFound {
         #[source]
-        source: sqlx::Error,
+        source: Option<sqlx::Error>,
     },
 
-    #[error("Database: unexpected state - {reason}")]
+    #[error("Unexpected state - {reason}")]
     UnexpectedState { reason: String },
 }
 
 impl From<sqlx::Error> for DatabaseError {
     fn from(err: sqlx::Error) -> Self {
         match &err {
-            sqlx::Error::RowNotFound => Self::NotFound { source: err },
+            sqlx::Error::RowNotFound => Self::NotFound { source: Some(err) },
             sqlx::Error::Database(db_err) => {
                 let pg_err = db_err.downcast_ref::<PgDatabaseError>();
                 let detail = pg_err.detail().unwrap_or("unknown").to_owned();

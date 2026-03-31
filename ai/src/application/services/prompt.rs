@@ -1,7 +1,7 @@
-use bric_a_brac_protos::common::GraphSchemaProto;
+use bric_a_brac_dtos::GraphSchemaDto;
 
 #[allow(clippy::format_push_string)]
-pub fn build_system_prompt(schema: &GraphSchemaProto) -> String {
+pub fn build_system_prompt(schema: &GraphSchemaDto) -> String {
     let mut prompt = String::new();
 
     // ── Identity ─────────────────────────────────────────────────────────

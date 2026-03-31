@@ -4,14 +4,12 @@ use bric_a_brac_dtos::{
     CreateEdgeDataDto, CreateNodeDataDto, KeyDto, UpdateEdgeDataDto, UpdateNodeDataDto,
 };
 use bric_a_brac_protos::{
-    common::{EdgeDataProto, GraphDataProto, NodeDataProto},
+    common::{EdgeDataProto, Empty, GraphDataProto, NodeDataProto},
     knowledge::{
         knowledge_server::Knowledge, CreateEdgeRequest, CreateNodeRequest, DeleteEdgeRequest,
-        DeleteEdgeResponse, DeleteGraphRequest, DeleteGraphResponse, DeleteNodeRequest,
-        DeleteNodeResponse, FindPathsRequest, FindPathsResponse, GetNeighborsRequest,
-        GetNeighborsResponse, GetNodeRequest, InitializeSchemaRequest, InitializeSchemaResponse,
-        LoadGraphRequest, SearchNodesRequest, SearchNodesResponse, UpdateEdgeRequest,
-        UpdateNodeRequest,
+        DeleteGraphRequest, DeleteNodeRequest, FindPathsRequest, FindPathsResponse,
+        GetNeighborsRequest, GetNodeRequest, InitializeSchemaRequest, LoadGraphRequest,
+        SearchNodesRequest, SearchNodesResponse, UpdateEdgeRequest, UpdateNodeRequest,
     },
 };
 use tonic::{Request, Response, Status};
@@ -30,12 +28,6 @@ impl KnowledgeService {
         }
     }
 }
-
-//     if !(1..=10).contains(&depth) {
-//         return Err(DatabaseError::InvalidDepth { value: depth });
-//     }
-//     Ok(depth.cast_unsigned())
-// }
 
 #[tonic::async_trait]
 impl Knowledge for KnowledgeService {
@@ -60,10 +52,16 @@ impl Knowledge for KnowledgeService {
         Ok(Response::new(data.into()))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.initialize_schema",
+        skip(self, request),
+        err
+    )]
     async fn initialize_schema(
         &self,
         request: Request<InitializeSchemaRequest>,
-    ) -> Result<Response<InitializeSchemaResponse>, Status> {
+    ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
         tracing::debug!(graph_id = %req.graph_id, node_keys = ?req.node_keys);
 
@@ -73,9 +71,15 @@ impl Knowledge for KnowledgeService {
         }
         self.mutate_service.initialize_schema(req.node_keys).await?;
 
-        Ok(Response::new(InitializeSchemaResponse {}))
+        Ok(Response::new(Empty {}))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.create_node",
+        skip(self, request),
+        err
+    )]
     async fn create_node(
         &self,
         request: Request<CreateNodeRequest>,
@@ -104,6 +108,12 @@ impl Knowledge for KnowledgeService {
         Ok(Response::new(node.into()))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.update_node",
+        skip(self, request),
+        err
+    )]
     async fn update_node(
         &self,
         request: Request<UpdateNodeRequest>,
@@ -131,10 +141,16 @@ impl Knowledge for KnowledgeService {
         Ok(Response::new(node.into()))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.delete_node",
+        skip(self, request),
+        err
+    )]
     async fn delete_node(
         &self,
         request: Request<DeleteNodeRequest>,
-    ) -> Result<Response<DeleteNodeResponse>, Status> {
+    ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
         tracing::debug!(graph_id = %req.graph_id, node_data_id = %req.node_data_id);
 
@@ -147,13 +163,19 @@ impl Knowledge for KnowledgeService {
             )
             .await?;
 
-        Ok(Response::new(DeleteNodeResponse {}))
+        Ok(Response::new(Empty {}))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.delete_edge",
+        skip(self, request),
+        err
+    )]
     async fn delete_edge(
         &self,
         request: Request<DeleteEdgeRequest>,
-    ) -> Result<Response<DeleteEdgeResponse>, Status> {
+    ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
         tracing::debug!(graph_id = %req.graph_id, edge_data_id = %req.edge_data_id);
 
@@ -166,9 +188,15 @@ impl Knowledge for KnowledgeService {
             )
             .await?;
 
-        Ok(Response::new(DeleteEdgeResponse {}))
+        Ok(Response::new(Empty {}))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.create_edge",
+        skip(self, request),
+        err
+    )]
     async fn create_edge(
         &self,
         request: Request<CreateEdgeRequest>,
@@ -196,6 +224,12 @@ impl Knowledge for KnowledgeService {
         Ok(Response::new(edge.into()))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.update_edge",
+        skip(self, request),
+        err
+    )]
     async fn update_edge(
         &self,
         request: Request<UpdateEdgeRequest>,
@@ -223,6 +257,12 @@ impl Knowledge for KnowledgeService {
         Ok(Response::new(edge.into()))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.search_nodes",
+        skip(self, request),
+        err
+    )]
     async fn search_nodes(
         &self,
         request: Request<SearchNodesRequest>,
@@ -252,6 +292,12 @@ impl Knowledge for KnowledgeService {
         }))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.get_node",
+        skip(self, request),
+        err
+    )]
     async fn get_node(
         &self,
         request: Request<GetNodeRequest>,
@@ -272,10 +318,16 @@ impl Knowledge for KnowledgeService {
         Ok(Response::new(node.into()))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.get_neighbors",
+        skip(self, request),
+        err
+    )]
     async fn get_neighbors(
         &self,
         request: Request<GetNeighborsRequest>,
-    ) -> Result<Response<GetNeighborsResponse>, Status> {
+    ) -> Result<Response<GraphDataProto>, Status> {
         let req = request.into_inner();
         tracing::debug!(graph_id = %req.graph_id, node_data_id = %req.node_data_id, depth = req.depth);
 
@@ -305,11 +357,15 @@ impl Knowledge for KnowledgeService {
             )
             .await?;
 
-        Ok(Response::new(GetNeighborsResponse {
-            subgraph: Some(subgraph.into()),
-        }))
+        Ok(Response::new(subgraph.into()))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.find_paths",
+        skip(self, request),
+        err
+    )]
     async fn find_paths(
         &self,
         request: Request<FindPathsRequest>,
@@ -352,10 +408,16 @@ impl Knowledge for KnowledgeService {
         }))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "knowledge_service.delete_graph",
+        skip(self, request),
+        err
+    )]
     async fn delete_graph(
         &self,
         request: Request<DeleteGraphRequest>,
-    ) -> Result<Response<DeleteGraphResponse>, Status> {
+    ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
         tracing::debug!(graph_id = %req.graph_id, node_keys = ?req.node_keys);
 
@@ -366,6 +428,6 @@ impl Knowledge for KnowledgeService {
             )
             .await?;
 
-        Ok(Response::new(DeleteGraphResponse {}))
+        Ok(Response::new(Empty {}))
     }
 }

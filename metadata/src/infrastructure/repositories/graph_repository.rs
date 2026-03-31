@@ -1,10 +1,10 @@
 use crate::{
-    domain::models::{
+    domain::{
         CreateEdgeSchemaModel, CreateGraphModel, CreateNodeSchemaModel, EdgeSchemaIdModel,
-        EdgeSchemaModel, GraphIdModel, GraphMetadataModel, GraphModel, GraphSchemaModel,
-        NodeSchemaIdModel, NodeSchemaModel, RoleModel, UserIdModel,
+        EdgeSchemaModel, GraphIdModel, GraphMetadataModel, GraphSchemaModel, NodeSchemaIdModel,
+        NodeSchemaModel, RoleModel, UserIdModel,
     },
-    infrastructure::errors::DatabaseError,
+    infrastructure::{DatabaseError, InfraError},
 };
 use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
@@ -27,7 +27,7 @@ impl GraphRepository {
         &self,
         connection: &mut PgConnection,
         user_id: UserIdModel,
-    ) -> Result<Vec<GraphMetadataModel>, DatabaseError> {
+    ) -> Result<Vec<GraphMetadataModel>, InfraError> {
         tracing::debug!(user_id = ?user_id);
 
         let graphs = sqlx::query_as!(
@@ -43,8 +43,8 @@ SELECT
     user_access.role AS "user_role!:_",
     g.is_public
 FROM graphs g
-JOIN accesses user_access ON g.graph_id = user_access.graph_id AND user_access.user_id = $1 AND user_access.role IN ('Owner', 'Admin', 'Editor', 'Viewer')
-JOIN accesses owner_access ON g.graph_id = owner_access.graph_id AND owner_access.role = 'Owner'
+JOIN accesses user_access ON g.graph_id = user_access.graph_id AND user_access.user_id = $1 AND user_access.role IN ('owner', 'admin', 'editor', 'viewer')
+JOIN accesses owner_access ON g.graph_id = owner_access.graph_id AND owner_access.role = 'owner'
 JOIN users u ON owner_access.user_id = u.user_id
             "#,
             user_id as _,
@@ -66,7 +66,7 @@ JOIN users u ON owner_access.user_id = u.user_id
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
         user_id: UserIdModel,
-    ) -> Result<GraphMetadataModel, DatabaseError> {
+    ) -> Result<GraphMetadataModel, InfraError> {
         tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
         let graph = sqlx::query_as!(
@@ -79,11 +79,11 @@ SELECT
     g.updated_at,
     g.name,
     g.description,
-    COALESCE(user_access.role, 'None') AS "user_role!:_",
+    COALESCE(user_access.role, 'none') AS "user_role!:_",
     g.is_public
 FROM graphs g
 LEFT JOIN accesses user_access ON g.graph_id = user_access.graph_id AND user_access.user_id = $1
-JOIN accesses owner_access ON g.graph_id = owner_access.graph_id AND owner_access.role = 'Owner'
+JOIN accesses owner_access ON g.graph_id = owner_access.graph_id AND owner_access.role = 'owner'
 JOIN users u ON owner_access.user_id = u.user_id
 WHERE g.graph_id = $2
             "#,
@@ -106,7 +106,7 @@ WHERE g.graph_id = $2
         &self,
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
-    ) -> Result<GraphSchemaModel, DatabaseError> {
+    ) -> Result<GraphSchemaModel, InfraError> {
         tracing::debug!(graph_id = ?graph_id);
 
         let nodes = sqlx::query_as!(
@@ -165,21 +165,15 @@ WHERE graph_id = $1
         &self,
         connection: &mut PgConnection,
         create_graph: CreateGraphModel,
-    ) -> Result<GraphModel, DatabaseError> {
+    ) -> Result<GraphIdModel, InfraError> {
         tracing::debug!(graph_id = ?create_graph.graph_id);
 
-        let graph = sqlx::query_as!(
-            GraphRow,
+        let data = sqlx::query!(
             r#"
 INSERT INTO graphs (graph_id, name, description, is_public)
 VALUES ($1, $2, $3, $4)
 RETURNING
-    graph_id,
-    name,
-    description,
-    is_public,
-    created_at,
-    updated_at
+    graph_id
             "#,
             create_graph.graph_id as _,
             create_graph.name,
@@ -189,7 +183,7 @@ RETURNING
         .fetch_one(connection)
         .await?;
 
-        Ok(graph.into())
+        Ok(data.graph_id.into())
     }
 
     #[tracing::instrument(
@@ -202,20 +196,15 @@ RETURNING
         &self,
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
-    ) -> Result<(), DatabaseError> {
+    ) -> Result<(), InfraError> {
         tracing::debug!(graph_id = ?graph_id);
 
-        let result = sqlx::query!(
-            "DELETE FROM graphs WHERE graph_id = $1",
-            graph_id as _,
-        )
-        .execute(connection)
-        .await?;
+        let result = sqlx::query!("DELETE FROM graphs WHERE graph_id = $1", graph_id as _,)
+            .execute(connection)
+            .await?;
 
         if result.rows_affected() == 0 {
-            return Err(DatabaseError::UnexpectedState {
-                reason: "Graph not found".to_owned(),
-            });
+            return Err(DatabaseError::NotFound { source: None }.into());
         }
         Ok(())
     }
@@ -230,7 +219,7 @@ RETURNING
         &self,
         connection: &mut PgConnection,
         create: CreateNodeSchemaModel,
-    ) -> Result<NodeSchemaModel, DatabaseError> {
+    ) -> Result<NodeSchemaModel, InfraError> {
         tracing::debug!(node_schema_id = ?create.node_schema_id, graph_id = ?create.graph_id);
 
         let row = sqlx::query_as!(
@@ -271,7 +260,7 @@ RETURNING
         &self,
         connection: &mut PgConnection,
         create: CreateEdgeSchemaModel,
-    ) -> Result<EdgeSchemaModel, DatabaseError> {
+    ) -> Result<EdgeSchemaModel, InfraError> {
         tracing::debug!(edge_schema_id = ?create.edge_schema_id, graph_id = ?create.graph_id);
 
         let row = sqlx::query_as!(
@@ -301,31 +290,30 @@ RETURNING
 
         Ok(row.into())
     }
-
 }
 
-#[derive(sqlx::FromRow)]
-struct GraphRow {
-    graph_id: GraphIdModel,
-    name: String,
-    description: String,
-    is_public: bool,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-}
+// #[derive(sqlx::FromRow)]
+// struct GraphRow {
+//     graph_id: GraphIdModel,
+//     name: String,
+//     description: String,
+//     is_public: bool,
+//     created_at: DateTime<Utc>,
+//     updated_at: DateTime<Utc>,
+// }
 
-impl From<GraphRow> for GraphModel {
-    fn from(row: GraphRow) -> Self {
-        Self {
-            graph_id: row.graph_id,
-            name: row.name,
-            description: row.description,
-            is_public: row.is_public,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-        }
-    }
-}
+// impl From<GraphRow> for GraphModel {
+//     fn from(row: GraphRow) -> Self {
+//         Self {
+//             graph_id: row.graph_id,
+//             name: row.name,
+//             description: row.description,
+//             is_public: row.is_public,
+//             created_at: row.created_at,
+//             updated_at: row.updated_at,
+//         }
+//     }
+// }
 
 #[derive(sqlx::FromRow)]
 struct GraphMetadataRow {

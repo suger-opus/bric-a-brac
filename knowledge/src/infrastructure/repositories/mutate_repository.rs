@@ -142,9 +142,7 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
         let neo_edge: neo4rs::Relation = row.get("r")?;
         let from_node_data_id = NodeDataIdModel::from_str(row.get("from_node_data_id")?)?;
         let to_node_data_id = NodeDataIdModel::from_str(row.get("to_node_data_id")?)?;
-        let edge_data =
-            EdgeDataModel::try_from_relation(&neo_edge, from_node_data_id, to_node_data_id)?;
-        Ok(edge_data)
+        EdgeDataModel::try_from_relation(&neo_edge, from_node_data_id, to_node_data_id)
     }
 
     #[tracing::instrument(
@@ -181,9 +179,7 @@ RETURN r, a.node_data_id AS from_node_data_id, b.node_data_id AS to_node_data_id
         let neo_edge: neo4rs::Relation = row.get("r")?;
         let from_node_data_id = NodeDataIdModel::from_str(row.get("from_node_data_id")?)?;
         let to_node_data_id = NodeDataIdModel::from_str(row.get("to_node_data_id")?)?;
-        let edge_data =
-            EdgeDataModel::try_from_relation(&neo_edge, from_node_data_id, to_node_data_id)?;
-        Ok(edge_data)
+        EdgeDataModel::try_from_relation(&neo_edge, from_node_data_id, to_node_data_id)
     }
 
     #[tracing::instrument(

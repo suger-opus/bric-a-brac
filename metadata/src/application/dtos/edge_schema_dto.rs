@@ -1,4 +1,4 @@
-use crate::domain::models::{EdgeSchemaIdModel, EdgeSchemaModel};
+use crate::domain::{EdgeSchemaIdModel, EdgeSchemaModel};
 use bric_a_brac_dtos::{EdgeSchemaDto, EdgeSchemaIdDto};
 
 impl From<EdgeSchemaIdModel> for EdgeSchemaIdDto {

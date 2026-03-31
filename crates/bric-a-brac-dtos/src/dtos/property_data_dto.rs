@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use utoipa::{PartialSchema, ToSchema};
 use validator::{Validate, ValidationError, ValidationErrors};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, derive_more::Display)]
 #[serde(untagged)]
 pub enum PropertyValueDto {
     Bool(bool),

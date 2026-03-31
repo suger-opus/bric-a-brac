@@ -1,10 +1,10 @@
-use crate::infrastructure::clients::ToolDefinition;
+use crate::infrastructure::{FunctionDefinition, ToolDefinition};
 use serde_json::json;
 
 fn tool(name: &str, description: &str, parameters: serde_json::Value) -> ToolDefinition {
     ToolDefinition {
         type_: "function".to_owned(),
-        function: crate::infrastructure::clients::FunctionDefinition {
+        function: FunctionDefinition {
             name: name.to_owned(),
             description: description.to_owned(),
             parameters,

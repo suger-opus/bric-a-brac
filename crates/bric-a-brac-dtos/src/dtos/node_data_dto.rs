@@ -84,7 +84,7 @@ impl From<NodeSearchDto> for NodeSearchProto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateNodeDataDto {
     pub node_data_id: NodeDataIdDto,
     #[validate(nested)]
@@ -107,7 +107,18 @@ impl TryFrom<CreateNodeDataProto> for CreateNodeDataDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+impl From<CreateNodeDataDto> for CreateNodeDataProto {
+    fn from(dto: CreateNodeDataDto) -> Self {
+        Self {
+            node_data_id: dto.node_data_id.to_string(),
+            key: dto.key.into(),
+            properties: dto.properties.into(),
+            embedding: dto.embedding,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct UpdateNodeDataDto {
     pub node_data_id: NodeDataIdDto,
     #[validate(nested)]
@@ -124,5 +135,15 @@ impl TryFrom<UpdateNodeDataProto> for UpdateNodeDataDto {
             properties: proto.properties.try_into()?,
             embedding: proto.embedding,
         })
+    }
+}
+
+impl From<UpdateNodeDataDto> for UpdateNodeDataProto {
+    fn from(dto: UpdateNodeDataDto) -> Self {
+        Self {
+            node_data_id: dto.node_data_id.to_string(),
+            properties: dto.properties.into(),
+            embedding: dto.embedding,
+        }
     }
 }
