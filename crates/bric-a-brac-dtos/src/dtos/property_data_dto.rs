@@ -42,7 +42,6 @@ impl Validate for PropertiesDataDto {
     }
 }
 
-// TODO: check in doc that it is correct
 impl PartialSchema for PropertiesDataDto {
     fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
         use utoipa::openapi::schema::{

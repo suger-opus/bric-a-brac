@@ -503,6 +503,7 @@ impl ToolService {
         skip(self, arguments, graph_id, schema),
         err
     )]
+    #[allow(clippy::too_many_lines)]
     async fn exec_create_nodes(
         &self,
         arguments: &str,
@@ -521,7 +522,6 @@ impl ToolService {
             return Err("nodes array is empty".to_owned());
         }
 
-        // Parse all entries and validate schemas upfront
         let entries: Vec<(KeyDto, PropertiesDataDto, bool)> = nodes_arr
             .iter()
             .enumerate()
@@ -542,7 +542,6 @@ impl ToolService {
             })
             .collect::<Result<_, String>>()?;
 
-        // Batch embed all nodes in a single API call
         let texts: Vec<String> = entries
             .iter()
             .map(|(_, props, _)| properties_to_text(props))
@@ -561,12 +560,10 @@ impl ToolService {
             ));
         }
 
-        // Process each node: entity resolution then create
         let mut results: Vec<Value> = Vec::with_capacity(entries.len());
         for (i, ((node_key, properties, force), embedding)) in
             entries.into_iter().zip(embeddings).enumerate()
         {
-            // Entity resolution (unless forced)
             if !force {
                 let similar_nodes = self
                     .knowledge_client
@@ -595,7 +592,6 @@ impl ToolService {
                 }
             }
 
-            // Create the node
             match self
                 .knowledge_client
                 .create_node(

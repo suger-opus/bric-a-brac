@@ -51,8 +51,8 @@ where
                         })?);
                 }
                 "file" => {
-                    let name = field.file_name().map(ToString::to_string);
-                    let content_type = field.content_type().map(ToString::to_string);
+                    let name = field.file_name().map(ToOwned::to_owned);
+                    let content_type = field.content_type().map(ToOwned::to_owned);
                     let bytes = read_limited(&mut field).await?;
                     let extracted = extract_text(&bytes, content_type.as_deref(), name.as_deref())?;
                     file_name = name;

@@ -1,3 +1,4 @@
+#![allow(clippy::needless_for_each)]
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
