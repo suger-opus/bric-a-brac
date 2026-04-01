@@ -9,6 +9,9 @@
 # METADATA_DB_MAX_CONNECTIONS=""
 # METADATA_DB_SKIP_MIGRATION=""
 
+# Internal Services Authentication
+# INTERNAL_SERVICES_AUTH_TOKEN=""
+
 # Metadata Server Configuration
 # METADATA_SERVER_HOST=""
 # METADATA_HTTP_SERVER_PORT=""

@@ -28,10 +28,9 @@ pub async fn run(config: &Config) -> anyhow::Result<()> {
         result = axum::serve(http_listener, http_routes) => {
             result?;
         }
-        result = build_grpc_server(MetadataServer::new(grpc_service), grpc_addr) => {
+        result = build_grpc_server(MetadataServer::new(grpc_service), grpc_addr, config.internal_services_auth_token()) => {
             result?;
         }
     }
-
     Ok(())
 }

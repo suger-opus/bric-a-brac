@@ -8,6 +8,9 @@
 # OPENROUTER_DEFAULT_MODEL=""
 # OPENROUTER_EMBEDDING_MODEL=""
 
+# Internal Services Authentication
+# INTERNAL_SERVICES_AUTH_TOKEN=""
+
 # Metadata Server Configuration
 # METADATA_GRPC_SERVER_URL=""
 

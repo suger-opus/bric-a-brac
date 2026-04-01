@@ -24,6 +24,11 @@ pub async fn run(config: &Config) -> anyhow::Result<()> {
     let grpc_addr = config.knowledge_server().url();
     tracing::info!(grpc_addr = %grpc_addr, "Knowledge gRPC server starting");
 
-    build_grpc_server(KnowledgeServer::new(knowledge_service), grpc_addr).await?;
+    build_grpc_server(
+        KnowledgeServer::new(knowledge_service),
+        grpc_addr,
+        config.internal_services_auth_token(),
+    )
+    .await?;
     Ok(())
 }

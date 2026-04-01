@@ -10,6 +10,7 @@ pub use openrouter_config::OpenRouterConfig;
 
 use anyhow::Context;
 use clap::Parser;
+use secrecy::SecretString;
 
 #[derive(clap::Parser, derive_more::Debug)]
 #[command(about = "AI microservice configuration", long_about = None)]
@@ -25,6 +26,10 @@ pub struct Config {
 
     #[clap(flatten)]
     openrouter: OpenRouterConfig,
+
+    /// Shared secret for inter-service gRPC authentication
+    #[arg(long, env = "INTERNAL_SERVICES_AUTH_TOKEN", required = true)]
+    internal_services_auth_token: SecretString,
 }
 
 impl Config {
@@ -46,5 +51,9 @@ impl Config {
 
     pub const fn openrouter(&self) -> &OpenRouterConfig {
         &self.openrouter
+    }
+
+    pub const fn internal_services_auth_token(&self) -> &SecretString {
+        &self.internal_services_auth_token
     }
 }

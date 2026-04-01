@@ -16,11 +16,15 @@ pub mod metadata {
 }
 
 // Base trait & error
+mod auth;
 mod client;
 mod error;
 mod server;
 mod tracing;
 
+pub use auth::{AuthChannel, ServiceAuthInterceptor};
 pub use client::with_retry;
 pub use error::GrpcRequestError;
 pub use server::build_grpc_server;
+
+use auth::ServiceAuthLayer;

@@ -2,23 +2,26 @@ use crate::infrastructure::{AiServerConfig, InfraError};
 use bric_a_brac_dtos::{AgentEventDto, SessionDocumentIdDto, SessionIdDto};
 use bric_a_brac_protos::{
     ai::{ai_client::AiClient as AiGrpcClient, SendMessageRequest},
-    with_retry,
+    with_retry, AuthChannel, ServiceAuthInterceptor,
 };
 use futures_util::{Stream, StreamExt};
-use tonic::transport::Channel;
+use secrecy::SecretString;
 use tonic::Request;
 
 #[derive(Clone)]
 pub struct AiClient {
-    client: AiGrpcClient<Channel>,
+    client: AiGrpcClient<AuthChannel>,
 }
 
 impl AiClient {
-    pub fn new(config: &AiServerConfig) -> anyhow::Result<Self> {
+    pub fn new(config: &AiServerConfig, auth_token: &SecretString) -> anyhow::Result<Self> {
         let channel =
             tonic::transport::Endpoint::from_shared(config.url().to_string())?.connect_lazy();
         Ok(Self {
-            client: AiGrpcClient::new(channel),
+            client: AiGrpcClient::with_interceptor(
+                channel,
+                ServiceAuthInterceptor::new(auth_token.clone()),
+            ),
         })
     }
 

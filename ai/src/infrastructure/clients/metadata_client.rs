@@ -8,22 +8,25 @@ use bric_a_brac_protos::{
         CreateEdgeSchemaRequest, CreateNodeSchemaRequest, GetSchemaRequest,
         GetSessionDocumentRequest, GetSessionMessagesRequest, GetSessionRequest,
     },
-    with_retry,
+    with_retry, AuthChannel, ServiceAuthInterceptor,
 };
-use tonic::transport::Channel;
+use secrecy::SecretString;
 use tonic::Request;
 
 #[derive(Clone)]
 pub struct MetadataClient {
-    client: MetadataGrpcClient<Channel>,
+    client: MetadataGrpcClient<AuthChannel>,
 }
 
 impl MetadataClient {
-    pub fn new(config: &MetadataServerConfig) -> anyhow::Result<Self> {
+    pub fn new(config: &MetadataServerConfig, auth_token: &SecretString) -> anyhow::Result<Self> {
         let channel =
             tonic::transport::Endpoint::from_shared(config.url().to_string())?.connect_lazy();
         Ok(Self {
-            client: MetadataGrpcClient::new(channel),
+            client: MetadataGrpcClient::with_interceptor(
+                channel,
+                ServiceAuthInterceptor::new(auth_token.clone()),
+            ),
         })
     }
 

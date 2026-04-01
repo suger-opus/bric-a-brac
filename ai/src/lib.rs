@@ -15,8 +15,14 @@ use bric_a_brac_protos::{ai::ai_server::AiServer, build_grpc_server};
 pub async fn run(config: Config) -> anyhow::Result<()> {
     let openrouter_client = OpenRouterClient::new(config.openrouter());
     let embedding_client = EmbeddingClient::new(config.openrouter());
-    let knowledge_client = KnowledgeClient::new(config.knowledge_server())?;
-    let metadata_client = MetadataClient::new(config.metadata_server())?;
+    let knowledge_client = KnowledgeClient::new(
+        config.knowledge_server(),
+        config.internal_services_auth_token(),
+    )?;
+    let metadata_client = MetadataClient::new(
+        config.metadata_server(),
+        config.internal_services_auth_token(),
+    )?;
     let tool_service =
         ToolService::new(knowledge_client, metadata_client.clone(), embedding_client);
     let agent_service = AgentService::new(openrouter_client, metadata_client, tool_service);
@@ -24,6 +30,11 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     let grpc_addr = config.ai_server().url();
     tracing::info!(grpc_addr = %grpc_addr, "AI gRPC server starting");
 
-    build_grpc_server(AiServer::new(ai_service), grpc_addr).await?;
+    build_grpc_server(
+        AiServer::new(ai_service),
+        grpc_addr,
+        config.internal_services_auth_token(),
+    )
+    .await?;
     Ok(())
 }

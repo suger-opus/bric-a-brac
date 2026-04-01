@@ -13,6 +13,7 @@ clap = { workspace = true, features = ["derive", "env"] }
 derive_more = { workspace = true, features = ["debug"] }
 neo4rs = { workspace = true }
 prost = { workspace = true }
+secrecy = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sqlx = { workspace = true }

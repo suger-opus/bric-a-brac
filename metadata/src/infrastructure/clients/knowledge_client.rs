@@ -5,22 +5,25 @@ use bric_a_brac_protos::{
         knowledge_client::KnowledgeClient as KnowledgeGrpcClient, DeleteGraphRequest,
         InitializeSchemaRequest, LoadGraphRequest,
     },
-    with_retry,
+    with_retry, AuthChannel, ServiceAuthInterceptor,
 };
-use tonic::transport::Channel;
+use secrecy::SecretString;
 use tonic::Request;
 
 #[derive(Clone)]
 pub struct KnowledgeClient {
-    client: KnowledgeGrpcClient<Channel>,
+    client: KnowledgeGrpcClient<AuthChannel>,
 }
 
 impl KnowledgeClient {
-    pub fn new(config: &KnowledgeServerConfig) -> anyhow::Result<Self> {
+    pub fn new(config: &KnowledgeServerConfig, auth_token: &SecretString) -> anyhow::Result<Self> {
         let channel =
             tonic::transport::Endpoint::from_shared(config.url().to_string())?.connect_lazy();
         Ok(Self {
-            client: KnowledgeGrpcClient::new(channel),
+            client: KnowledgeGrpcClient::with_interceptor(
+                channel,
+                ServiceAuthInterceptor::new(auth_token.clone()),
+            ),
         })
     }
 
