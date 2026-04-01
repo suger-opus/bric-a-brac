@@ -19,7 +19,12 @@ impl AiService {
 impl Ai for AiService {
     type SendMessageStream = ReceiverStream<Result<AgentEventProto, Status>>;
 
-    // TODO: tracing
+    #[tracing::instrument(
+        level = "trace",
+        name = "ai_service.send_message",
+        skip(self, request),
+        err
+    )]
     async fn send_message(
         &self,
         request: Request<SendMessageRequest>,

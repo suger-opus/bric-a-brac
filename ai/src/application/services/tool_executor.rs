@@ -57,7 +57,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "debug",
-        name = "tool.execute",
+        name = "tool_executor.execute",
         skip(self, arguments, schema),
         fields(%tool_name, %graph_id, %session_id)
     )]
@@ -118,7 +118,12 @@ impl ToolExecutor {
         }
     }
 
-    // TODO: tracing
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_search_nodes",
+        skip(self, arguments, graph_id),
+        err
+    )]
     async fn exec_search_nodes(
         &self,
         arguments: &str,
@@ -155,6 +160,12 @@ impl ToolExecutor {
         serde_json::to_string(&nodes).map_err(|err| format!("Serialization failed: {err}"))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_get_node",
+        skip(self, arguments, graph_id),
+        err
+    )]
     async fn exec_get_node(&self, arguments: &str, graph_id: GraphIdDto) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
         let node_data_id = get_str(&args, "node_data_id")
@@ -169,6 +180,12 @@ impl ToolExecutor {
         serde_json::to_string(&node).map_err(|err| format!("Serialization failed: {err}"))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_get_neighbors",
+        skip(self, arguments, graph_id),
+        err
+    )]
     async fn exec_get_neighbors(
         &self,
         arguments: &str,
@@ -196,6 +213,12 @@ impl ToolExecutor {
         serde_json::to_string(&subgraph).map_err(|err| format!("Serialization failed: {err}"))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_find_paths",
+        skip(self, arguments, graph_id),
+        err
+    )]
     async fn exec_find_paths(
         &self,
         arguments: &str,
@@ -226,6 +249,12 @@ impl ToolExecutor {
         serde_json::to_string(&paths).map_err(|err| format!("Serialization failed: {err}"))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_read_document",
+        skip(self, arguments),
+        err
+    )]
     async fn exec_read_document(&self, arguments: &str) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
         let document_id = get_str(&args, "document_id")
@@ -240,6 +269,12 @@ impl ToolExecutor {
         serde_json::to_string(&doc).map_err(|err| format!("Serialization failed: {err}"))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_create_schema",
+        skip(self, arguments, graph_id),
+        err
+    )]
     async fn exec_create_schema(
         &self,
         arguments: &str,
@@ -261,6 +296,12 @@ impl ToolExecutor {
             ))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_create_edge_schema",
+        skip(self, arguments, graph_id),
+        err
+    )]
     async fn exec_create_edge_schema(
         &self,
         arguments: &str,
@@ -282,6 +323,12 @@ impl ToolExecutor {
             ))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_create_node",
+        skip(self, arguments, graph_id, schema),
+        err
+    )]
     async fn exec_create_node(
         &self,
         arguments: &str,
@@ -390,6 +437,12 @@ impl ToolExecutor {
             .map_err(|err| format!("Serialization failed: {err}"))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_create_node",
+        skip(self, arguments, graph_id, schema),
+        err
+    )]
     async fn exec_create_edge(
         &self,
         arguments: &str,
@@ -437,6 +490,12 @@ impl ToolExecutor {
     // NOTE: This generates O(N) calls to the knowledge service for entity resolution
     // (search_nodes + get_neighbors per node). A future optimisation would be to add
     // a batch entity-resolution endpoint to the knowledge service.
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_create_nodes",
+        skip(self, arguments, graph_id, schema),
+        err
+    )]
     async fn exec_create_nodes(
         &self,
         arguments: &str,
@@ -567,6 +626,12 @@ impl ToolExecutor {
     /// Batch create up to 50 edges. Each edge is merged if it already exists.
     // NOTE: This generates O(N) create_edge calls to the knowledge service.
     // A future optimisation would be a batch insert endpoint.
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_create_edges",
+        skip(self, arguments, graph_id, schema),
+        err
+    )]
     async fn exec_create_edges(
         &self,
         arguments: &str,
@@ -649,6 +714,12 @@ impl ToolExecutor {
         serde_json::to_string(&results).map_err(|err| format!("Serialization failed: {err}"))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_update_node",
+        skip(self, arguments, graph_id),
+        err
+    )]
     async fn exec_update_node(
         &self,
         arguments: &str,
@@ -683,7 +754,13 @@ impl ToolExecutor {
         serde_json::to_string(&node).map_err(|err| format!("Serialization failed: {err}"))
     }
 
-    // TODO: doesn't update embeddings ?
+    // Edges don't have embeddings (no vector search on edges), so no embedding update needed.
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_update_edge",
+        skip(self, arguments, graph_id),
+        err
+    )]
     async fn exec_update_edge(
         &self,
         arguments: &str,
@@ -709,6 +786,12 @@ impl ToolExecutor {
         serde_json::to_string_pretty(&edge).map_err(|err| format!("Serialization failed: {err}"))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_delete_node",
+        skip(self, arguments, graph_id),
+        err
+    )]
     async fn exec_delete_node(
         &self,
         arguments: &str,
@@ -726,6 +809,12 @@ impl ToolExecutor {
         Ok(format!("Deleted node {node_data_id} and all its edges."))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_delete_edge",
+        skip(self, arguments, graph_id),
+        err
+    )]
     async fn exec_delete_edge(
         &self,
         arguments: &str,
@@ -743,6 +832,11 @@ impl ToolExecutor {
         Ok(format!("Deleted edge {edge_data_id}."))
     }
 
+    #[tracing::instrument(
+        level = "trace",
+        name = "tool_executor.exec_done",
+        skip(self, arguments)
+    )]
     #[allow(clippy::unused_self)]
     fn exec_done(&self, arguments: &str) -> String {
         parse_args(arguments)
@@ -755,8 +849,6 @@ impl ToolExecutor {
             .unwrap_or_else(|| "Task completed.".to_owned())
     }
 }
-
-// --- Helpers ---
 
 fn parse_args(arguments: &str) -> Result<Value, String> {
     serde_json::from_str(arguments).map_err(|err| format!("Invalid tool arguments: {err}"))
