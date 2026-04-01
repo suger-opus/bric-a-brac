@@ -1,8 +1,7 @@
-mod agent_service;
-mod chunking;
-mod prompt;
-mod tool_executor;
-mod tools;
+mod agent;
+mod tool;
 
-pub use agent_service::AgentService;
-pub use tool_executor::ToolExecutor;
+pub use agent::AgentService;
+pub use tool::ToolService;
+
+use tool::{read_tools, session_tools, write_tools};

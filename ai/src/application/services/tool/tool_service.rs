@@ -11,7 +11,7 @@ const SIMILARITY_THRESHOLD: f32 = 0.3;
 
 #[derive(Clone)]
 #[allow(clippy::struct_field_names)]
-pub struct ToolExecutor {
+pub struct ToolService {
     knowledge_client: KnowledgeClient,
     metadata_client: MetadataClient,
     embedding_client: EmbeddingClient,
@@ -42,7 +42,7 @@ const fn is_write_role(role: RoleDto) -> bool {
     matches!(role, RoleDto::Owner | RoleDto::Admin | RoleDto::Editor)
 }
 
-impl ToolExecutor {
+impl ToolService {
     pub const fn new(
         knowledge_client: KnowledgeClient,
         metadata_client: MetadataClient,
@@ -57,7 +57,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "debug",
-        name = "tool_executor.execute",
+        name = "tool_service.execute",
         skip(self, arguments, schema),
         fields(%tool_name, %graph_id, %session_id)
     )]
@@ -120,7 +120,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_search_nodes",
+        name = "tool_service.exec_search_nodes",
         skip(self, arguments, graph_id),
         err
     )]
@@ -162,7 +162,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_get_node",
+        name = "tool_service.exec_get_node",
         skip(self, arguments, graph_id),
         err
     )]
@@ -182,7 +182,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_get_neighbors",
+        name = "tool_service.exec_get_neighbors",
         skip(self, arguments, graph_id),
         err
     )]
@@ -215,7 +215,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_find_paths",
+        name = "tool_service.exec_find_paths",
         skip(self, arguments, graph_id),
         err
     )]
@@ -251,7 +251,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_read_document",
+        name = "tool_service.exec_read_document",
         skip(self, arguments),
         err
     )]
@@ -271,7 +271,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_create_schema",
+        name = "tool_service.exec_create_schema",
         skip(self, arguments, graph_id),
         err
     )]
@@ -298,7 +298,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_create_edge_schema",
+        name = "tool_service.exec_create_edge_schema",
         skip(self, arguments, graph_id),
         err
     )]
@@ -325,7 +325,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_create_node",
+        name = "tool_service.exec_create_node",
         skip(self, arguments, graph_id, schema),
         err
     )]
@@ -439,7 +439,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_create_node",
+        name = "tool_service.exec_create_edge",
         skip(self, arguments, graph_id, schema),
         err
     )]
@@ -492,7 +492,7 @@ impl ToolExecutor {
     // a batch entity-resolution endpoint to the knowledge service.
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_create_nodes",
+        name = "tool_service.exec_create_nodes",
         skip(self, arguments, graph_id, schema),
         err
     )]
@@ -628,7 +628,7 @@ impl ToolExecutor {
     // A future optimisation would be a batch insert endpoint.
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_create_edges",
+        name = "tool_service.exec_create_edges",
         skip(self, arguments, graph_id, schema),
         err
     )]
@@ -716,7 +716,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_update_node",
+        name = "tool_service.exec_update_node",
         skip(self, arguments, graph_id),
         err
     )]
@@ -757,7 +757,7 @@ impl ToolExecutor {
     // Edges don't have embeddings (no vector search on edges), so no embedding update needed.
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_update_edge",
+        name = "tool_service.exec_update_edge",
         skip(self, arguments, graph_id),
         err
     )]
@@ -783,12 +783,12 @@ impl ToolExecutor {
             .await
             .map_err(|err| format!("Failed to update edge: {err}"))?;
 
-        serde_json::to_string_pretty(&edge).map_err(|err| format!("Serialization failed: {err}"))
+        serde_json::to_string(&edge).map_err(|err| format!("Serialization failed: {err}"))
     }
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_delete_node",
+        name = "tool_service.exec_delete_node",
         skip(self, arguments, graph_id),
         err
     )]
@@ -811,7 +811,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_delete_edge",
+        name = "tool_service.exec_delete_edge",
         skip(self, arguments, graph_id),
         err
     )]
@@ -834,7 +834,7 @@ impl ToolExecutor {
 
     #[tracing::instrument(
         level = "trace",
-        name = "tool_executor.exec_done",
+        name = "tool_service.exec_done",
         skip(self, arguments)
     )]
     #[allow(clippy::unused_self)]
@@ -868,6 +868,8 @@ fn get_properties(args: &Value) -> Result<PropertiesDataDto, String> {
         "node_data_id",
         "source_node_data_id",
         "target_node_data_id",
+        "from_node_data_id",
+        "to_node_data_id",
         "edge_data_id",
         "force",
     ];
@@ -920,14 +922,14 @@ fn validate_edge_key(schema: &GraphSchemaDto, edge_key: &KeyDto) -> Result<(), S
     if schema
         .edges
         .iter()
-        .any(|err| err.key.as_str() == edge_key.as_str())
+        .any(|e| e.key.as_str() == edge_key.as_str())
     {
         return Ok(());
     }
     let valid: Vec<String> = schema
         .edges
         .iter()
-        .map(|err| format!("{} ({})", err.key, err.label))
+        .map(|e| format!("{} ({})", e.key, e.label))
         .collect();
     Err(format!(
         "Unknown edge schema key '{edge_key}'. Valid schemas: {}",

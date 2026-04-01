@@ -7,5 +7,5 @@ pub use embedding_client::EmbeddingClient;
 pub use knowledge_client::KnowledgeClient;
 pub use metadata_client::MetadataClient;
 pub use openrouter_client::{
-    FunctionDefinition, Message, OpenRouterClient, ToolDefinition,
+    FunctionDefinition, Message, OpenRouterClient, StreamChatResult, ToolCall, ToolDefinition,
 };

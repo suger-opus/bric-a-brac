@@ -6,7 +6,7 @@ pub use infrastructure::Config;
 pub use presentation::setup_tracing;
 
 use crate::{
-    application::{AgentService, ToolExecutor},
+    application::{AgentService, ToolService},
     infrastructure::{EmbeddingClient, KnowledgeClient, MetadataClient, OpenRouterClient},
     presentation::AiService,
 };
@@ -17,9 +17,9 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     let embedding_client = EmbeddingClient::new(config.openrouter());
     let knowledge_client = KnowledgeClient::new(config.knowledge_server())?;
     let metadata_client = MetadataClient::new(config.metadata_server())?;
-    let tool_executor =
-        ToolExecutor::new(knowledge_client, metadata_client.clone(), embedding_client);
-    let agent_service = AgentService::new(openrouter_client, metadata_client, tool_executor);
+    let tool_service =
+        ToolService::new(knowledge_client, metadata_client.clone(), embedding_client);
+    let agent_service = AgentService::new(openrouter_client, metadata_client, tool_service);
     let ai_service = AiService::new(agent_service);
     let grpc_addr = config.ai_server().url();
     tracing::info!(grpc_addr = %grpc_addr, "AI gRPC server starting");
