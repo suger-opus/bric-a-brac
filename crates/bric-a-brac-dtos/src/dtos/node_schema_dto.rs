@@ -1,4 +1,4 @@
-use super::{ColorDto, GraphIdDto, KeyDto, LabelDto};
+use super::{ColorDto, DescriptionDto, GraphIdDto, KeyDto, LabelDto};
 use crate::{utils::ProtoTimestampExt, DtosConversionError};
 use bric_a_brac_id::id;
 use bric_a_brac_protos::common::NodeSchemaProto;
@@ -29,7 +29,8 @@ pub struct NodeSchemaDto {
     pub key: KeyDto,
     #[validate(nested)]
     pub color: ColorDto,
-    pub description: String,
+    #[validate(nested)]
+    pub description: DescriptionDto,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -44,7 +45,7 @@ impl TryFrom<NodeSchemaProto> for NodeSchemaDto {
             label: proto.label.into(),
             key: proto.key.into(),
             color: proto.color.into(),
-            description: proto.description,
+            description: proto.description.into(),
             created_at: proto.created_at.to_chrono()?,
             updated_at: proto.updated_at.to_chrono()?,
         })
@@ -59,7 +60,7 @@ impl From<NodeSchemaDto> for NodeSchemaProto {
             label: dto.label.into(),
             key: dto.key.into(),
             color: dto.color.into(),
-            description: dto.description,
+            description: dto.description.into(),
             created_at: Option::<Timestamp>::from_chrono(dto.created_at),
             updated_at: Option::<Timestamp>::from_chrono(dto.updated_at),
         }

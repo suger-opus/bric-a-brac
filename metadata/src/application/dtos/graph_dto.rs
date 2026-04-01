@@ -1,5 +1,5 @@
 use crate::domain::{CreateGraphModel, GraphIdModel, GraphMetadataModel};
-use bric_a_brac_dtos::{GraphIdDto, RoleDto};
+use bric_a_brac_dtos::{DescriptionDto, GraphIdDto, RoleDto};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -21,7 +21,7 @@ impl From<GraphIdDto> for GraphIdModel {
 pub struct GraphMetadataDto {
     pub graph_id: GraphIdDto,
     pub name: String,
-    pub description: String,
+    pub description: DescriptionDto,
     pub is_public: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -34,7 +34,7 @@ impl From<GraphMetadataModel> for GraphMetadataDto {
         Self {
             graph_id: metadata.graph_id.into(),
             name: metadata.name,
-            description: metadata.description,
+            description: metadata.description.into(),
             is_public: metadata.is_public,
             created_at: metadata.created_at,
             updated_at: metadata.updated_at,
@@ -50,9 +50,8 @@ pub struct CreateGraphDto {
     #[schema(min_length = 3, max_length = 100)]
     pub name: String,
 
-    #[validate(length(min = 0, max = 10000))]
-    #[schema(min_length = 0, max_length = 10000)]
-    pub description: String,
+    #[validate(nested)]
+    pub description: DescriptionDto,
 
     pub is_public: bool,
 }
@@ -62,7 +61,7 @@ impl From<CreateGraphDto> for CreateGraphModel {
         Self {
             graph_id: GraphIdModel::new(),
             name: dto.name,
-            description: dto.description,
+            description: dto.description.into(),
             is_public: dto.is_public,
         }
     }

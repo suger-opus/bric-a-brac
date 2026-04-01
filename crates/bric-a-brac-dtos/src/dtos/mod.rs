@@ -23,7 +23,7 @@ pub use node_data_dto::{
     CreateNodeDataDto, NodeDataDto, NodeDataIdDto, NodeSearchDto, UpdateNodeDataDto,
 };
 pub use node_schema_dto::{NodeSchemaDto, NodeSchemaIdDto};
-pub use primitives::{ColorDto, KeyDto, LabelDto};
+pub use primitives::{ColorDto, DescriptionDto, KeyDto, LabelDto};
 pub use property_data_dto::{PropertiesDataDto, PropertyValueDto};
 pub use session_dto::{
     CreateSessionMessageDto, SessionDocumentDto, SessionDocumentIdDto, SessionDto, SessionIdDto,

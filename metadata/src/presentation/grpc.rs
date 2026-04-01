@@ -26,10 +26,7 @@ pub struct MetadataGrpcService {
 }
 
 impl MetadataGrpcService {
-    pub const fn new(
-        session_service: SessionService,
-        graph_service: GraphService,
-    ) -> Self {
+    pub const fn new(session_service: SessionService, graph_service: GraphService) -> Self {
         Self {
             session_service,
             graph_service,
@@ -153,7 +150,7 @@ impl Metadata for MetadataGrpcService {
         let graph_id: GraphIdDto = req.graph_id.try_into().map_err(PresentationError::from)?;
         let schema = self
             .graph_service
-            .create_node_schema(graph_id, req.label.into(), req.description)
+            .create_node_schema(graph_id, req.label.into(), req.description.into())
             .await?;
 
         Ok(Response::new(schema.into()))
@@ -173,7 +170,7 @@ impl Metadata for MetadataGrpcService {
         let graph_id: GraphIdDto = req.graph_id.try_into().map_err(PresentationError::from)?;
         let schema = self
             .graph_service
-            .create_edge_schema(graph_id, req.label.into(), req.description)
+            .create_edge_schema(graph_id, req.label.into(), req.description.into())
             .await?;
 
         Ok(Response::new(schema.into()))

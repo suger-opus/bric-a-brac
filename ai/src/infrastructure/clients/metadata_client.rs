@@ -1,7 +1,6 @@
 use crate::infrastructure::{InfraError, MetadataServerConfig};
 use bric_a_brac_dtos::{
-    CreateSessionMessageDto, EdgeSchemaDto, GraphIdDto, GraphSchemaDto, LabelDto, NodeSchemaDto,
-    SessionDocumentDto, SessionDocumentIdDto, SessionDto, SessionIdDto, SessionMessageDto,
+    CreateSessionMessageDto, DescriptionDto, EdgeSchemaDto, GraphIdDto, GraphSchemaDto, LabelDto, NodeSchemaDto, SessionDocumentDto, SessionDocumentIdDto, SessionDto, SessionIdDto, SessionMessageDto
 };
 use bric_a_brac_protos::{
     metadata::{
@@ -157,14 +156,14 @@ impl MetadataClient {
         &self,
         graph_id: GraphIdDto,
         label: LabelDto,
-        description: &str,
+        description: DescriptionDto,
     ) -> Result<NodeSchemaDto, InfraError> {
         let data = with_retry(|| {
             let mut c = self.client.clone();
             let req = Request::new(CreateNodeSchemaRequest {
                 graph_id: graph_id.to_string(),
                 label: label.to_string(),
-                description: description.to_owned(),
+                description: description.to_string(),
             });
             async move { c.create_node_schema(req).await }
         })
@@ -183,14 +182,14 @@ impl MetadataClient {
         &self,
         graph_id: GraphIdDto,
         label: LabelDto,
-        description: &str,
+        description: DescriptionDto,
     ) -> Result<EdgeSchemaDto, InfraError> {
         let data = with_retry(|| {
             let mut c = self.client.clone();
             let req = Request::new(CreateEdgeSchemaRequest {
                 graph_id: graph_id.to_string(),
                 label: label.to_string(),
-                description: description.to_owned(),
+                description: description.to_string(),
             });
             async move { c.create_edge_schema(req).await }
         })

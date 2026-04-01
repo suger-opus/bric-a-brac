@@ -1,6 +1,8 @@
 use crate::infrastructure::{EmbeddingClient, KnowledgeClient, MetadataClient};
 use bric_a_brac_dtos::{
-    CreateEdgeDataDto, CreateNodeDataDto, EdgeDataIdDto, GraphIdDto, GraphSchemaDto, KeyDto, LabelDto, NodeDataIdDto, PropertiesDataDto, RoleDto, SessionDocumentIdDto, SessionIdDto, UpdateEdgeDataDto, UpdateNodeDataDto
+    CreateEdgeDataDto, CreateNodeDataDto, DescriptionDto, EdgeDataIdDto, GraphIdDto,
+    GraphSchemaDto, KeyDto, LabelDto, NodeDataIdDto, PropertiesDataDto, RoleDto,
+    SessionDocumentIdDto, SessionIdDto, UpdateEdgeDataDto, UpdateNodeDataDto,
 };
 use serde_json::Value;
 
@@ -245,7 +247,7 @@ impl ToolExecutor {
     ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
         let label = get_str(&args, "label").map(LabelDto::from)?;
-        let description = get_str(&args, "description")?;
+        let description = get_str(&args, "description").map(DescriptionDto::from)?;
 
         let schema = self
             .metadata_client
@@ -266,7 +268,7 @@ impl ToolExecutor {
     ) -> Result<String, String> {
         let args: Value = parse_args(arguments)?;
         let label = get_str(&args, "label").map(LabelDto::from)?;
-        let description = get_str(&args, "description")?;
+        let description = get_str(&args, "description").map(DescriptionDto::from)?;
 
         let schema = self
             .metadata_client

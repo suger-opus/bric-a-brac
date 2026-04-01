@@ -15,7 +15,6 @@ static COLOR_REGEX: LazyLock<Regex> =
 static KEY_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9]{7}$").expect("Invalid key regex"));
 
-// TODO: same for description ?
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display)]
 #[display("{value}")]
 #[serde(transparent)]
@@ -65,6 +64,59 @@ impl From<String> for LabelDto {
 
 impl From<LabelDto> for String {
     fn from(s: LabelDto) -> Self {
+        s.value
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display)]
+#[display("{value}")]
+#[serde(transparent)]
+pub struct DescriptionDto {
+    #[validate(length(min = 1, max = 1_000))]
+    value: String,
+}
+
+impl DescriptionDto {
+    pub fn as_str(&self) -> &str {
+        &self.value
+    }
+}
+
+impl PartialSchema for DescriptionDto {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        utoipa::openapi::schema::ObjectBuilder::new()
+            .schema_type(utoipa::openapi::schema::SchemaType::new(
+                utoipa::openapi::schema::Type::String,
+            ))
+            .min_length(Some(1))
+            .max_length(Some(1_000))
+            .build()
+            .into()
+    }
+}
+
+impl ToSchema for DescriptionDto {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("DescriptionDto")
+    }
+}
+
+impl From<&str> for DescriptionDto {
+    fn from(s: &str) -> Self {
+        Self {
+            value: s.to_owned(),
+        }
+    }
+}
+
+impl From<String> for DescriptionDto {
+    fn from(s: String) -> Self {
+        Self { value: s }
+    }
+}
+
+impl From<DescriptionDto> for String {
+    fn from(s: DescriptionDto) -> Self {
         s.value
     }
 }

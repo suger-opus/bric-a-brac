@@ -7,8 +7,7 @@ use crate::{
     infrastructure::{AccessRepository, GraphRepository, KnowledgeClient},
 };
 use bric_a_brac_dtos::{
-    ColorDto, EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto, KeyDto, LabelDto,
-    NodeSchemaDto, UserIdDto,
+    ColorDto, DescriptionDto, EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto, KeyDto, LabelDto, NodeSchemaDto, UserIdDto
 };
 use sqlx::PgPool;
 
@@ -149,7 +148,7 @@ impl GraphService {
         &self,
         graph_id: GraphIdDto,
         label: LabelDto,
-        description: String,
+        description: DescriptionDto,
     ) -> Result<NodeSchemaDto, AppError> {
         let key = KeyDto::new();
         let create = CreateNodeSchemaModel {
@@ -158,7 +157,7 @@ impl GraphService {
             label: label.into(),
             key: key.clone().into(),
             color: ColorDto::new().into(),
-            description,
+            description: description.into(),
         };
 
         let mut txn = self.pool.begin().await?;
@@ -183,7 +182,7 @@ impl GraphService {
         &self,
         graph_id: GraphIdDto,
         label: LabelDto,
-        description: String,
+        description: DescriptionDto,
     ) -> Result<EdgeSchemaDto, AppError> {
         let create = CreateEdgeSchemaModel {
             edge_schema_id: EdgeSchemaIdModel::new(),
@@ -191,7 +190,7 @@ impl GraphService {
             label: label.into(),
             key: KeyDto::new().into(),
             color: ColorDto::new().into(),
-            description,
+            description: description.into(),
         };
 
         let mut txn = self.pool.begin().await?;

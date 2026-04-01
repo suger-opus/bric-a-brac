@@ -21,7 +21,7 @@ impl From<NodeSchemaModel> for NodeSchemaDto {
             label: model.label.into(),
             key: model.key.into(),
             color: model.color.into(),
-            description: model.description,
+            description: model.description.into(),
             created_at: model.created_at,
             updated_at: model.updated_at,
         }
