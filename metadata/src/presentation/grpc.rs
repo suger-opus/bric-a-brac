@@ -3,7 +3,8 @@ use crate::{
     presentation::error::PresentationError,
 };
 use bric_a_brac_dtos::{
-    CreateSessionMessageDto, DtosConversionError, GraphIdDto, SessionDocumentIdDto, SessionIdDto,
+    CreateSessionMessageDto, DescriptionDto, DtosConversionError, GraphIdDto, LabelDto,
+    SessionDocumentIdDto, SessionIdDto,
 };
 use bric_a_brac_protos::{
     common::{
@@ -18,6 +19,7 @@ use bric_a_brac_protos::{
     },
 };
 use tonic::{Request, Response, Status};
+use validator::Validate;
 
 #[allow(clippy::struct_field_names)]
 pub struct MetadataGrpcService {
@@ -148,9 +150,13 @@ impl Metadata for MetadataGrpcService {
     ) -> Result<Response<NodeSchemaProto>, Status> {
         let req = request.into_inner();
         let graph_id: GraphIdDto = req.graph_id.try_into().map_err(PresentationError::from)?;
+        let label: LabelDto = req.label.into();
+        let description: DescriptionDto = req.description.into();
+        label.validate().map_err(PresentationError::from)?;
+        description.validate().map_err(PresentationError::from)?;
         let schema = self
             .graph_service
-            .create_node_schema(graph_id, req.label.into(), req.description.into())
+            .create_node_schema(graph_id, label, description)
             .await?;
 
         Ok(Response::new(schema.into()))
@@ -168,9 +174,13 @@ impl Metadata for MetadataGrpcService {
     ) -> Result<Response<EdgeSchemaProto>, Status> {
         let req = request.into_inner();
         let graph_id: GraphIdDto = req.graph_id.try_into().map_err(PresentationError::from)?;
+        let label: LabelDto = req.label.into();
+        let description: DescriptionDto = req.description.into();
+        label.validate().map_err(PresentationError::from)?;
+        description.validate().map_err(PresentationError::from)?;
         let schema = self
             .graph_service
-            .create_edge_schema(graph_id, req.label.into(), req.description.into())
+            .create_edge_schema(graph_id, label, description)
             .await?;
 
         Ok(Response::new(schema.into()))

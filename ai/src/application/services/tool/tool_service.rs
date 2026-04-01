@@ -5,6 +5,7 @@ use bric_a_brac_dtos::{
     SessionDocumentIdDto, SessionIdDto, UpdateEdgeDataDto, UpdateNodeDataDto,
 };
 use serde_json::Value;
+use validator::Validate;
 
 const ENTITY_RESOLUTION_LIMIT: i32 = 5;
 const SIMILARITY_THRESHOLD: f32 = 0.3;
@@ -283,6 +284,8 @@ impl ToolService {
         let args: Value = parse_args(arguments)?;
         let label = get_str(&args, "label").map(LabelDto::from)?;
         let description = get_str(&args, "description").map(DescriptionDto::from)?;
+        validate_dto(&label)?;
+        validate_dto(&description)?;
 
         let schema = self
             .metadata_client
@@ -310,6 +313,8 @@ impl ToolService {
         let args: Value = parse_args(arguments)?;
         let label = get_str(&args, "label").map(LabelDto::from)?;
         let description = get_str(&args, "description").map(DescriptionDto::from)?;
+        validate_dto(&label)?;
+        validate_dto(&description)?;
 
         let schema = self
             .metadata_client
@@ -344,8 +349,9 @@ impl ToolService {
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
 
-        // Validate schema exists
+        // Validate schema exists and DTO fields
         validate_node_key(schema, &node_key)?;
+        validate_dto(&properties)?;
 
         // Generate embedding from properties
         let props_text = properties_to_text(&properties);
@@ -457,8 +463,9 @@ impl ToolService {
             .and_then(|s| NodeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
         let properties = get_properties(&args)?;
 
-        // Validate edge schema exists
+        // Validate edge schema exists and DTO fields
         validate_edge_key(schema, &edge_key)?;
+        validate_dto(&properties)?;
 
         let edge = self
             .knowledge_client
@@ -526,6 +533,7 @@ impl ToolService {
                     .ok_or_else(|| format!("nodes[{i}]: missing node_key"))?;
                 validate_node_key(schema, &node_key)?;
                 let properties = get_properties(item)?;
+                validate_dto(&properties)?;
                 let force = item
                     .get("force")
                     .and_then(serde_json::Value::as_bool)
@@ -679,6 +687,7 @@ impl ToolService {
             validate_edge_key(schema, &edge_key)?;
 
             let properties = get_properties(item)?;
+            validate_dto(&properties)?;
             match self
                 .knowledge_client
                 .create_edge(
@@ -729,6 +738,7 @@ impl ToolService {
         let node_data_id = get_str(&args, "node_data_id")
             .and_then(|s| NodeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
         let properties = get_properties(&args)?;
+        validate_dto(&properties)?;
 
         // Re-embed from updated properties
         let props_text = properties_to_text(&properties);
@@ -770,6 +780,7 @@ impl ToolService {
         let edge_data_id = get_str(&args, "edge_data_id")
             .and_then(|s| EdgeDataIdDto::try_from(s).map_err(|e| e.to_string()))?;
         let properties = get_properties(&args)?;
+        validate_dto(&properties)?;
 
         let edge = self
             .knowledge_client
@@ -848,6 +859,11 @@ impl ToolService {
             })
             .unwrap_or_else(|| "Task completed.".to_owned())
     }
+}
+
+fn validate_dto(dto: &impl Validate) -> Result<(), String> {
+    dto.validate()
+        .map_err(|e| format!("Validation failed: {e}"))
 }
 
 fn parse_args(arguments: &str) -> Result<Value, String> {

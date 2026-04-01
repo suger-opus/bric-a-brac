@@ -19,7 +19,7 @@ static KEY_REGEX: LazyLock<Regex> =
 #[display("{value}")]
 #[serde(transparent)]
 pub struct LabelDto {
-    #[validate(length(min = 1, max = 25))]
+    #[validate(length(min = 3, max = 25))]
     value: String,
 }
 
@@ -72,7 +72,7 @@ impl From<LabelDto> for String {
 #[display("{value}")]
 #[serde(transparent)]
 pub struct DescriptionDto {
-    #[validate(length(min = 1, max = 1_000))]
+    #[validate(length(max = 1_000))]
     value: String,
 }
 
@@ -88,7 +88,6 @@ impl PartialSchema for DescriptionDto {
             .schema_type(utoipa::openapi::schema::SchemaType::new(
                 utoipa::openapi::schema::Type::String,
             ))
-            .min_length(Some(1))
             .max_length(Some(1_000))
             .build()
             .into()

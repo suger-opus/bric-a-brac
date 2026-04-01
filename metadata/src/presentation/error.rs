@@ -19,6 +19,9 @@ pub enum PresentationError {
     #[error(transparent)]
     DtosConversionError(#[from] DtosConversionError),
 
+    #[error("Validation errors: {0}")]
+    ValidationErrors(#[from] validator::ValidationErrors),
+
     #[error("Missing required header '{header}'")]
     MissingHeader { header: String },
 
@@ -57,6 +60,10 @@ impl IntoResponse for PresentationError {
         match self {
             Self::AppError(err) => err.into_response(),
             Self::DtosConversionError(err) => {
+                tracing::warn!(error = ?err);
+                error_response(http::StatusCode::BAD_REQUEST, err)
+            }
+            Self::ValidationErrors(err) => {
                 tracing::warn!(error = ?err);
                 error_response(http::StatusCode::BAD_REQUEST, err)
             }
@@ -145,6 +152,10 @@ impl From<PresentationError> for tonic::Status {
         match err {
             PresentationError::AppError(err) => (*err).into(),
             PresentationError::DtosConversionError(err) => {
+                tracing::warn!(error = ?err);
+                Self::new(tonic::Code::InvalidArgument, err.to_string())
+            }
+            PresentationError::ValidationErrors(err) => {
                 tracing::warn!(error = ?err);
                 Self::new(tonic::Code::InvalidArgument, err.to_string())
             }

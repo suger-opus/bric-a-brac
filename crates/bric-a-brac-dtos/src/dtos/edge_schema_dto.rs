@@ -7,7 +7,6 @@ use prost_types::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use utoipa::ToSchema;
-use validator::Validate;
 
 id!(EdgeSchemaIdDto);
 
@@ -19,15 +18,12 @@ impl TryFrom<String> for EdgeSchemaIdDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct EdgeSchemaDto {
     pub edge_schema_id: EdgeSchemaIdDto,
     pub graph_id: GraphIdDto,
-    #[validate(nested)]
     pub label: LabelDto,
-    #[validate(nested)]
     pub key: KeyDto,
-    #[validate(nested)]
     pub color: ColorDto,
     pub description: DescriptionDto,
     pub created_at: DateTime<Utc>,

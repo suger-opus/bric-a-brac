@@ -2,7 +2,9 @@ use crate::{
     application::{CreateUserDto, UserDto},
     presentation::http::{ApiState, AuthenticatedUser},
 };
+use crate::presentation::error::PresentationError;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use validator::Validate;
 
 #[utoipa::path(
     post,
@@ -19,14 +21,17 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 pub async fn create(
     State(state): State<ApiState>,
     Json(payload): Json<CreateUserDto>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, PresentationError> {
     tracing::debug!(email = ?payload.email);
+
+    payload.validate()?;
 
     state
         .user_service
         .create(payload)
         .await
         .map(|user| (StatusCode::CREATED, Json(user)))
+        .map_err(PresentationError::from)
 }
 
 #[utoipa::path(

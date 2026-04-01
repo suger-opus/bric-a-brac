@@ -19,12 +19,10 @@ impl TryFrom<String> for NodeDataIdDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct NodeDataDto {
     pub node_data_id: NodeDataIdDto,
-    #[validate(nested)]
     pub key: KeyDto,
-    #[validate(nested)]
     pub properties: PropertiesDataDto,
 }
 
@@ -50,12 +48,10 @@ impl From<NodeDataDto> for NodeDataProto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct NodeSearchDto {
     pub node_data_id: NodeDataIdDto,
-    #[validate(nested)]
     pub key: KeyDto,
-    #[validate(nested)]
     pub properties: PropertiesDataDto,
     pub distance: f32,
 }

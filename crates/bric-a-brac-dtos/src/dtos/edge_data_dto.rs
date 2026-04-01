@@ -17,14 +17,12 @@ impl TryFrom<String> for EdgeDataIdDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct EdgeDataDto {
     pub edge_data_id: EdgeDataIdDto,
-    #[validate(nested)]
     pub key: KeyDto,
     pub from_node_data_id: NodeDataIdDto,
     pub to_node_data_id: NodeDataIdDto,
-    #[validate(nested)]
     pub properties: PropertiesDataDto,
 }
 

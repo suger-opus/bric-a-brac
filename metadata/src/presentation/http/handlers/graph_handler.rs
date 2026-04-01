@@ -2,6 +2,7 @@ use crate::{
     application::{CreateGraphDto, GraphMetadataDto},
     presentation::http::{ApiState, AuthenticatedUser},
 };
+use crate::presentation::error::PresentationError;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -9,6 +10,7 @@ use axum::{
     Json,
 };
 use bric_a_brac_dtos::{GraphDataDto, GraphIdDto, GraphSchemaDto};
+use validator::Validate;
 
 #[utoipa::path(
     get,
@@ -59,14 +61,17 @@ pub async fn create_graph(
     State(state): State<ApiState>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateGraphDto>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, PresentationError> {
     tracing::debug!(user_id = ?user_id);
+
+    payload.validate()?;
 
     state
         .graph_service
         .create_graph(user_id, payload)
         .await
         .map(|graph| (StatusCode::CREATED, Json(graph)))
+        .map_err(PresentationError::from)
 }
 
 #[utoipa::path(

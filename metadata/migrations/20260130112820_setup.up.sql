@@ -28,17 +28,19 @@ CREATE TABLE users
     email               VARCHAR                         NOT NULL UNIQUE,
     username            VARCHAR(50)                     NOT NULL UNIQUE,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT username_length                          CHECK (LENGTH(username) >= 3)
 );
 
 CREATE TABLE graphs
 (
     graph_id            UUID PRIMARY KEY                NOT NULL,
     name                VARCHAR(100)                    NOT NULL,
-    description         VARCHAR(10000)                  NOT NULL,
+    description         VARCHAR(1000)                   NOT NULL,
     is_public           BOOLEAN                         NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT graph_name_length                        CHECK (LENGTH(name) >= 3)
 );
 
 CREATE TABLE accesses
@@ -57,10 +59,12 @@ CREATE TABLE nodes_schemas (
     label               VARCHAR(25)                     NOT NULL,
     key                 VARCHAR(8)                      UNIQUE NOT NULL,
     color               VARCHAR(7)                      NOT NULL,
-    description         TEXT                            NOT NULL,
+    description         VARCHAR(1000)                   NOT NULL,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT node_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
+    CONSTRAINT node_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$'),
+    CONSTRAINT node_label_length                        CHECK (LENGTH(label) >= 3),
+    CONSTRAINT node_color_pattern                       CHECK (color ~ '^#[0-9A-Fa-f]{6}$')
 );
 
 CREATE TABLE edges_schemas (
@@ -69,10 +73,12 @@ CREATE TABLE edges_schemas (
     label               VARCHAR(25)                     NOT NULL,
     key                 VARCHAR(8)                      UNIQUE NOT NULL,
     color               VARCHAR(7)                      NOT NULL,
-    description         TEXT                            NOT NULL,
+    description         VARCHAR(1000)                   NOT NULL,
     created_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT edge_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$')
+    CONSTRAINT edge_key_pattern                         CHECK (key ~ '^[a-zA-Z][a-zA-Z0-9]{7}$'),
+    CONSTRAINT edge_label_length                        CHECK (LENGTH(label) >= 3),
+    CONSTRAINT edge_color_pattern                       CHECK (color ~ '^#[0-9A-Fa-f]{6}$')
 );
 
 CREATE TABLE sessions (
