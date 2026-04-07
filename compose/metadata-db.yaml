@@ -1,5 +1,6 @@
 services:
-  database:
+  metadata-db:
+    profiles: ["metadata", "metadata-db"]
     image: postgres:18-alpine
     ports:
       - "${METADATA_DB_PORT}:5432"
@@ -9,14 +10,14 @@ services:
       - POSTGRES_USER=${METADATA_DB_USER}
       - POSTGRES_PASSWORD=${METADATA_DB_PASSWORD}
       - POSTGRES_DB=${METADATA_DB_NAME}
-    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${METADATA_DB_USER} -d ${METADATA_DB_NAME}"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+    restart: no
     networks:
       - bric-a-brac-network
 
 volumes:
   postgres_dev_data:
-
-networks:
-  bric-a-brac-network:
-    name: bric-a-brac-network
-    driver: bridge

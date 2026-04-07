@@ -1,13 +1,14 @@
 services:
-  server:
+  knowledge-server:
+    profiles: ["knowledge"]
     build:
       context: ..
       dockerfile: knowledge/Dockerfile
     ports:
-      - "${KNOWLEDGE_SERVER_PORT}:50051"
+      - "${KNOWLEDGE_GRPC_SERVER_PORT}:50051"
     environment:
       - KNOWLEDGE_SERVER_HOST=${KNOWLEDGE_SERVER_HOST}
-      - KNOWLEDGE_SERVER_PORT=${KNOWLEDGE_SERVER_PORT}
+      - KNOWLEDGE_GRPC_SERVER_PORT=${KNOWLEDGE_GRPC_SERVER_PORT}
       - KNOWLEDGE_DB_HOST=${KNOWLEDGE_DB_HOST}
       - KNOWLEDGE_DB_PORT=${KNOWLEDGE_DB_PORT}
       - KNOWLEDGE_DB_USER=${KNOWLEDGE_DB_USER}
@@ -15,12 +16,11 @@ services:
       - KNOWLEDGE_DB_NAME=${KNOWLEDGE_DB_NAME}
       - KNOWLEDGE_DB_MAX_CONNECTIONS=${KNOWLEDGE_DB_MAX_CONNECTIONS}
       - KNOWLEDGE_DB_FETCH_SIZE=${KNOWLEDGE_DB_FETCH_SIZE}
+      - INTERNAL_SERVICES_AUTH_TOKEN=${INTERNAL_SERVICES_AUTH_TOKEN}
       - RUST_LOG=${RUST_LOG}
-    restart: on-failure
+    depends_on:
+      knowledge-db:
+        condition: service_healthy
+    restart: no
     networks:
       - bric-a-brac-network
-
-networks:
-  bric-a-brac-network:
-    external: true
-    name: bric-a-brac-network

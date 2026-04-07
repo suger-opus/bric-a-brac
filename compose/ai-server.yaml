@@ -1,0 +1,21 @@
+services:
+  ai-server:
+    profiles: ["ai"]
+    build:
+      context: ..
+      dockerfile: ai/Dockerfile
+    ports:
+      - "${AI_GRPC_SERVER_PORT}:50051"
+    environment:
+      - AI_SERVER_HOST=${AI_SERVER_HOST}
+      - AI_GRPC_SERVER_PORT=${AI_GRPC_SERVER_PORT}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_DEFAULT_MODEL=${OPENROUTER_DEFAULT_MODEL}
+      - OPENROUTER_EMBEDDING_MODEL=${OPENROUTER_EMBEDDING_MODEL}
+      - KNOWLEDGE_GRPC_SERVER_URL=${KNOWLEDGE_GRPC_SERVER_URL}
+      - METADATA_GRPC_SERVER_URL=${METADATA_GRPC_SERVER_URL}
+      - INTERNAL_SERVICES_AUTH_TOKEN=${INTERNAL_SERVICES_AUTH_TOKEN}
+      - RUST_LOG=${RUST_LOG}
+    restart: no
+    networks:
+      - bric-a-brac-network

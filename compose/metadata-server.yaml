@@ -1,5 +1,6 @@
 services:
-  server:
+  metadata-server:
+    profiles: ["metadata"]
     build:
       context: ..
       dockerfile: metadata/Dockerfile
@@ -8,19 +9,19 @@ services:
       - "${METADATA_GRPC_SERVER_PORT}:50051"
     environment:
       - METADATA_SERVER_HOST=${METADATA_SERVER_HOST}
-      - METADATA_HTTP_SERVER_PORT=${METADATA_HTTP_SERVER_PORT}
       - METADATA_GRPC_SERVER_PORT=${METADATA_GRPC_SERVER_PORT}
-      - KNOWLEDGE_SERVER_URL=${KNOWLEDGE_SERVER_URL}
+      - METADATA_HTTP_SERVER_PORT=${METADATA_HTTP_SERVER_PORT}
       - METADATA_DB_URL=${METADATA_DB_URL}
       - METADATA_DB_MAX_CONNECTIONS=${METADATA_DB_MAX_CONNECTIONS}
       - METADATA_DB_SKIP_MIGRATION=${METADATA_DB_SKIP_MIGRATION}
       - SQLX_OFFLINE=${SQLX_OFFLINE}
+      - KNOWLEDGE_GRPC_SERVER_URL=${KNOWLEDGE_GRPC_SERVER_URL}
+      - AI_GRPC_SERVER_URL=${AI_GRPC_SERVER_URL}
+      - INTERNAL_SERVICES_AUTH_TOKEN=${INTERNAL_SERVICES_AUTH_TOKEN}
       - RUST_LOG=${RUST_LOG}
-    restart: on-failure
+    depends_on:
+      metadata-db:
+        condition: service_healthy
+    restart: no
     networks:
       - bric-a-brac-network
-
-networks:
-  bric-a-brac-network:
-    external: true
-    name: bric-a-brac-network

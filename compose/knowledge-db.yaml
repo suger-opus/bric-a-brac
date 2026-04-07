@@ -1,35 +1,38 @@
 services:
-  database:
+  knowledge-db:
+    profiles: ["knowledge", "knowledge-db"]
     image: memgraph/memgraph-mage:latest
     ports:
-      - "${KNOWLEDGE_DB_PORT}:7687" # instance connection
-      - "7444:7444" # logs
+      - "${KNOWLEDGE_DB_PORT}:7687"
+      - "7444:7444"
     volumes:
       - memgraph_dev_data:/var/lib/memgraph
     environment:
       - MEMGRAPH_LOG_LEVEL=DEBUG
       - MEMGRAPH_USER=${KNOWLEDGE_DB_USER}
       - MEMGRAPH_PASSWORD=${KNOWLEDGE_DB_PASSWORD}
-    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'RETURN 1;' | mgconsole --host 127.0.0.1 --port 7687 --username ${KNOWLEDGE_DB_USER} --password ${KNOWLEDGE_DB_PASSWORD} || exit 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+    restart: no
     networks:
       - bric-a-brac-network
 
-  database-lab:
+  knowledge-db-lab:
+    profiles: ["knowledge", "knowledge-db"]
     image: memgraph/lab:latest
     ports:
       - "7777:3000"
     environment:
       - QUICK_CONNECT_IS_DISABLED=true
     depends_on:
-      - database
-    restart: on-failure
+      knowledge-db:
+        condition: service_healthy
+    restart: no
     networks:
       - bric-a-brac-network
 
 volumes:
   memgraph_dev_data:
-
-networks:
-  bric-a-brac-network:
-    name: bric-a-brac-network
-    driver: bridge

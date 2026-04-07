@@ -7,11 +7,11 @@ pub struct MetadataServerConfig {
     #[arg(long, env = "METADATA_SERVER_HOST", required = true)]
     metadata_server_host: IpAddr,
 
-    /// Metadata server port (REST API)
+    /// Metadata HTTP server port
     #[arg(long, env = "METADATA_HTTP_SERVER_PORT", required = true)]
     metadata_http_server_port: u16,
 
-    /// Metadata server port (gRPC)
+    /// Metadata gRPC server port
     #[arg(long, env = "METADATA_GRPC_SERVER_PORT", required = true)]
     metadata_grpc_server_port: u16,
 }
