@@ -1,8 +1,8 @@
+use crate::presentation::error::PresentationError;
 use crate::{
     application::{CreateGraphDto, GraphMetadataDto},
     presentation::http::{ApiState, AuthenticatedUser},
 };
-use crate::presentation::error::PresentationError;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -131,7 +131,7 @@ pub async fn get_schema(
 
     state
         .graph_service
-        .get_schema(graph_id)
+        .get_schema(graph_id, user_id)
         .await
         .map(|graph| (StatusCode::OK, Json(graph)))
 }
@@ -151,18 +151,18 @@ pub async fn get_schema(
 #[tracing::instrument(
     level = "trace",
     name = "graph_handler.get_data",
-    skip(state, graph_id, _user_id)
+    skip(state, graph_id, user_id)
 )]
 pub async fn get_data(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
-    AuthenticatedUser { user_id: _user_id }: AuthenticatedUser,
+    AuthenticatedUser { user_id }: AuthenticatedUser,
 ) -> impl IntoResponse {
-    tracing::debug!(graph_id = ?graph_id);
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
     state
         .graph_service
-        .get_data(graph_id)
+        .get_data(graph_id, user_id)
         .await
         .map(|graph| (StatusCode::OK, Json(graph)))
 }
@@ -182,18 +182,18 @@ pub async fn get_data(
 #[tracing::instrument(
     level = "trace",
     name = "graph_handler.delete_graph",
-    skip(state, graph_id, _user_id)
+    skip(state, graph_id, user_id)
 )]
 pub async fn delete_graph(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
-    AuthenticatedUser { user_id: _user_id }: AuthenticatedUser,
+    AuthenticatedUser { user_id }: AuthenticatedUser,
 ) -> impl IntoResponse {
-    tracing::debug!(graph_id = ?graph_id);
+    tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
     state
         .graph_service
-        .delete_graph(graph_id)
+        .delete_graph(graph_id, user_id)
         .await
         .map(|()| StatusCode::NO_CONTENT)
 }

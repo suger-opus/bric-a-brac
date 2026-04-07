@@ -1,0 +1,14 @@
+services:
+  web-ui:
+    profiles: ["web-ui"]
+    build:
+      context: ..
+      dockerfile: web-ui/Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+        - NEXT_PUBLIC_USER_ID=${NEXT_PUBLIC_USER_ID}
+    ports:
+      - "${WEB_UI_PORT}:3000"
+    restart: no
+    networks:
+      - bric-a-brac-network

@@ -12,10 +12,9 @@ use bric_a_brac_protos::{
         SessionProto,
     },
     metadata::{
-        metadata_server::Metadata, AppendSessionMessagesRequest, CloseSessionRequest,
-        CreateEdgeSchemaRequest, CreateNodeSchemaRequest, GetSchemaRequest,
-        GetSessionDocumentRequest, GetSessionMessagesRequest, GetSessionMessagesResponse,
-        GetSessionRequest,
+        metadata_server::Metadata, AppendSessionMessagesRequest, CreateEdgeSchemaRequest,
+        CreateNodeSchemaRequest, GetSchemaRequest, GetSessionDocumentRequest,
+        GetSessionMessagesRequest, GetSessionMessagesResponse, GetSessionRequest,
     },
 };
 use tonic::{Request, Response, Status};
@@ -51,31 +50,7 @@ impl Metadata for MetadataGrpcService {
         let req = request.into_inner();
         let session = self
             .session_service
-            .get_session(req.session_id.try_into().map_err(PresentationError::from)?)
-            .await?;
-
-        Ok(Response::new(session.into()))
-    }
-
-    #[tracing::instrument(
-        level = "trace",
-        name = "metadata_service.close_session",
-        skip(self, request),
-        err
-    )]
-    async fn close_session(
-        &self,
-        request: Request<CloseSessionRequest>,
-    ) -> Result<Response<SessionProto>, Status> {
-        let req = request.into_inner();
-        let session_id: SessionIdDto =
-            req.session_id.try_into().map_err(PresentationError::from)?;
-        let session = self
-            .session_service
-            .close_session(
-                session_id,
-                req.status.try_into().map_err(PresentationError::from)?,
-            )
+            .get_session_internal(req.session_id.try_into().map_err(PresentationError::from)?)
             .await?;
 
         Ok(Response::new(session.into()))
@@ -94,7 +69,10 @@ impl Metadata for MetadataGrpcService {
         let req = request.into_inner();
         let session_id: SessionIdDto =
             req.session_id.try_into().map_err(PresentationError::from)?;
-        let messages = self.session_service.get_messages(session_id).await?;
+        let messages = self
+            .session_service
+            .get_messages_internal(session_id)
+            .await?;
 
         Ok(Response::new(GetSessionMessagesResponse {
             messages: messages.into_iter().map(From::from).collect(),
@@ -132,7 +110,7 @@ impl Metadata for MetadataGrpcService {
             .map_err(PresentationError::from)?;
 
         self.session_service
-            .append_messages(session_id, messages)
+            .append_messages_internal(session_id, messages)
             .await?;
 
         Ok(Response::new(Empty {}))
@@ -198,7 +176,7 @@ impl Metadata for MetadataGrpcService {
     ) -> Result<Response<GraphSchemaProto>, Status> {
         let req = request.into_inner();
         let graph_id: GraphIdDto = req.graph_id.try_into().map_err(PresentationError::from)?;
-        let schema = self.graph_service.get_schema(graph_id).await?;
+        let schema = self.graph_service.get_schema_internal(graph_id).await?;
 
         Ok(Response::new(schema.into()))
     }
@@ -218,7 +196,7 @@ impl Metadata for MetadataGrpcService {
             .document_id
             .try_into()
             .map_err(PresentationError::from)?;
-        let document = self.session_service.get_document(document_id).await?;
+        let document = self.session_service.get_document_internal(document_id).await?;
 
         Ok(Response::new(document.into()))
     }

@@ -63,8 +63,15 @@
 # ============================
 # RUST_LOG="warn,ai=trace,knowledge=trace,metadata=trace,bric_a_brac_protos=info"
 
+# ============================
+# Web UI Configuration
+# ============================
+# WEB_UI_PORT="3000"
+# NEXT_PUBLIC_API_URL="{{env.METADATA_HTTP_SERVER_URL}}"
+# NEXT_PUBLIC_USER_ID="019d1f20-d9a3-7ff3-836f-9c6b24e5baaf"
+
 [tasks.up]
-description = "Start services. Usage: mise run up -- <profiles...> (knowledge, metadata, ai, knowledge-db, metadata-db, all)"
+description = "Start services. Usage: mise run up -- <profiles...> (knowledge, metadata, ai, web-ui, knowledge-db, metadata-db, all)"
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
@@ -78,7 +85,7 @@ fi
 PROFILE_FLAGS=""
 for arg in "$@"; do
   if [ "$arg" = "all" ]; then
-    PROFILE_FLAGS="--profile knowledge --profile metadata --profile ai"
+    PROFILE_FLAGS="--profile knowledge --profile metadata --profile ai --profile web-ui"
     break
   fi
   PROFILE_FLAGS="$PROFILE_FLAGS --profile $arg"
@@ -89,7 +96,7 @@ docker compose $PROFILE_FLAGS up --build -d
 """
 
 [tasks.down]
-description = "Stop services. Usage: mise run down -- <profiles...> (knowledge, metadata, ai, knowledge-db, metadata-db, all)"
+description = "Stop services. Usage: mise run down -- <profiles...> (knowledge, metadata, ai, web-ui, knowledge-db, metadata-db, all)"
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
@@ -103,7 +110,7 @@ fi
 PROFILE_FLAGS=""
 for arg in "$@"; do
   if [ "$arg" = "all" ]; then
-    PROFILE_FLAGS="--profile knowledge --profile metadata --profile ai"
+    PROFILE_FLAGS="--profile knowledge --profile metadata --profile ai --profile web-ui"
     break
   fi
   PROFILE_FLAGS="$PROFILE_FLAGS --profile $arg"
@@ -125,14 +132,14 @@ set -euo pipefail
 
 if [ $# -eq 0 ]; then
   echo "Usage: mise run config -- <profiles...>"
-  echo "Available profiles: knowledge, metadata, ai, knowledge-db, metadata-db, all"
+  echo "Available profiles: knowledge, metadata, ai, web-ui, knowledge-db, metadata-db, all"
   exit 1
 fi
 
 PROFILE_FLAGS=""
 for arg in "$@"; do
   if [ "$arg" = "all" ]; then
-    PROFILE_FLAGS="--profile knowledge --profile metadata --profile ai"
+    PROFILE_FLAGS="--profile knowledge --profile metadata --profile ai --profile web-ui"
     break
   fi
   PROFILE_FLAGS="$PROFILE_FLAGS --profile $arg"
@@ -141,14 +148,6 @@ done
 docker compose $PROFILE_FLAGS config
 """
 
-[tasks."dev:knowledge"]
-description = "Start everything EXCEPT knowledge server (for local cargo run in knowledge/)"
-run = "docker compose --profile knowledge-db --profile metadata --profile ai up --build -d"
-
-[tasks."dev:metadata"]
-description = "Start everything EXCEPT metadata server (for local cargo run in metadata/)"
-run = "docker compose --profile knowledge --profile metadata-db --profile ai up --build -d"
-
-[tasks."dev:ai"]
-description = "Start everything EXCEPT AI server (for local cargo run in ai/)"
-run = "docker compose --profile knowledge --profile metadata up --build -d"
+[tasks."dev:web-ui"]
+description = "Start all backend services (for local bun dev in web-ui/)"
+run = "docker compose --profile knowledge --profile metadata --profile ai up --build -d"

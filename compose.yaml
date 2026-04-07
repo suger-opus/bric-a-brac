@@ -4,6 +4,7 @@ include:
   - path: compose/metadata-db.yaml
   - path: compose/metadata-server.yaml
   - path: compose/ai-server.yaml
+  - path: compose/web-ui.yaml
 
 networks:
   bric-a-brac-network:

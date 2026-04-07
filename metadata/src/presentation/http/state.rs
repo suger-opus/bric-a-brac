@@ -33,10 +33,11 @@ impl ApiState {
         let graph_service = GraphService::new(
             db_pool.clone(),
             graph_repository,
-            access_repository,
+            access_repository.clone(),
             knowledge_client,
         );
-        let session_service = SessionService::new(db_pool.clone(), session_repository);
+        let session_service =
+            SessionService::new(db_pool.clone(), session_repository, access_repository);
         let user_service = UserService::new(db_pool, user_repository);
         let chat_service = ChatService::new(ai_client);
 

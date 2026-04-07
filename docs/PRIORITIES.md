@@ -18,36 +18,9 @@ foundation — nothing else matters if the core loop is broken.
 - Question answering (retrieval + reasoning?)
 - Chunking (cross-chunk entities merge?)
 
-### 2. Dead code removal ✅
-Deleted all code for features that won't ship: Search/Bookmarks/Cheers cards,
-Reddit/subreddit references (frontend + backend models, DTOs, SQL, migrations),
-settings card dead buttons, empty forms folder, sample graph data, seed binary +
-dataset + csv dependency.
-
-### 3. Code cleanup ✅
-Codebase cleaned for presentation:
-- Removed all `TODO`, `FIXME`, `HACK` comments across all Rust crates
-- Removed all commented-out code (seed.rs, http_error.rs forbidden fn, CSS vars)
-- Removed dead utility functions (`pluralize`, `filterLabel`)
-- `cargo clippy --fix` applied across workspace; noisy pedantic lints allowed;
-  remaining ~80 warnings are intentional safety guardrails (indexing, unwrap, casts)
-- `npx tsc --noEmit` — clean
-- `npx eslint .` — clean (1 TanStack Table library compat warning, not our code)
-- No `console.log` found; `console.error` kept intentionally
-
-### 4. Gmail authentication
-A real product needs login. Hardcoded `user_id` is the single most obvious "this is a
-prototype" signal.
-- OAuth2 with Google (Gmail) — standard authorization code flow
-- On first login, create a `users` row in metadata Postgres
-- Session token (cookie or JWT) on subsequent requests
-- Wrap metadata HTTP endpoints with auth middleware that resolves `user_id` from token
-- Settings card: show user email/name from Google profile, working Log Out button
-- Remove the hardcoded `user_id` from `client.ts`
-- Auth across micro-services
-
 ### 5. Dashboard cleanup
 The dashboard is the first thing a visitor sees.
+- close session (user sessions list)
 - After dead code removal: only "Your Graphs" card remains + "Create Graph" CTA
 - Replace `mx-40` with responsive padding (`max-w-5xl mx-auto px-4` or similar)
 - Clean layout that showcases the graph list
@@ -66,12 +39,6 @@ No header, no logo, no navigation. Feels like a dev build.
   Gmail auth), breadcrumbs on graph pages
 - Pick a name treatment for "bric-a-brac" — simple text logo is fine
 - Set a favicon + proper `<title>` per page
-
-### 8. One-command local setup
-Currently 6+ manual steps across 3 directories. Create a root `docker-compose.yaml` that
-starts everything (Memgraph, Postgres, knowledge, metadata, ai). Add a
-`mise.local.example.toml` (or `.env.example`) with placeholders. The README "Getting
-Started" should be: clone → copy env → `docker compose up` → open browser.
 
 ### 9. Documentation
 Everything a reviewer or contributor needs to understand the project.
@@ -130,45 +97,3 @@ entities, ask a question. This goes in the README and can be shared standalone.
 - 404 page
 - Dark mode toggle (CSS vars already exist, just not wired)
 - Graph background color match theme
-- `remove_properties` tool
-- Orphan node detection
-
----
-
-## Won't do (explicitly descoped)
-
-- Search / Bookmarks / Cheers features — code deleted
-- Reddit integration — code deleted
-- Branch/diff system, MCP exposure, multi-session concurrency
-- Knowledge service batch endpoints
-- Mobile/tablet support (gated instead)
-
----
-
-## Done (for reference)
-
-- [x] delete_node tool (full pipeline)
-- [x] delete_edge tool (full pipeline)
-- [x] Edge uniqueness (MERGE upsert)
-- [x] Pre-check entity resolution
-- [x] Active session recovery
-- [x] Streaming cancel button
-- [x] Chat history recovery
-- [x] Role-based tool filtering + executor guard
-- [x] Schema validation
-- [x] File upload (PDF + TXT, multipart endpoint, 50MB limit)
-- [x] Delete graph (full stack, CASCADE + Memgraph cleanup)
-- [x] Document chunking (paragraph-boundary splitting, ~8K char chunks, multi-chunk summary)
-- [x] Incremental graph updates (optimistic UI via tool_result SSE events)
-- [x] update_edge tool (full pipeline)
-- [x] Session documents (session_documents table, read_document tool, document_id on messages)
-- [x] Schema proposal prompts (Phase 1 of 5-phase workflow)
-- [x] Document name in messages (document_name derived via JOIN, displayed as 📎 filename)
-- [x] Chunk persistence (chunk_index on session_messages, all chunks persisted to DB)
-- [x] Context window management (500K char budget, chunk compression, old message trimming)
-- [x] Batch tools (create_nodes, create_edges — up to 50 per call, single batch embed)
-- [x] 5-phase workflow prompt (propose → create categories → store → connect → done)
-- [x] Property display selection (sidebar eye toggle, graph context displayProperty)
-- [x] Human-readable property names (prompt rule: "Founded Date" not "founded_date")
-- [x] Force property fix (tool params filtered from stored properties)
-- [x] Simplified node labels (removed zoom-based property levels)

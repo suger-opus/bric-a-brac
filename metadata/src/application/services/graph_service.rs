@@ -2,12 +2,13 @@ use crate::{
     application::{AppError, CreateGraphDto, GraphMetadataDto},
     domain::{
         CreateAccessModel, CreateEdgeSchemaModel, CreateNodeSchemaModel, EdgeSchemaIdModel,
-        NodeSchemaIdModel, RoleModel,
+        GraphIdModel, NodeSchemaIdModel, RoleModel, UserIdModel,
     },
     infrastructure::{AccessRepository, GraphRepository, KnowledgeClient},
 };
 use bric_a_brac_dtos::{
-    ColorDto, DescriptionDto, EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto, KeyDto, LabelDto, NodeSchemaDto, UserIdDto
+    ColorDto, DescriptionDto, EdgeSchemaDto, GraphDataDto, GraphIdDto, GraphSchemaDto, KeyDto,
+    LabelDto, NodeSchemaDto, UserIdDto,
 };
 use sqlx::PgPool;
 
@@ -99,6 +100,8 @@ impl GraphService {
         user_id: UserIdDto,
     ) -> Result<GraphMetadataDto, AppError> {
         let mut txn = self.pool.begin().await?;
+        self.require_role(&mut txn, graph_id.into(), user_id.into(), RoleModel::Viewer)
+            .await?;
         let graph = self
             .repository
             .get_metadata(&mut txn, graph_id.into(), user_id.into())
@@ -114,8 +117,14 @@ impl GraphService {
         skip(self, graph_id),
         err
     )]
-    pub async fn get_schema(&self, graph_id: GraphIdDto) -> Result<GraphSchemaDto, AppError> {
+    pub async fn get_schema(
+        &self,
+        graph_id: GraphIdDto,
+        user_id: UserIdDto,
+    ) -> Result<GraphSchemaDto, AppError> {
         let mut txn = self.pool.begin().await?;
+        self.require_role(&mut txn, graph_id.into(), user_id.into(), RoleModel::Viewer)
+            .await?;
         let schema = self
             .repository
             .get_schema(&mut txn, graph_id.into())
@@ -131,7 +140,16 @@ impl GraphService {
         skip(self, graph_id),
         err
     )]
-    pub async fn get_data(&self, graph_id: GraphIdDto) -> Result<GraphDataDto, AppError> {
+    pub async fn get_data(
+        &self,
+        graph_id: GraphIdDto,
+        user_id: UserIdDto,
+    ) -> Result<GraphDataDto, AppError> {
+        let mut txn = self.pool.begin().await?;
+        self.require_role(&mut txn, graph_id.into(), user_id.into(), RoleModel::Viewer)
+            .await?;
+        txn.commit().await?;
+
         self.knowledge_client
             .load_graph(graph_id)
             .await
@@ -206,9 +224,15 @@ impl GraphService {
         skip(self, graph_id),
         err
     )]
-    pub async fn delete_graph(&self, graph_id: GraphIdDto) -> Result<(), AppError> {
+    pub async fn delete_graph(
+        &self,
+        graph_id: GraphIdDto,
+        user_id: UserIdDto,
+    ) -> Result<(), AppError> {
         // Fetch node schema keys so we can drop vector indexes in Memgraph
         let mut txn = self.pool.begin().await?;
+        self.require_role(&mut txn, graph_id.into(), user_id.into(), RoleModel::Owner)
+            .await?;
         let schema = self
             .repository
             .get_schema(&mut txn, graph_id.into())
@@ -229,5 +253,39 @@ impl GraphService {
         txn.commit().await?;
 
         Ok(())
+    }
+
+    async fn require_role(
+        &self,
+        txn: &mut sqlx::PgConnection,
+        graph_id: GraphIdModel,
+        user_id: UserIdModel,
+        minimum: RoleModel,
+    ) -> Result<(), AppError> {
+        let role = self
+            .access_repository
+            .get_role(txn, graph_id, user_id)
+            .await?;
+        if role.has_at_least(&minimum) {
+            Ok(())
+        } else {
+            Err(AppError::Forbidden)
+        }
+    }
+
+    // === Internal method (for trusted gRPC service-to-service calls, no user auth) ===
+
+    pub async fn get_schema_internal(
+        &self,
+        graph_id: GraphIdDto,
+    ) -> Result<GraphSchemaDto, AppError> {
+        let mut txn = self.pool.begin().await?;
+        let schema = self
+            .repository
+            .get_schema(&mut txn, graph_id.into())
+            .await?;
+        txn.commit().await?;
+
+        Ok(schema.into())
     }
 }

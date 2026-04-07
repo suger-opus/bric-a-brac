@@ -86,16 +86,16 @@ pub async fn get_active(
 #[tracing::instrument(
     level = "trace",
     name = "session_handler.get",
-    skip(state, _user_id, session_id)
+    skip(state, user_id, session_id)
 )]
 pub async fn get(
     State(state): State<ApiState>,
-    AuthenticatedUser { user_id: _user_id }: AuthenticatedUser,
+    AuthenticatedUser { user_id }: AuthenticatedUser,
     Path(session_id): Path<SessionIdDto>,
 ) -> impl IntoResponse {
     state
         .session_service
-        .get_session(session_id)
+        .get_session(session_id, user_id)
         .await
         .map(|s| (StatusCode::OK, Json(s)))
 }
@@ -115,16 +115,16 @@ pub async fn get(
 #[tracing::instrument(
     level = "trace",
     name = "session_handler.close",
-    skip(state, _user_id, session_id)
+    skip(state, user_id, session_id)
 )]
 pub async fn close(
     State(state): State<ApiState>,
-    AuthenticatedUser { user_id: _user_id }: AuthenticatedUser,
+    AuthenticatedUser { user_id }: AuthenticatedUser,
     Path(session_id): Path<SessionIdDto>,
 ) -> impl IntoResponse {
     state
         .session_service
-        .close_session(session_id, SessionStatusDto::Completed)
+        .close_session(session_id, user_id, SessionStatusDto::Completed)
         .await
         .map(|s| (StatusCode::OK, Json(s)))
 }
@@ -144,16 +144,16 @@ pub async fn close(
 #[tracing::instrument(
     level = "trace",
     name = "session_handler.get_messages",
-    skip(state, _user_id, session_id)
+    skip(state, user_id, session_id)
 )]
 pub async fn get_messages(
     State(state): State<ApiState>,
-    AuthenticatedUser { user_id: _user_id }: AuthenticatedUser,
+    AuthenticatedUser { user_id }: AuthenticatedUser,
     Path(session_id): Path<SessionIdDto>,
 ) -> impl IntoResponse {
     state
         .session_service
-        .get_messages(session_id)
+        .get_messages(session_id, user_id)
         .await
         .map(|msgs| (StatusCode::OK, Json(msgs)))
 }

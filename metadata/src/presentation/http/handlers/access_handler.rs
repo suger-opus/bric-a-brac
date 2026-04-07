@@ -40,7 +40,7 @@ pub async fn create(
 
     state
         .access_service
-        .create(graph_id, payload)
+        .create(graph_id, user_id, payload)
         .await
         .map(|access| (StatusCode::CREATED, Json(access)))
 }

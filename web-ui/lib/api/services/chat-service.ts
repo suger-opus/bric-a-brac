@@ -1,13 +1,12 @@
 import { config } from "@/lib/config";
-import { userId } from "@/lib/api/client";
 
 export type ChatEvent =
-  | { type: "text"; content: string }
-  | { type: "tool_call"; tool_call_id: string; name: string; arguments: string }
-  | { type: "tool_result"; tool_call_id: string; content: string }
-  | { type: "done"; summary: string }
-  | { type: "error"; message: string }
-  | { type: "progress"; content: string };
+  | { type: "text"; content: string; }
+  | { type: "tool_call"; tool_call_id: string; name: string; arguments: string; }
+  | { type: "tool_result"; tool_call_id: string; content: string; }
+  | { type: "done"; summary: string; }
+  | { type: "error"; message: string; }
+  | { type: "progress"; content: string; };
 
 /**
  * Send a chat message (with optional file) and stream back AI agent events via SSE.
@@ -20,7 +19,7 @@ export function streamChat(
   onEvent: (event: ChatEvent) => void,
   onDone?: () => void,
   onError?: (error: Error) => void,
-  file?: File,
+  file?: File
 ): AbortController {
   const controller = new AbortController();
 
@@ -28,16 +27,16 @@ export function streamChat(
 
   const formData = new FormData();
   formData.append("session_id", sessionId);
-  if (content) formData.append("content", content);
-  if (file) formData.append("file", file);
+  if (content) { formData.append("content", content); }
+  if (file) { formData.append("file", file); }
 
   fetch(url, {
     method: "POST",
     headers: {
-      user_id: userId,
+      user_id: config.env.USER_ID
     },
     body: formData,
-    signal: controller.signal,
+    signal: controller.signal
   })
     .then(async (response) => {
       if (!response.ok) {
@@ -54,7 +53,7 @@ export function streamChat(
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) { break; }
 
         buffer += decoder.decode(value, { stream: true });
 
@@ -75,7 +74,7 @@ export function streamChat(
             }
           }
 
-          if (!eventType || !data) continue;
+          if (!eventType || !data) { continue; }
 
           try {
             const parsed = JSON.parse(data) as Record<string, string>;
@@ -89,14 +88,14 @@ export function streamChat(
                   type: "tool_call",
                   tool_call_id: parsed.tool_call_id ?? "",
                   name: parsed.name ?? "",
-                  arguments: parsed.arguments ?? "",
+                  arguments: parsed.arguments ?? ""
                 });
                 break;
               case "tool_result":
                 onEvent({
                   type: "tool_result",
                   tool_call_id: parsed.tool_call_id ?? "",
-                  content: parsed.content ?? "",
+                  content: parsed.content ?? ""
                 });
                 break;
               case "done":
@@ -118,7 +117,7 @@ export function streamChat(
       onDone?.();
     })
     .catch((error: unknown) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) { return; }
       onError?.(error instanceof Error ? error : new Error(String(error)));
     });
 

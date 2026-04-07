@@ -99,6 +99,10 @@ impl IntoResponse for AppError {
                 tracing::warn!(error = ?self);
                 error_response(http::StatusCode::CONFLICT, self)
             }
+            Self::Forbidden => {
+                tracing::warn!(error = ?self);
+                error_response(http::StatusCode::FORBIDDEN, self)
+            }
         }
     }
 }
@@ -186,10 +190,14 @@ impl From<PresentationError> for tonic::Status {
 impl From<AppError> for tonic::Status {
     fn from(err: AppError) -> Self {
         match err {
-            AppError::InfraError(err) => err.into(),
+            AppError::InfraError(err) => (*err).into(),
             AppError::ActiveSessionAlreadyExists => {
                 tracing::warn!(error = ?err);
                 Self::new(tonic::Code::AlreadyExists, err.to_string())
+            }
+            AppError::Forbidden => {
+                tracing::warn!(error = ?err);
+                Self::new(tonic::Code::PermissionDenied, err.to_string())
             }
         }
     }

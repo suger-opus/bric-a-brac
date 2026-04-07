@@ -7,10 +7,9 @@ import "google/protobuf/timestamp.proto";
 
 service Metadata {
     rpc GetSession(GetSessionRequest) returns (common.SessionProto);
-    rpc CloseSession(CloseSessionRequest) returns (common.SessionProto);
     rpc GetSessionMessages(GetSessionMessagesRequest) returns (GetSessionMessagesResponse);
-    rpc AppendSessionMessages(AppendSessionMessagesRequest) returns (common.Empty);
     rpc GetSessionDocument(GetSessionDocumentRequest) returns (common.SessionDocumentProto);
+    rpc AppendSessionMessages(AppendSessionMessagesRequest) returns (common.Empty);
     rpc CreateNodeSchema(CreateNodeSchemaRequest) returns (common.NodeSchemaProto);
     rpc CreateEdgeSchema(CreateEdgeSchemaRequest) returns (common.EdgeSchemaProto);
     rpc GetSchema(GetSchemaRequest) returns (common.GraphSchemaProto);
@@ -18,11 +17,6 @@ service Metadata {
 
 message GetSessionRequest {
     string session_id = 1;
-}
-
-message CloseSessionRequest {
-    string session_id = 1;
-    common.SessionStatusProto status = 2;
 }
 
 message GetSessionMessagesRequest {

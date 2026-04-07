@@ -5,8 +5,7 @@ import type { GenericSchema, InferOutput } from "valibot";
 import { safeParse } from "valibot";
 
 const api = mande(config.env.API_URL);
-export const userId = "019d1f20-d9a3-7ff3-836f-9c6b24e5baaf";
-api.options.headers.user_id = userId;
+api.options.headers.user_id = config.env.USER_ID;
 
 function validate<T extends GenericSchema>(schema: T, data: unknown): InferOutput<T> {
   const result = safeParse(schema, data);
@@ -16,7 +15,10 @@ function validate<T extends GenericSchema>(schema: T, data: unknown): InferOutpu
   return result.output;
 }
 
-export async function get<T extends GenericSchema>(path: string, schema: T): Promise<InferOutput<T>> {
+export async function get<T extends GenericSchema>(
+  path: string,
+  schema: T
+): Promise<InferOutput<T>> {
   try {
     const data = await api.get(path);
     return validate(schema, data);
@@ -26,10 +28,13 @@ export async function get<T extends GenericSchema>(path: string, schema: T): Pro
   }
 }
 
-export async function getOptional<T extends GenericSchema>(path: string, schema: T): Promise<InferOutput<T> | null> {
+export async function getOptional<T extends GenericSchema>(
+  path: string,
+  schema: T
+): Promise<InferOutput<T> | null> {
   try {
     const data = await api.get(path);
-    if (data == null) return null;
+    if (data == null) { return null; }
     return validate(schema, data);
   } catch (error) {
     toast.error(`GET ${path} failed`);
@@ -37,7 +42,11 @@ export async function getOptional<T extends GenericSchema>(path: string, schema:
   }
 }
 
-export async function post<T extends GenericSchema>(path: string, body: unknown, schema: T): Promise<InferOutput<T>> {
+export async function post<T extends GenericSchema>(
+  path: string,
+  body: unknown,
+  schema: T
+): Promise<InferOutput<T>> {
   try {
     const data = await api.post(path, body);
     return validate(schema, data);

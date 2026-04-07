@@ -1,5 +1,5 @@
 use crate::{
-    domain::{AccessModel, CreateAccessModel},
+    domain::{AccessModel, CreateAccessModel, GraphIdModel, RoleModel, UserIdModel},
     infrastructure::InfraError,
 };
 use sqlx::PgConnection;
@@ -10,6 +10,35 @@ pub struct AccessRepository;
 impl AccessRepository {
     pub const fn new() -> Self {
         Self
+    }
+
+    #[tracing::instrument(
+        level = "debug",
+        name = "access_repository.get_role",
+        skip(self, connection, graph_id, user_id),
+        err
+    )]
+    pub async fn get_role(
+        &self,
+        connection: &mut PgConnection,
+        graph_id: GraphIdModel,
+        user_id: UserIdModel,
+    ) -> Result<RoleModel, InfraError> {
+        tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
+
+        let row: Option<RoleModel> = sqlx::query_scalar!(
+            r#"
+SELECT COALESCE(role, 'none'::role_type) AS "role!:RoleModel"
+FROM accesses
+WHERE graph_id = $1 AND user_id = $2
+            "#,
+            graph_id as _,
+            user_id as _,
+        )
+        .fetch_optional(connection)
+        .await?;
+
+        Ok(row.unwrap_or(RoleModel::None))
     }
 
     #[tracing::instrument(

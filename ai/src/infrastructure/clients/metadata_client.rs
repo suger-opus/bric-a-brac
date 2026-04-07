@@ -49,30 +49,6 @@ impl MetadataClient {
         Ok(data.try_into()?)
     }
 
-    // #[tracing::instrument(
-    //     level = "debug",
-    //     name = "metadata_client.close_session",
-    //     skip(self, session_id, status),
-    //     err
-    // )]
-    // pub async fn close_session(
-    //     &self,
-    //     session_id: SessionIdDto,
-    //     status: SessionStatusDto,
-    // ) -> Result<SessionDto, InfraError> {
-    //     let data = with_retry(|| {
-    //         let mut c = self.client.clone();
-    //         let req = Request::new(CloseSessionRequest {
-    //             session_id: session_id.to_string(),
-    //             status: status.into(),
-    //         });
-    //         async move { c.close_session(req).await }
-    //     })
-    //     .await?;
-
-    //     Ok(data.try_into()?)
-    // }
-
     #[tracing::instrument(
         level = "debug",
         name = "metadata_client.get_session_messages",

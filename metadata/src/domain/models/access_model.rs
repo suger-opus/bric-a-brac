@@ -16,6 +16,24 @@ pub enum RoleModel {
     None,
 }
 
+impl RoleModel {
+    /// Returns the privilege level (higher = more privileged).
+    const fn level(&self) -> u8 {
+        match self {
+            Self::Owner => 4,
+            Self::Admin => 3,
+            Self::Editor => 2,
+            Self::Viewer => 1,
+            Self::None => 0,
+        }
+    }
+
+    /// Returns `true` if this role is at least as privileged as `minimum`.
+    pub const fn has_at_least(&self, minimum: &Self) -> bool {
+        self.level() >= minimum.level()
+    }
+}
+
 #[derive(Debug, sqlx::FromRow)]
 pub struct AccessModel {
     pub graph_id: GraphIdModel,
