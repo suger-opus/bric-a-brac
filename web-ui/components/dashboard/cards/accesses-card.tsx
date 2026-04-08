@@ -52,7 +52,7 @@ const AccessesCard = () => {
   }, []);
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>Your Graphs ({accessedGraphs.length})</CardTitle>
         <CardDescription>List of the graphs you have access to</CardDescription>
