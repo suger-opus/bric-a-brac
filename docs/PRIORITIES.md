@@ -52,18 +52,6 @@ The project needs a way to show what it does without running it.
 
 ## Tier 2 — Should-have (makes it feel polished, not just functional)
 
-### 12. Loading skeletons
-Replace spinners with skeleton loaders on the dashboard and graph sidebar. The difference
-between "prototype" and "product."
-
 ### 14. Demo recording
 Record a 2-minute screen recording: create a graph, upload a PDF, watch the AI extract
 entities, ask a question. This goes in the README and can be shared standalone.
-
----
-
-## Tier 3 — Nice-to-have (if time permits)
-
-- 404 page
-- Dark mode toggle (CSS vars already exist, just not wired)
-- Graph background color match theme

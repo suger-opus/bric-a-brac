@@ -1,6 +1,7 @@
 "use client";
 
 import AccessesCard from "@/components/dashboard/cards/accesses-card";
+import SettingsCard from "@/components/dashboard/cards/settings-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { userService } from "@/lib/api/services/user-service";
 import type { User } from "@/types";
@@ -28,7 +29,12 @@ const HomePage = () => {
             Manage your knowledge graphs and explore your data.
           </p>
         </div>
-        <AccessesCard />
+        <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
+          <AccessesCard />
+          <div className="lg:w-80">
+            <SettingsCard />
+          </div>
+        </div>
       </div>
     </div>
   );

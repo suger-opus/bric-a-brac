@@ -2,169 +2,97 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { Label } from "@/components/ui/label";
-import { Spinner } from "@/components/ui/spinner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { userService } from "@/lib/api/services/user-service";
-import { scrollToElement } from "@/lib/utils";
 import { User } from "@/types";
-import { BadgeCheckIcon, ExpandIcon, InfoIcon, ShrinkIcon } from "lucide-react";
+import { BadgeCheckIcon, MoonIcon, SunIcon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
-type SettingsProps = {
-  is_expanded: boolean;
-  expand: () => void;
-  un_expand: () => void;
-};
-
-const SettingsCard = ({ is_expanded, expand, un_expand }: SettingsProps) => {
+const SettingsCard = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [isUserLoading, setIsUserLoading] = useState(true);
-
-  const handleExpand = () => {
-    if (is_expanded) {
-      un_expand();
-    } else {
-      expand();
-    }
-    setTimeout(() => {
-      scrollToElement("settings-card");
-    }, 300);
-  };
-
-  const getUser = async () => {
-    try {
-      setIsUserLoading(true);
-      const result = await userService.getCurrent();
-      setUser(result);
-    } catch (error) {
-      console.error("Error during getUser:", error);
-    } finally {
-      setIsUserLoading(false);
-    }
-  };
+  const [isLoading, setIsLoading] = useState(true);
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
-    getUser();
+    userService.getCurrent()
+      .then(setUser)
+      .catch(() => toast.error("Could not load your profile"))
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
-    <Card id="settings-card" className="h-full">
+    <Card>
       <CardHeader>
         <CardTitle>Settings</CardTitle>
-        <CardDescription>Manage your account</CardDescription>
-        <CardAction>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon-sm"
-                onClick={handleExpand}
-              >
-                {is_expanded ? <ShrinkIcon /> : <ExpandIcon />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {is_expanded ? "Collapse this view" : "Expand this view"}
-            </TooltipContent>
-          </Tooltip>
-        </CardAction>
+        <CardDescription>Your account and preferences</CardDescription>
       </CardHeader>
-      <CardContent className="grow space-y-3">
-        {!user || isUserLoading
+      <CardContent className="space-y-4">
+        {isLoading
           ? (
-            <div className="h-full flex items-center justify-center">
-              <Spinner />
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-4 w-40" />
             </div>
           )
-          : (
+          : user && (
             <>
               <Badge variant="secondary">
-                <BadgeCheckIcon />
-                Member since {new Date(user.created_at).toDateString()}
+                <BadgeCheckIcon className="h-3.5 w-3.5" />
+                Member since {new Date(user.created_at).toLocaleDateString(undefined, {
+                  month: "long",
+                  year: "numeric"
+                })}
               </Badge>
-              <InputGroup>
-                <InputGroupInput id="user-id" placeholder={user.user_id} readOnly />
-                <InputGroupAddon align="block-start">
-                  <Label htmlFor="user-id" className="text-foreground">
-                    Id
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        aria-label="Help"
-                        className="ml-auto rounded-full"
-                        size="icon-sm"
-                      >
-                        <InfoIcon />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Your user ID</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </InputGroupAddon>
-              </InputGroup>
-              <InputGroup>
-                <InputGroupInput id="user-email" placeholder={user.email} readOnly />
-                <InputGroupAddon align="block-start">
-                  <Label htmlFor="user-email" className="text-foreground">
-                    Email
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        aria-label="Help"
-                        className="ml-auto rounded-full"
-                        size="icon-sm"
-                      >
-                        <InfoIcon />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>You authenticated using this email</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </InputGroupAddon>
-              </InputGroup>
-              <InputGroup>
-                <InputGroupInput id="user-username" placeholder={user.username} readOnly />
-                <InputGroupAddon align="block-start">
-                  <Label htmlFor="user-username" className="text-foreground">
-                    Username
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        aria-label="Help"
-                        className="ml-auto rounded-full"
-                        size="icon-sm"
-                      >
-                        <InfoIcon />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Your username</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </InputGroupAddon>
-              </InputGroup>
+              <div className="grid gap-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Username</span>
+                  <span className="font-medium">{user.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Email</span>
+                  <span className="font-medium">{user.email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">User ID</span>
+                  <span className="font-mono text-xs text-muted-foreground">{user.user_id}</span>
+                </div>
+              </div>
             </>
           )}
+
+        <Separator />
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">Appearance</p>
+            <p className="text-xs text-muted-foreground">Switch between light and dark mode</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant={theme === "light" ? "default" : "outline"}
+              size="icon-sm"
+              onClick={() => setTheme("light")}
+              aria-label="Light mode"
+            >
+              <SunIcon className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={theme === "dark" ? "default" : "outline"}
+              size="icon-sm"
+              onClick={() => setTheme("dark")}
+              aria-label="Dark mode"
+            >
+              <MoonIcon className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </CardContent>
-      <CardFooter />
     </Card>
   );
 };

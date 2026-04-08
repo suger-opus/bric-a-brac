@@ -21,14 +21,16 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@/components/ui/empty";
-import { Separator } from "@/components/ui/separator";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { graphService } from "@/lib/api/services/graph-service";
 import { GraphMetadata } from "@/types";
 import { PlusIcon, VectorSquareIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 const AccessesCard = () => {
+  const router = useRouter();
   const [accessedGraphs, setAccessedGraphs] = useState<GraphMetadata[]>([]);
   const [isAccessesLoading, setIsAccessesLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -38,8 +40,8 @@ const AccessesCard = () => {
       setIsAccessesLoading(true);
       const results = await graphService.list();
       setAccessedGraphs(results);
-    } catch (error) {
-      console.error(error);
+    } catch {
+      toast.error("Could not load your graphs");
     } finally {
       setIsAccessesLoading(false);
     }
@@ -58,8 +60,11 @@ const AccessesCard = () => {
       <CardContent className="grow">
         {isAccessesLoading
           ? (
-            <div className="h-full flex items-center justify-center">
-              <Spinner />
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-3/4" />
             </div>
           )
           : accessedGraphs.length === 0
@@ -79,15 +84,19 @@ const AccessesCard = () => {
               </EmptyContent>
             </Empty>
           )
-          : <DataTable columns={columns(getAccesses)} data={accessedGraphs} />}
+          : (
+            <DataTable
+              columns={columns(getAccesses)}
+              data={accessedGraphs}
+              onRowClick={(graph) => router.push(`/graph/${graph.graph_id}`)}
+            />
+          )}
       </CardContent>
       {accessedGraphs.length > 0 && (
-        <CardFooter className="flex flex-col items-start space-y-4">
-          <Separator />
+        <CardFooter>
           <Button
             variant="outline"
             size="sm"
-            className="transition-all hover:shadow-sm"
             onClick={() => setIsDialogOpen(true)}
           >
             <PlusIcon /> Create a new graph

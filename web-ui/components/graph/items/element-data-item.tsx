@@ -11,7 +11,7 @@ type GraphElementItemProps = {
 
 const GraphElementItem = ({ kind, id, label, color, properties }: GraphElementItemProps) => {
   return (
-    <div className="w-80 max-w-full h-fit space-y-2 p-2 overflow-auto no-scrollbar bg-transparent backdrop-blur-sm border border-black/10 rounded-md">
+    <div className="w-80 max-w-full h-fit space-y-2 p-2 overflow-auto no-scrollbar bg-background/80 backdrop-blur-sm border border-border rounded-md">
       <div className="flex items-center space-x-2">
         <div
           className={kind === "node" ? "w-4 h-4 rounded-full" : "w-4 h-2 rounded-xs"}

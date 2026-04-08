@@ -5,17 +5,12 @@ export const cn = (...inputs: ClassValue[]) => {
   return twMerge(clsx(inputs));
 };
 
-// -16 to have some space from the top
-export const scrollToElement = (element_id: string, offset: number = -16) => {
+export const scrollToElement = (elementId: string, offset: number = -16) => {
   requestAnimationFrame(() => {
-    const element = document.getElementById(element_id);
+    const element = document.getElementById(elementId);
     if (element) {
-      const elementPosition = element.getBoundingClientRect().top
-        + window.scrollY;
-      window.scrollTo({
-        top: elementPosition + offset,
-        behavior: "smooth"
-      });
+      const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: elementPosition + offset, behavior: "smooth" });
     }
   });
 };

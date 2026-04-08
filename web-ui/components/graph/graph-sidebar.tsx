@@ -43,24 +43,20 @@ const GraphSidebar = () => {
             <div className="space-y-2">
               <div className="space-y-1">
                 <p className="text-xl font-bold">{metadata!.name}</p>
-                <div className="border-l-2 border-black/80 pl-2 text-black/80 text-xs">
+                <div className="border-l-2 border-muted-foreground/40 pl-2 text-muted-foreground text-xs space-y-0.5">
                   <p>
-                    <i>by</i>{" "}
-                    <b>
-                      <u>{metadata!.owner_username}</u>
-                    </b>{" "}
-                    <i>on {new Date(metadata!.created_at).toLocaleDateString()}</i>
+                    by{" "}
+                    <span className="font-semibold text-foreground">
+                      {metadata!.owner_username}
+                    </span>{" "}
+                    on {new Date(metadata!.created_at).toLocaleDateString()}
                   </p>
-                  <p>
-                    <i>last edited: {new Date(metadata!.updated_at).toLocaleDateString()}</i>
-                  </p>
+                  <p>Last edited: {new Date(metadata!.updated_at).toLocaleDateString()}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-1">
-                <Badge className="font-bold text-[9px] h-5">
-                  {metadata!.is_public ? "PUBLIC" : "PRIVATE"}
-                </Badge>
-              </div>
+              <Badge className="font-bold text-[9px] h-5">
+                {metadata!.is_public ? "PUBLIC" : "PRIVATE"}
+              </Badge>
               {metadata!.description && (
                 <p className="text-sm text-muted-foreground">{metadata!.description}</p>
               )}

@@ -1,6 +1,5 @@
 import { config } from "@/lib/config";
 import { mande } from "mande";
-import { toast } from "sonner";
 import type { GenericSchema, InferOutput } from "valibot";
 import { safeParse } from "valibot";
 
@@ -23,7 +22,7 @@ export async function get<T extends GenericSchema>(
     const data = await api.get(path);
     return validate(schema, data);
   } catch (error) {
-    toast.error(`GET ${path} failed`);
+    console.error(`GET ${path} failed`, error);
     throw error;
   }
 }
@@ -37,7 +36,7 @@ export async function getOptional<T extends GenericSchema>(
     if (data == null) { return null; }
     return validate(schema, data);
   } catch (error) {
-    toast.error(`GET ${path} failed`);
+    console.error(`GET ${path} failed`, error);
     throw error;
   }
 }
@@ -51,7 +50,7 @@ export async function post<T extends GenericSchema>(
     const data = await api.post(path, body);
     return validate(schema, data);
   } catch (error) {
-    toast.error(`POST ${path} failed`);
+    console.error(`POST ${path} failed`, error);
     throw error;
   }
 }
@@ -60,7 +59,7 @@ export async function del(path: string): Promise<void> {
   try {
     await api.delete(path);
   } catch (error) {
-    toast.error(`DELETE ${path} failed`);
+    console.error(`DELETE ${path} failed`, error);
     throw error;
   }
 }

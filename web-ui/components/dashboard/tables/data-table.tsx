@@ -22,11 +22,13 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  onRowClick?: (row: TData) => void;
 }
 
 const DataTable = <TData, TValue>({
   columns,
-  data
+  data,
+  onRowClick
 }: DataTableProps<TData, TValue>) => {
   const table = useReactTable({
     data,
@@ -70,11 +72,12 @@ const DataTable = <TData, TValue>({
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
-                    className="transition-colors"
+                    className={`transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
+                    onClick={() => onRowClick?.(row.original)}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
-                        <div className="flex items-center">
+                        <div className="flex items-center w-full">
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </div>
                       </TableCell>

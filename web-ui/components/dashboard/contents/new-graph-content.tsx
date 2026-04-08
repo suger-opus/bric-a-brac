@@ -23,6 +23,7 @@ import { graphService } from "@/lib/api/services/graph-service";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useState } from "react";
+import { toast } from "sonner";
 import * as v from "valibot";
 
 type NewGraphDialogContentProps = {
@@ -73,8 +74,8 @@ const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) 
             || null
         );
       }
-    } catch (error) {
-      console.error("Error during createGraph:", error);
+    } catch {
+      toast.error("Could not create graph");
     } finally {
       setIsCreateLoading(false);
     }
@@ -85,7 +86,7 @@ const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) 
       <DialogHeader>
         <DialogTitle>Create a New Graph</DialogTitle>
         <DialogDescription>
-          This is the creation of a new graph.
+          Give your graph a name and an optional description to get started.
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-2">

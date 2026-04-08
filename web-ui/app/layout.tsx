@@ -1,4 +1,5 @@
 import SmallScreenGate from "@/components/small-screen-gate";
+import ThemeProvider from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -32,12 +33,14 @@ const RootLayout = ({ children }: Readonly<{ children: React.ReactNode; }>) => {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <SmallScreenGate>
-          <main>
-            {children}
-          </main>
-        </SmallScreenGate>
-        <Toaster position="bottom-right" />
+        <ThemeProvider>
+          <SmallScreenGate>
+            <main>
+              {children}
+            </main>
+          </SmallScreenGate>
+          <Toaster position="bottom-right" />
+        </ThemeProvider>
       </body>
     </html>
   );

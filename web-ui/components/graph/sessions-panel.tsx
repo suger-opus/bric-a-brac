@@ -33,7 +33,7 @@ const SessionsPanel = ({ onSwitchToChat }: SessionsPanelProps) => {
         data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       );
     } catch {
-      // toast shown by client
+      toast.error("Could not load sessions");
     } finally {
       setIsLoading(false);
     }
@@ -173,10 +173,10 @@ const SessionsPanel = ({ onSwitchToChat }: SessionsPanelProps) => {
           : (
             <div className="p-2 space-y-1">
               {sessions.map((session) => (
-                <button
+                <Button
                   key={session.session_id}
-                  type="button"
-                  className="w-full text-left rounded-md border px-3 py-2.5 hover:bg-accent transition-colors group"
+                  variant="ghost"
+                  className="w-full justify-start h-auto rounded-md border px-3 py-2.5 font-normal"
                   onClick={() => {
                     if (session.status === SessionStatus.ACTIVE) {
                       onSwitchToChat?.();
@@ -185,28 +185,30 @@ const SessionsPanel = ({ onSwitchToChat }: SessionsPanelProps) => {
                     }
                   }}
                 >
-                  <div className="flex items-center gap-2">
-                    <BotIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-xs font-medium">
-                      {new Date(session.created_at).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                      })}
-                    </span>
-                    <Badge
-                      variant={session.status === SessionStatus.ACTIVE ? "default" : "secondary"}
-                      className="ml-auto text-[10px]"
-                    >
-                      {session.status}
-                    </Badge>
+                  <div className="flex flex-col w-full">
+                    <div className="flex items-center gap-2">
+                      <BotIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-xs font-medium">
+                        {new Date(session.created_at).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                      </span>
+                      <Badge
+                        variant={session.status === SessionStatus.ACTIVE ? "default" : "secondary"}
+                        className="ml-auto text-[10px]"
+                      >
+                        {session.status}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1 capitalize text-left">
+                      {session.role}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 capitalize">
-                    {session.role}
-                  </p>
-                </button>
+                </Button>
               ))}
             </div>
           )}

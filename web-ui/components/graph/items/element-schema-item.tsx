@@ -3,6 +3,7 @@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Toggle } from "@/components/ui/toggle";
 import { useGraph } from "@/contexts/graph-context";
 import { ChevronDown, Eye, EyeOff } from "lucide-react";
 
@@ -52,16 +53,17 @@ const ElementSchemaItem = (
                     <TableRow key={prop} className="h-7">
                       <TableCell className="py-0.5 text-xs">{prop}</TableCell>
                       <TableCell className="py-0.5 w-8 text-right">
-                        <button
-                          type="button"
-                          onClick={() => toggleProperty(prop)}
-                          className="text-muted-foreground hover:text-foreground cursor-pointer"
-                          title={selected === prop ? "Hide from graph" : "Show on graph"}
+                        <Toggle
+                          pressed={selected === prop}
+                          onPressedChange={() => toggleProperty(prop)}
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          aria-label={selected === prop ? "Hide from graph" : "Show on graph"}
                         >
                           {selected === prop
                             ? <Eye size={14} />
                             : <EyeOff size={14} className="opacity-40" />}
-                        </button>
+                        </Toggle>
                       </TableCell>
                     </TableRow>
                   ))}
