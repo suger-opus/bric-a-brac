@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { useGraph } from "@/contexts/graph-context";
 import { type ChatEvent, streamChat } from "@/lib/api/services/chat-service";
 import { sessionService } from "@/lib/api/services/session-service";
+import { SessionMessageRole, SessionStatus } from "@/types";
 import {
   BotIcon,
   ChevronDownIcon,
   LoaderIcon,
+  LockIcon,
   PaperclipIcon,
   SendIcon,
   WrenchIcon,
@@ -95,6 +97,7 @@ const ChatPanel = () => {
   } = useGraph();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isClosingSession, setIsClosingSession] = useState(false);
   const [items, setItems] = useState<ChatItem[]>([]);
   const [streamingText, setStreamingText] = useState("");
   const [progressText, setProgressText] = useState("");
@@ -121,7 +124,7 @@ const ChatPanel = () => {
 
     sessionService.list(graphId).then((sessions) => {
       if (cancelled) { return; }
-      const session = sessions.find((s) => s.status === "active");
+      const session = sessions.find((s) => s.status === SessionStatus.ACTIVE);
       if (!session) { return; }
       setSessionId(session.session_id);
       sessionService.getMessages(session.session_id).then((messages) => {
@@ -130,7 +133,7 @@ const ChatPanel = () => {
         let inChunkSequence = false;
         for (let i = 0; i < messages.length; i++) {
           const m = messages[i];
-          if (m.role === "user") {
+          if (m.role === SessionMessageRole.USER) {
             // Skip chunk messages (chunk_index >= 1 means document chunk content)
             if (m.chunk_index != null && m.chunk_index >= 1) {
               inChunkSequence = true;
@@ -146,13 +149,14 @@ const ChatPanel = () => {
                 : `\uD83D\uDCCE ${m.document_name}\n${display}`;
             }
             restored.push({ type: "user", content: display });
-          } else if (m.role === "assistant" && m.content) {
+          } else if (m.role === SessionMessageRole.ASSISTANT && m.content) {
             // Skip intermediate assistant responses between chunks;
             // only show the last one (final summary after all chunks)
             if (inChunkSequence) {
               const next = messages[i + 1];
               if (
-                next?.role === "user" && next.chunk_index != null && next.chunk_index >= 1
+                next?.role === SessionMessageRole.USER && next.chunk_index != null
+                && next.chunk_index >= 1
               ) { continue; }
               inChunkSequence = false;
             }
@@ -388,6 +392,21 @@ const ChatPanel = () => {
     setIsStreaming(false);
   }, []);
 
+  const closeSession = useCallback(async () => {
+    if (!sessionId) { return; }
+    setIsClosingSession(true);
+    try {
+      await sessionService.close(sessionId);
+      setSessionId(null);
+      setItems([]);
+      toast.success("Session closed");
+    } catch {
+      // toast shown by client
+    } finally {
+      setIsClosingSession(false);
+    }
+  }, [sessionId]);
+
   const sendMessage = useCallback(async () => {
     if (!graphId || (!input.trim() && !file) || isStreaming) { return; }
 
@@ -409,8 +428,15 @@ const ChatPanel = () => {
     try {
       let sid = sessionId;
       if (!sid) {
-        const session = await sessionService.create(graphId);
-        sid = session.session_id;
+        // Check for existing active session first (recover from refresh)
+        const sessions = await sessionService.list(graphId);
+        const active = sessions.find((s) => s.status === SessionStatus.ACTIVE);
+        if (active) {
+          sid = active.session_id;
+        } else {
+          const session = await sessionService.create(graphId);
+          sid = session.session_id;
+        }
         setSessionId(sid);
       }
 
@@ -440,6 +466,21 @@ const ChatPanel = () => {
 
   return (
     <div className="flex flex-col h-full">
+      {sessionId && (
+        <div className="flex items-center justify-between px-3 py-1.5 border-b">
+          <span className="text-xs text-muted-foreground">Active session</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={closeSession}
+            disabled={isClosingSession || isStreaming}
+          >
+            <LockIcon className="h-3 w-3" />
+            Close
+          </Button>
+        </div>
+      )}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
         <div className="space-y-3">
           {items.length === 0 && !isStreaming && (
@@ -466,7 +507,7 @@ const ChatPanel = () => {
               case "assistant":
                 return (
                   <div key={key} className="flex justify-start">
-                    <div className="bg-muted rounded-lg px-3 py-2 max-w-[85%] text-sm prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 max-w-none">
+                    <div className="bg-muted rounded-lg px-3 py-2 max-w-[85%] text-sm prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2">
                       <Markdown>{item.content}</Markdown>
                     </div>
                   </div>
@@ -490,7 +531,7 @@ const ChatPanel = () => {
 
           {isStreaming && streamingText && (
             <div className="flex justify-start">
-              <div className="bg-muted rounded-lg px-3 py-2 max-w-[85%] text-sm prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 max-w-none">
+              <div className="bg-muted rounded-lg px-3 py-2 max-w-[85%] text-sm prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2">
                 <Markdown>{streamingText}</Markdown>
                 <span className="animate-pulse">▍</span>
               </div>

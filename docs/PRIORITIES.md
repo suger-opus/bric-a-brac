@@ -39,10 +39,6 @@ Everything a reviewer or contributor needs to understand the project.
 - Add a 10-line TL;DR at the top
 - Make sure it reads as a design document, not a changelog
 
-### 10. Rotate OpenRouter API key
-The key in `ai/mise.local.toml` may be in git history. Rotate it on OpenRouter. Verify
-with `git log --all -p -- '*/mise.local.toml'` that it's not committed.
-
 ### 11. Product presentation
 The project needs a way to show what it does without running it.
 - A short product page or landing section (can be a dedicated route in the Next.js app,
@@ -59,10 +55,6 @@ The project needs a way to show what it does without running it.
 ### 12. Loading skeletons
 Replace spinners with skeleton loaders on the dashboard and graph sidebar. The difference
 between "prototype" and "product."
-
-### 13. Graph page polish
-- `confirm()` for graph delete looks raw — use a styled dialog
-- Hover states, transitions, micro-interactions where they matter
 
 ### 14. Demo recording
 Record a 2-minute screen recording: create a graph, upload a PDF, watch the AI extract

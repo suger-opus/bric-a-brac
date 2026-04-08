@@ -3,6 +3,7 @@
 import ChatPanel from "@/components/graph/chat-panel";
 import EdgeSchemaItem from "@/components/graph/items/edge-schema-item";
 import NodeSchemaItem from "@/components/graph/items/node-schema-item";
+import SessionsPanel from "@/components/graph/sessions-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -18,12 +19,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGraph } from "@/contexts/graph-context";
-import { BotIcon, ChevronDown, HomeIcon, ListTreeIcon } from "lucide-react";
+import { BotIcon, ChevronDown, HistoryIcon, HomeIcon, ListTreeIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 const GraphSidebar = () => {
   const router = useRouter();
   const { metadata, isLoaded, schema } = useGraph();
+  const [activeTab, setActiveTab] = useState("chat");
 
   return (
     <Sidebar side="right">
@@ -65,11 +68,14 @@ const GraphSidebar = () => {
           )}
       </SidebarHeader>
 
-      <Tabs defaultValue="chat" className="flex flex-col flex-1 min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
         <div className="px-3">
           <TabsList className="w-full">
             <TabsTrigger value="chat" className="flex-1 gap-1">
               <BotIcon className="h-3.5 w-3.5" />Chat
+            </TabsTrigger>
+            <TabsTrigger value="sessions" className="flex-1 gap-1">
+              <HistoryIcon className="h-3.5 w-3.5" />Sessions
             </TabsTrigger>
             <TabsTrigger value="schema" className="flex-1 gap-1">
               <ListTreeIcon className="h-3.5 w-3.5" />Schema
@@ -83,6 +89,14 @@ const GraphSidebar = () => {
           className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden"
         >
           <ChatPanel />
+        </TabsContent>
+
+        <TabsContent
+          value="sessions"
+          forceMount
+          className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden"
+        >
+          <SessionsPanel onSwitchToChat={() => setActiveTab("chat")} />
         </TabsContent>
 
         <TabsContent value="schema" className="flex-1 min-h-0 mt-0 overflow-y-auto">

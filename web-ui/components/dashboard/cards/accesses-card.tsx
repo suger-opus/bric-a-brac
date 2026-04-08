@@ -84,7 +84,12 @@ const AccessesCard = () => {
       {accessedGraphs.length > 0 && (
         <CardFooter className="flex flex-col items-start space-y-4">
           <Separator />
-          <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="transition-all hover:shadow-sm"
+            onClick={() => setIsDialogOpen(true)}
+          >
             <PlusIcon /> Create a new graph
           </Button>
         </CardFooter>

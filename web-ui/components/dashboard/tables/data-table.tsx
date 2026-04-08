@@ -35,7 +35,7 @@ const DataTable = <TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     initialState: {
       pagination: {
-        pageSize: 5
+        pageSize: 10
       }
     }
   });
@@ -70,6 +70,7 @@ const DataTable = <TData, TValue>({
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
+                    className="transition-colors"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
@@ -91,24 +92,31 @@ const DataTable = <TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-2">
-        <Button
-          variant="outline"
-          size="icon-sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          <ChevronLeftIcon size={16} />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon-sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          <ChevronRightIcon size={16} />
-        </Button>
-      </div>
+      {table.getPageCount() > 1 && (
+        <div className="flex items-center justify-between py-2">
+          <span className="text-xs text-muted-foreground">
+            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <ChevronLeftIcon size={16} />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              <ChevronRightIcon size={16} />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -15,7 +15,7 @@ import type {
   UserDto
 } from "@/lib/api/dtos";
 
-export { Role } from "@/lib/api/dtos";
+export { Role, SessionMessageRole, SessionStatus } from "@/lib/api/dtos";
 
 export type NodeSchema = InferOutput<typeof NodeSchemaDto>;
 export type EdgeSchema = InferOutput<typeof EdgeSchemaDto>;

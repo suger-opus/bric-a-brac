@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { graphService } from "@/lib/api/services/graph-service";
@@ -107,7 +118,7 @@ export const columns = (onRefresh: () => void): ColumnDef<GraphMetadata>[] => [
             className="flex items-center justify-center"
           >
             <Tooltip>
-              <TooltipTrigger className="cursor-pointer">
+              <TooltipTrigger className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
                 <ArrowUpRightIcon size={14} />
               </TooltipTrigger>
               <TooltipContent>
@@ -116,28 +127,44 @@ export const columns = (onRefresh: () => void): ColumnDef<GraphMetadata>[] => [
             </Tooltip>
           </Link>
           {row.original.user_role === Role.OWNER && (
-            <Tooltip>
-              <TooltipTrigger
-                className="cursor-pointer text-muted-foreground hover:text-destructive transition-colors"
-                onClick={async () => {
-                  if (
-                    !confirm(`Delete graph "${row.original.name}"? This cannot be undone.`)
-                  ) { return; }
-                  try {
-                    await graphService.delete(row.original.graph_id);
-                    toast.success("Graph deleted");
-                    onRefresh();
-                  } catch {
-                    // toast already shown by client
-                  }
-                }}
-              >
-                <Trash2Icon size={14} />
-              </TooltipTrigger>
-              <TooltipContent>
-                Delete graph
-              </TooltipContent>
-            </Tooltip>
+            <AlertDialog>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger className="cursor-pointer text-muted-foreground hover:text-destructive transition-colors">
+                    <Trash2Icon size={14} />
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Delete graph
+                </TooltipContent>
+              </Tooltip>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete &ldquo;{row.original.name}&rdquo;?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the graph and all its data. This action cannot be
+                    undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={async () => {
+                      try {
+                        await graphService.delete(row.original.graph_id);
+                        toast.success("Graph deleted");
+                        onRefresh();
+                      } catch {
+                        // toast already shown by client
+                      }
+                    }}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       );
