@@ -12,7 +12,7 @@ use bric_a_brac_dtos::GraphIdDto;
 
 #[utoipa::path(
     post,
-    path = "/accesses/graphs/{graph_id}",
+    path = "/graphs/{graph_id}/accesses",
     params(("graph_id" = GraphIdDto, Path, description = "ID of the graph to grant access to")),
     tag = "Access",
     request_body = CreateAccessDto,

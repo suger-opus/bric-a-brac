@@ -1,5 +1,5 @@
 use crate::{
-    application::{AppError, CreateSessionDocumentDto, CreateSessionDto},
+    application::{AppError, CreateSessionDocumentDto},
     domain::{
         CreateSessionDocumentModel, CreateSessionMessageModel, CreateSessionModel, RoleModel,
         UserIdModel,
@@ -34,18 +34,18 @@ impl SessionService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "session_service.create_session",
-        skip(self, create, user_id),
+        name = "session_service.create",
+        skip(self, graph_id, user_id),
         err
     )]
-    pub async fn create_session(
+    pub async fn create(
         &self,
-        create: CreateSessionDto,
+        graph_id: GraphIdDto,
         user_id: UserIdDto,
     ) -> Result<SessionDto, AppError> {
         let model = CreateSessionModel {
             session_id: SessionIdDto::new().into(),
-            graph_id: create.graph_id.into(),
+            graph_id: graph_id.into(),
             user_id: user_id.into(),
         };
 
@@ -69,7 +69,7 @@ impl SessionService {
             return Err(AppError::ActiveSessionAlreadyExists);
         }
 
-        let session = self.repository.create_session(&mut txn, model).await?;
+        let session = self.repository.create(&mut txn, model).await?;
         txn.commit().await?;
 
         Ok(session.into())
@@ -77,42 +77,38 @@ impl SessionService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "session_service.get_active_session",
+        name = "session_service.list",
         skip(self, graph_id, user_id),
         err
     )]
-    pub async fn get_active_session(
+    pub async fn list(
         &self,
         graph_id: GraphIdDto,
         user_id: UserIdDto,
-    ) -> Result<Option<SessionDto>, AppError> {
+    ) -> Result<Vec<SessionDto>, AppError> {
         let mut txn = self.pool.begin().await?;
-
-        let session = self
+        let sessions = self
             .repository
-            .get_active_session(&mut txn, graph_id.into(), user_id.into())
+            .list(&mut txn, graph_id.into(), user_id.into())
             .await?;
         txn.commit().await?;
 
-        Ok(session.map(From::from))
+        Ok(sessions.into_iter().map(From::from).collect())
     }
 
     #[tracing::instrument(
         level = "trace",
-        name = "session_service.get_session",
+        name = "session_service.get",
         skip(self, session_id),
         err
     )]
-    pub async fn get_session(
+    pub async fn get(
         &self,
         session_id: SessionIdDto,
         user_id: UserIdDto,
     ) -> Result<SessionDto, AppError> {
         let mut txn = self.pool.begin().await?;
-        let session = self
-            .repository
-            .get_session(&mut txn, session_id.into())
-            .await?;
+        let session = self.repository.get(&mut txn, session_id.into()).await?;
 
         Self::require_owner(session.user_id, user_id.into())?;
 
@@ -123,11 +119,11 @@ impl SessionService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "session_service.close_session",
+        name = "session_service.close",
         skip(self, session_id, status),
         err
     )]
-    pub async fn close_session(
+    pub async fn close(
         &self,
         session_id: SessionIdDto,
         user_id: UserIdDto,
@@ -136,15 +132,12 @@ impl SessionService {
         let mut txn = self.pool.begin().await?;
 
         // Verify session ownership
-        let session = self
-            .repository
-            .get_session(&mut txn, session_id.into())
-            .await?;
+        let session = self.repository.get(&mut txn, session_id.into()).await?;
         Self::require_owner(session.user_id, user_id.into())?;
 
         let session = self
             .repository
-            .close_session(&mut txn, session_id.into(), status.into())
+            .close(&mut txn, session_id.into(), status.into())
             .await?;
         txn.commit().await?;
 
@@ -164,10 +157,7 @@ impl SessionService {
     ) -> Result<Vec<SessionMessageDto>, AppError> {
         let mut txn = self.pool.begin().await?;
 
-        let session = self
-            .repository
-            .get_session(&mut txn, session_id.into())
-            .await?;
+        let session = self.repository.get(&mut txn, session_id.into()).await?;
         Self::require_owner(session.user_id, user_id.into())?;
 
         let messages = self
@@ -200,10 +190,7 @@ impl SessionService {
 
         let mut txn = self.pool.begin().await?;
 
-        let session = self
-            .repository
-            .get_session(&mut txn, model.session_id)
-            .await?;
+        let session = self.repository.get(&mut txn, model.session_id).await?;
         Self::require_owner(session.user_id, user_id.into())?;
 
         let document = self.repository.create_document(&mut txn, model).await?;
@@ -227,10 +214,7 @@ impl SessionService {
         session_id: SessionIdDto,
     ) -> Result<SessionDto, AppError> {
         let mut txn = self.pool.begin().await?;
-        let session = self
-            .repository
-            .get_session(&mut txn, session_id.into())
-            .await?;
+        let session = self.repository.get(&mut txn, session_id.into()).await?;
         txn.commit().await?;
 
         Ok(session.into())

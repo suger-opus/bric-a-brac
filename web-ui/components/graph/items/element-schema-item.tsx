@@ -14,7 +14,9 @@ type ElementSchemaItemProps = {
   description: string;
 };
 
-const ElementSchemaItem = ({ kind, schemaKey, label, color, description }: ElementSchemaItemProps) => {
+const ElementSchemaItem = (
+  { kind, schemaKey, label, color, description }: ElementSchemaItemProps
+) => {
   const { availableProperties, displayProperty, setDisplayProperty } = useGraph();
   const properties = availableProperties[schemaKey] ?? [];
   const selected = displayProperty[schemaKey] ?? null;
@@ -33,9 +35,7 @@ const ElementSchemaItem = ({ kind, schemaKey, label, color, description }: Eleme
           />
           <ItemTitle>{label}</ItemTitle>
         </div>
-        {description && (
-          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-        )}
+        {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
         {properties.length > 0 && (
           <Collapsible defaultOpen={false} className="group/collapsible-props">
             <CollapsibleTrigger className="flex items-center text-muted-foreground text-xs cursor-pointer w-fit">

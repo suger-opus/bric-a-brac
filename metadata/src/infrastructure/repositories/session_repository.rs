@@ -43,19 +43,19 @@ impl SessionRepository {
 
     #[tracing::instrument(
         level = "debug",
-        name = "session_repository.get_active_session",
+        name = "session_repository.list",
         skip(self, connection, graph_id, user_id),
         err
     )]
-    pub async fn get_active_session(
+    pub async fn list(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
         user_id: UserIdModel,
-    ) -> Result<Option<SessionModel>, InfraError> {
+    ) -> Result<Vec<SessionModel>, InfraError> {
         tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
 
-        let row: Option<SessionRow> = sqlx::query_as!(
+        let rows: Vec<SessionRow> = sqlx::query_as!(
             SessionRow,
             r#"
 SELECT
@@ -68,25 +68,25 @@ SELECT
     s.updated_at
 FROM sessions s
 LEFT JOIN accesses a ON s.user_id = a.user_id AND s.graph_id = a.graph_id
-WHERE s.graph_id = $1 AND s.user_id = $2 AND s.status = 'active'
-LIMIT 1
+WHERE s.graph_id = $1 AND s.user_id = $2
+ORDER BY s.updated_at DESC
             "#,
             graph_id as _,
             user_id as _,
         )
-        .fetch_optional(connection)
+        .fetch_all(connection)
         .await?;
 
-        Ok(row.map(SessionRow::into))
+        Ok(rows.into_iter().map(SessionRow::into).collect())
     }
 
     #[tracing::instrument(
         level = "debug",
-        name = "session_repository.create_session",
+        name = "session_repository.create",
         skip(self, connection, create_session),
         err
     )]
-    pub async fn create_session(
+    pub async fn create(
         &self,
         connection: &mut PgConnection,
         create_session: CreateSessionModel,
@@ -124,11 +124,11 @@ LEFT JOIN accesses a ON i.user_id = a.user_id AND i.graph_id = a.graph_id
 
     #[tracing::instrument(
         level = "debug",
-        name = "session_repository.get_session",
+        name = "session_repository.get",
         skip(self, connection, session_id),
         err
     )]
-    pub async fn get_session(
+    pub async fn get(
         &self,
         connection: &mut PgConnection,
         session_id: SessionIdModel,
@@ -160,11 +160,11 @@ WHERE s.session_id = $1
 
     #[tracing::instrument(
         level = "debug",
-        name = "session_repository.close_session",
+        name = "session_repository.close",
         skip(self, connection, session_id, status),
         err
     )]
-    pub async fn close_session(
+    pub async fn close(
         &self,
         connection: &mut PgConnection,
         session_id: SessionIdModel,

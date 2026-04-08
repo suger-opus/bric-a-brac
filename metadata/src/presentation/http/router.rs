@@ -4,7 +4,7 @@ use super::{
 };
 use axum::{
     extract::DefaultBodyLimit,
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use tower_http::cors::CorsLayer;
@@ -28,31 +28,24 @@ pub fn build(state: ApiState) -> Router {
         )
         .route("/users", post(user_handler::create))
         .route("/users/me", get(user_handler::get_current))
-        .route("/graphs", get(graph_handler::get_all_metadata))
-        .route("/graphs", post(graph_handler::create_graph))
-        .route("/graphs/{graph_id}", get(graph_handler::get_metadata))
-        .route(
-            "/graphs/{graph_id}",
-            axum::routing::delete(graph_handler::delete_graph),
-        )
+        .route("/graphs", get(graph_handler::list))
+        .route("/graphs", post(graph_handler::create))
+        .route("/graphs/{graph_id}", get(graph_handler::get))
+        .route("/graphs/{graph_id}", delete(graph_handler::delete))
         .route("/graphs/{graph_id}/schema", get(graph_handler::get_schema))
         .route("/graphs/{graph_id}/data", get(graph_handler::get_data))
-        .route("/accesses/graphs/{graph_id}", post(access_handler::create))
-        .route("/sessions", post(session_handler::create))
+        .route("/graphs/{graph_id}/sessions", post(session_handler::create))
+        .route("/graphs/{graph_id}/sessions", get(session_handler::list))
         .route(
-            "/graphs/{graph_id}/active-session",
-            get(session_handler::get_active),
+            "/graphs/{graph_id}/chat",
+            post(chat_handler::chat).layer(DefaultBodyLimit::max(50 * 1024 * 1024)),
         )
-        .route("/sessions/{session_id}", get(session_handler::get))
         .route("/sessions/{session_id}/close", post(session_handler::close))
         .route(
             "/sessions/{session_id}/messages",
             get(session_handler::get_messages),
         )
-        .route(
-            "/graphs/{graph_id}/chat",
-            post(chat_handler::chat).layer(DefaultBodyLimit::max(50 * 1024 * 1024)),
-        )
+        .route("/graphs/{graph_id}/accesses", post(access_handler::create))
         .layer(http_tracing_layer());
     router.layer(CorsLayer::permissive()).with_state(state)
 }

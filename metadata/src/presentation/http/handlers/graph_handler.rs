@@ -22,12 +22,8 @@ use validator::Validate;
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(
-    level = "trace",
-    name = "graph_handler.get_all_metadata",
-    skip(state, user_id)
-)]
-pub async fn get_all_metadata(
+#[tracing::instrument(level = "trace", name = "graph_handler.list", skip(state, user_id))]
+pub async fn list(
     State(state): State<ApiState>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
 ) -> impl IntoResponse {
@@ -35,7 +31,7 @@ pub async fn get_all_metadata(
 
     state
         .graph_service
-        .get_all_metadata(user_id)
+        .list(user_id)
         .await
         .map(|graphs| (StatusCode::OK, Json(graphs)))
 }
@@ -54,10 +50,10 @@ pub async fn get_all_metadata(
 )]
 #[tracing::instrument(
     level = "trace",
-    name = "graph_handler.create_graph",
+    name = "graph_handler.create",
     skip(state, user_id, payload)
 )]
-pub async fn create_graph(
+pub async fn create(
     State(state): State<ApiState>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
     Json(payload): Json<CreateGraphDto>,
@@ -68,7 +64,7 @@ pub async fn create_graph(
 
     state
         .graph_service
-        .create_graph(user_id, payload)
+        .create(user_id, payload)
         .await
         .map(|graph| (StatusCode::CREATED, Json(graph)))
         .map_err(PresentationError::from)
@@ -88,10 +84,10 @@ pub async fn create_graph(
 )]
 #[tracing::instrument(
     level = "trace",
-    name = "graph_handler.get_metadata",
+    name = "graph_handler.get",
     skip(state, graph_id, user_id)
 )]
-pub async fn get_metadata(
+pub async fn get(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
@@ -100,7 +96,7 @@ pub async fn get_metadata(
 
     state
         .graph_service
-        .get_metadata(graph_id, user_id)
+        .get(graph_id, user_id)
         .await
         .map(|graph| (StatusCode::OK, Json(graph)))
 }
@@ -181,10 +177,10 @@ pub async fn get_data(
 )]
 #[tracing::instrument(
     level = "trace",
-    name = "graph_handler.delete_graph",
+    name = "graph_handler.delete",
     skip(state, graph_id, user_id)
 )]
-pub async fn delete_graph(
+pub async fn delete(
     State(state): State<ApiState>,
     Path(graph_id): Path<GraphIdDto>,
     AuthenticatedUser { user_id }: AuthenticatedUser,
@@ -193,7 +189,7 @@ pub async fn delete_graph(
 
     state
         .graph_service
-        .delete_graph(graph_id, user_id)
+        .delete(graph_id, user_id)
         .await
         .map(|()| StatusCode::NO_CONTENT)
 }

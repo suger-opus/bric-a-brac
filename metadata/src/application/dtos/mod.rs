@@ -8,5 +8,5 @@ mod user_dto;
 
 pub use access_dto::{AccessDto, CreateAccessDto};
 pub use graph_dto::{CreateGraphDto, GraphMetadataDto};
-pub use session_dto::{CreateSessionDocumentDto, CreateSessionDto};
+pub use session_dto::CreateSessionDocumentDto;
 pub use user_dto::{CreateUserDto, UserDto};

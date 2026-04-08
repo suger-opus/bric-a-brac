@@ -4,21 +4,15 @@ import type { CreateGraph } from "@/types";
 import * as v from "valibot";
 
 export const graphService = {
-  getAllMetadata: () =>
-    get("/graphs", v.array(GraphMetadataDto)),
+  list: () => get("/graphs", v.array(GraphMetadataDto)),
 
-  getOneMetadata: (graphId: string) =>
-    get(`/graphs/${graphId}`, GraphMetadataDto),
+  getOne: (graphId: string) => get(`/graphs/${graphId}`, GraphMetadataDto),
 
-  getSchema: (graphId: string) =>
-    get(`/graphs/${graphId}/schema`, GraphSchemaDto),
+  getSchema: (graphId: string) => get(`/graphs/${graphId}/schema`, GraphSchemaDto),
 
-  getData: (graphId: string) =>
-    get(`/graphs/${graphId}/data`, GraphDataDto),
+  getData: (graphId: string) => get(`/graphs/${graphId}/data`, GraphDataDto),
 
-  createGraph: (body: CreateGraph) =>
-    post("/graphs", body, GraphMetadataDto),
+  create: (body: CreateGraph) => post("/graphs", body, GraphMetadataDto),
 
-  deleteGraph: (graphId: string) =>
-    del(`/graphs/${graphId}`),
+  delete: (graphId: string) => del(`/graphs/${graphId}`)
 };

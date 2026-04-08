@@ -11,13 +11,13 @@ const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
 });
 
 type GraphProps = {
-  dimensions: { width: number; height: number };
+  dimensions: { width: number; height: number; };
 };
 
 /** Build a node label from the user-selected display property, or fall back to label. */
 function buildNodeLabel(
   node: ProcessedNodeData,
-  displayProperty: Record<string, string | null>,
+  displayProperty: Record<string, string | null>
 ): string {
   const selected = displayProperty[node.key] ?? null;
   const mainValue = selected ? node.properties?.[selected] : null;
@@ -32,7 +32,7 @@ const Graph = ({ dimensions }: GraphProps) => {
     setFocusEdge,
     focusNode,
     focusEdge,
-    displayProperty,
+    displayProperty
   } = useGraph();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,11 +55,9 @@ const Graph = ({ dimensions }: GraphProps) => {
     graphRef.current?.cameraPosition(
       { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
       node,
-      3000,
+      3000
     );
   }, []);
-
-
 
   return (
     <ForceGraph3D
@@ -69,7 +67,10 @@ const Graph = ({ dimensions }: GraphProps) => {
       width={dimensions.width}
       height={dimensions.height}
       onNodeClick={isLoaded
-        ? (e) => { handleNodeClick(e.id as string); zoomNode(e); }
+        ? (e) => {
+          handleNodeClick(e.id as string);
+          zoomNode(e);
+        }
         : undefined}
       onLinkClick={isLoaded ? (e) => handleEdgeClick(e.id as string) : undefined}
       nodeThreeObjectExtend={isLoaded}
@@ -103,7 +104,7 @@ const Graph = ({ dimensions }: GraphProps) => {
         obj.position.set(
           (start.x + end.x) / 2,
           (start.y + end.y) / 2,
-          (start.z + end.z) / 2,
+          (start.z + end.z) / 2
         );
       }}
       linkWidth={1}

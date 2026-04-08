@@ -119,8 +119,10 @@ const ChatPanel = () => {
     if (!graphId) { return; }
     let cancelled = false;
 
-    sessionService.getActiveSession(graphId).then((session) => {
-      if (cancelled || !session) { return; }
+    sessionService.list(graphId).then((sessions) => {
+      if (cancelled) { return; }
+      const session = sessions.find((s) => s.status === "active");
+      if (!session) { return; }
       setSessionId(session.session_id);
       sessionService.getMessages(session.session_id).then((messages) => {
         if (cancelled) { return; }

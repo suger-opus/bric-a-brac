@@ -4,5 +4,5 @@ import { NodeSchemaDto } from "./node-schema-dto";
 
 export const GraphSchemaDto = v.object({
   nodes: v.array(NodeSchemaDto),
-  edges: v.array(EdgeSchemaDto),
+  edges: v.array(EdgeSchemaDto)
 });

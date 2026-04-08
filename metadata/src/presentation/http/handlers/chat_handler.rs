@@ -33,7 +33,7 @@ pub async fn chat(
     // Verify the user owns this session
     state
         .session_service
-        .get_session(session_id, user_id)
+        .get(session_id, user_id)
         .await
         .map_err(PresentationError::from)?;
 
@@ -44,12 +44,15 @@ pub async fn chat(
         let file_name = file_name.unwrap_or_else(|| "upload".to_owned());
         let doc = state
             .session_service
-            .create_document(user_id, CreateSessionDocumentDto {
-                session_id,
-                filename: file_name,
-                content_hash,
-                content: doc_text,
-            })
+            .create_document(
+                user_id,
+                CreateSessionDocumentDto {
+                    session_id,
+                    filename: file_name,
+                    content_hash,
+                    content: doc_text,
+                },
+            )
             .await?;
 
         Some(doc.document_id)

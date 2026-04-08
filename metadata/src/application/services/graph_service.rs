@@ -35,21 +35,10 @@ impl GraphService {
         }
     }
 
-    #[tracing::instrument(
-        level = "trace",
-        name = "graph_service.get_all_metadata",
-        skip(self, user_id),
-        err
-    )]
-    pub async fn get_all_metadata(
-        &self,
-        user_id: UserIdDto,
-    ) -> Result<Vec<GraphMetadataDto>, AppError> {
+    #[tracing::instrument(level = "trace", name = "graph_service.list", skip(self, user_id), err)]
+    pub async fn list(&self, user_id: UserIdDto) -> Result<Vec<GraphMetadataDto>, AppError> {
         let mut txn = self.pool.begin().await?;
-        let graphs = self
-            .repository
-            .get_all_metadata(&mut txn, user_id.into())
-            .await?;
+        let graphs = self.repository.list(&mut txn, user_id.into()).await?;
         txn.commit().await?;
 
         Ok(graphs.into_iter().map(From::from).collect())
@@ -57,11 +46,11 @@ impl GraphService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "graph_service.create_graph",
+        name = "graph_service.create",
         skip(self, user_id, create_graph),
         err
     )]
-    pub async fn create_graph(
+    pub async fn create(
         &self,
         user_id: UserIdDto,
         create_graph: CreateGraphDto,
@@ -69,7 +58,7 @@ impl GraphService {
         let mut txn = self.pool.begin().await?;
         let graph_id = self
             .repository
-            .create_graph(&mut txn, create_graph.into())
+            .create(&mut txn, create_graph.into())
             .await?;
         let create_access = CreateAccessModel {
             graph_id,
@@ -81,7 +70,7 @@ impl GraphService {
             .await?;
         let graph = self
             .repository
-            .get_metadata(&mut txn, graph_id, user_id.into())
+            .get(&mut txn, graph_id, user_id.into())
             .await?;
         txn.commit().await?;
 
@@ -90,11 +79,11 @@ impl GraphService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "graph_service.get_metadata",
+        name = "graph_service.get",
         skip(self, graph_id, user_id),
         err
     )]
-    pub async fn get_metadata(
+    pub async fn get(
         &self,
         graph_id: GraphIdDto,
         user_id: UserIdDto,
@@ -104,7 +93,7 @@ impl GraphService {
             .await?;
         let graph = self
             .repository
-            .get_metadata(&mut txn, graph_id.into(), user_id.into())
+            .get(&mut txn, graph_id.into(), user_id.into())
             .await?;
         txn.commit().await?;
 
@@ -220,15 +209,11 @@ impl GraphService {
 
     #[tracing::instrument(
         level = "trace",
-        name = "graph_service.delete_graph",
+        name = "graph_service.delete",
         skip(self, graph_id),
         err
     )]
-    pub async fn delete_graph(
-        &self,
-        graph_id: GraphIdDto,
-        user_id: UserIdDto,
-    ) -> Result<(), AppError> {
+    pub async fn delete(&self, graph_id: GraphIdDto, user_id: UserIdDto) -> Result<(), AppError> {
         // Fetch node schema keys so we can drop vector indexes in Memgraph
         let mut txn = self.pool.begin().await?;
         self.require_role(&mut txn, graph_id.into(), user_id.into(), RoleModel::Owner)
@@ -247,9 +232,7 @@ impl GraphService {
             .await?;
 
         // Delete graph from Postgres (CASCADE handles schemas, sessions, accesses)
-        self.repository
-            .delete_graph(&mut txn, graph_id.into())
-            .await?;
+        self.repository.delete(&mut txn, graph_id.into()).await?;
         txn.commit().await?;
 
         Ok(())

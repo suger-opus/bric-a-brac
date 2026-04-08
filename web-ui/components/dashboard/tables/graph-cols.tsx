@@ -2,11 +2,11 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { graphService } from "@/lib/api/services/graph-service";
 import { GraphMetadata, Role } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpRightIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
-import { graphService } from "@/lib/api/services/graph-service";
 import { toast } from "sonner";
 
 export const columns = (onRefresh: () => void): ColumnDef<GraphMetadata>[] => [
@@ -120,9 +120,11 @@ export const columns = (onRefresh: () => void): ColumnDef<GraphMetadata>[] => [
               <TooltipTrigger
                 className="cursor-pointer text-muted-foreground hover:text-destructive transition-colors"
                 onClick={async () => {
-                  if (!confirm(`Delete graph "${row.original.name}"? This cannot be undone.`)) return;
+                  if (
+                    !confirm(`Delete graph "${row.original.name}"? This cannot be undone.`)
+                  ) { return; }
                   try {
-                    await graphService.deleteGraph(row.original.graph_id);
+                    await graphService.delete(row.original.graph_id);
                     toast.success("Graph deleted");
                     onRefresh();
                   } catch {

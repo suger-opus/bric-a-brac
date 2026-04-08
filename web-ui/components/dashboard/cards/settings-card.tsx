@@ -11,23 +11,14 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput
-} from "@/components/ui/input-group";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { userService } from "@/lib/api/services/user-service";
 import { scrollToElement } from "@/lib/utils";
 import { User } from "@/types";
-import {
-  BadgeCheckIcon,
-  ExpandIcon,
-  InfoIcon,
-  ShrinkIcon
-} from "lucide-react";
+import { BadgeCheckIcon, ExpandIcon, InfoIcon, ShrinkIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type SettingsProps = {

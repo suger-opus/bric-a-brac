@@ -4,5 +4,5 @@ import { NodeDataDto } from "./node-data-dto";
 
 export const GraphDataDto = v.object({
   nodes: v.array(NodeDataDto),
-  edges: v.array(EdgeDataDto),
+  edges: v.array(EdgeDataDto)
 });

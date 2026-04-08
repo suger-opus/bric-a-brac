@@ -3,11 +3,9 @@ use crate::domain::{
     SessionMessageModel, SessionMessageRoleModel, SessionModel, SessionStatusModel,
 };
 use bric_a_brac_dtos::{
-    GraphIdDto, SessionDocumentDto, SessionDocumentIdDto, SessionDto, SessionIdDto,
-    SessionMessageDto, SessionMessageIdDto, SessionMessageRoleDto, SessionStatusDto,
+    SessionDocumentDto, SessionDocumentIdDto, SessionDto, SessionIdDto, SessionMessageDto,
+    SessionMessageIdDto, SessionMessageRoleDto, SessionStatusDto,
 };
-use serde::Deserialize;
-use utoipa::ToSchema;
 
 impl From<SessionIdModel> for SessionIdDto {
     fn from(id: SessionIdModel) -> Self {
@@ -85,11 +83,6 @@ impl From<SessionMessageRoleModel> for SessionMessageRoleDto {
             SessionMessageRoleModel::Tool => Self::Tool,
         }
     }
-}
-
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct CreateSessionDto {
-    pub graph_id: GraphIdDto,
 }
 
 #[derive(Debug)]

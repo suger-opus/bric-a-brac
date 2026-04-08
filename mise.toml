@@ -67,7 +67,7 @@
 # Web UI Configuration
 # ============================
 # WEB_UI_PORT="3000"
-# NEXT_PUBLIC_API_URL="{{env.METADATA_HTTP_SERVER_URL}}"
+# NEXT_PUBLIC_API_URL="http://localhost:{{env.METADATA_HTTP_SERVER_PORT}}"
 # NEXT_PUBLIC_USER_ID="019d1f20-d9a3-7ff3-836f-9c6b24e5baaf"
 
 [tasks.up]

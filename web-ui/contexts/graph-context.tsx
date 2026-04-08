@@ -1,7 +1,14 @@
 "use client";
 
 import { graphService } from "@/lib/api/services/graph-service";
-import type { GraphData, GraphMetadata, GraphSchema, ProcessedEdgeData, ProcessedGraphData, ProcessedNodeData } from "@/types";
+import type {
+  GraphData,
+  GraphMetadata,
+  GraphSchema,
+  ProcessedEdgeData,
+  ProcessedGraphData,
+  ProcessedNodeData
+} from "@/types";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -42,7 +49,7 @@ function processGraphData(graphData: GraphData, graphSchema: GraphSchema): Proce
       key: node.key,
       label: schema?.label ?? node.key,
       color: schema?.color ?? "#888888",
-      properties: node.properties,
+      properties: node.properties
     };
   });
 
@@ -55,7 +62,7 @@ function processGraphData(graphData: GraphData, graphSchema: GraphSchema): Proce
       key: edge.key,
       label: schema?.label ?? edge.key,
       color: schema?.color ?? "#888888",
-      properties: edge.properties,
+      properties: edge.properties
     };
   });
 
@@ -67,11 +74,11 @@ function collectAvailableProperties(processed: ProcessedGraphData): Record<strin
   const propSets: Record<string, Set<string>> = {};
   for (const node of processed.nodes) {
     const set = propSets[node.key] ?? (propSets[node.key] = new Set());
-    for (const key of Object.keys(node.properties ?? {})) set.add(key);
+    for (const key of Object.keys(node.properties ?? {})) { set.add(key); }
   }
   for (const link of processed.links) {
     const set = propSets[link.key] ?? (propSets[link.key] = new Set());
-    for (const key of Object.keys(link.properties ?? {})) set.add(key);
+    for (const key of Object.keys(link.properties ?? {})) { set.add(key); }
   }
   const result: Record<string, string[]> = {};
   for (const [key, set] of Object.entries(propSets)) {
@@ -80,7 +87,9 @@ function collectAvailableProperties(processed: ProcessedGraphData): Record<strin
   return result;
 }
 
-export const GraphProvider = ({ graphId, children }: { graphId: string | null; children: React.ReactNode }) => {
+export const GraphProvider = (
+  { graphId, children }: { graphId: string | null; children: React.ReactNode; }
+) => {
   const [metadata, setMetadata] = useState<GraphMetadata | null>(null);
   const [data, setData] = useState<GraphData | null>(null);
   const [schema, setSchema] = useState<GraphSchema | null>(null);
@@ -102,8 +111,8 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
 
   const addNode = useCallback((node: ProcessedNodeData) => {
     setProcessedData((prev) => {
-      if (!prev) return prev;
-      if (prev.nodes.some((n) => n.id === node.id)) return prev;
+      if (!prev) { return prev; }
+      if (prev.nodes.some((n) => n.id === node.id)) { return prev; }
       const next = { ...prev, nodes: [...prev.nodes, node] };
       setAvailableProperties(collectAvailableProperties(next));
       return next;
@@ -112,47 +121,53 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
 
   const addEdge = useCallback((edge: ProcessedEdgeData) => {
     setProcessedData((prev) => {
-      if (!prev) return prev;
-      if (prev.links.some((l) => l.id === edge.id)) return prev;
+      if (!prev) { return prev; }
+      if (prev.links.some((l) => l.id === edge.id)) { return prev; }
       const next = { ...prev, links: [...prev.links, edge] };
       setAvailableProperties(collectAvailableProperties(next));
       return next;
     });
   }, []);
 
-  const updateNode = useCallback((nodeId: string, properties: Record<string, string | number | boolean>) => {
-    setProcessedData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        nodes: prev.nodes.map((n) => n.id === nodeId ? { ...n, properties } : n),
-      };
-    });
-  }, []);
+  const updateNode = useCallback(
+    (nodeId: string, properties: Record<string, string | number | boolean>) => {
+      setProcessedData((prev) => {
+        if (!prev) { return prev; }
+        return {
+          ...prev,
+          nodes: prev.nodes.map((n) => n.id === nodeId ? { ...n, properties } : n)
+        };
+      });
+    },
+    []
+  );
 
-  const updateEdge = useCallback((edgeId: string, properties: Record<string, string | number | boolean>) => {
-    setProcessedData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        links: prev.links.map((l) => l.id === edgeId ? { ...l, properties } : l),
-      };
-    });
-  }, []);
+  const updateEdge = useCallback(
+    (edgeId: string, properties: Record<string, string | number | boolean>) => {
+      setProcessedData((prev) => {
+        if (!prev) { return prev; }
+        return {
+          ...prev,
+          links: prev.links.map((l) => l.id === edgeId ? { ...l, properties } : l)
+        };
+      });
+    },
+    []
+  );
 
   const removeNode = useCallback((nodeId: string) => {
     setProcessedData((prev) => {
-      if (!prev) return prev;
+      if (!prev) { return prev; }
       return {
         nodes: prev.nodes.filter((n) => n.id !== nodeId),
-        links: prev.links.filter((l) => l.source !== nodeId && l.target !== nodeId),
+        links: prev.links.filter((l) => l.source !== nodeId && l.target !== nodeId)
       };
     });
   }, []);
 
   const removeEdge = useCallback((edgeId: string) => {
     setProcessedData((prev) => {
-      if (!prev) return prev;
+      if (!prev) { return prev; }
       return { ...prev, links: prev.links.filter((l) => l.id !== edgeId) };
     });
   }, []);
@@ -172,12 +187,12 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
         setIsLoading(true);
 
         const [metadataRes, schemaRes, dataRes] = await Promise.all([
-          graphService.getOneMetadata(graphId),
+          graphService.getOne(graphId),
           graphService.getSchema(graphId),
-          graphService.getData(graphId),
+          graphService.getData(graphId)
         ]);
 
-        if (cancelled) return;
+        if (cancelled) { return; }
 
         setMetadata(metadataRes);
         setSchema(schemaRes);
@@ -187,29 +202,45 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
         setAvailableProperties(collectAvailableProperties(processed));
         setIsLoaded(true);
       } catch {
-        if (cancelled) return;
+        if (cancelled) { return; }
         setError("Failed to load graph.");
         toast.error("Failed to load graph");
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) { setIsLoading(false); }
       }
     };
 
     fetchGraph();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [graphId, fetchTrigger]);
 
   return (
     <GraphContext.Provider
       value={{
         graphId,
-        metadata, schema, data, processedData,
-        isLoading, isLoaded, error,
-        focusNode, setFocusNode,
-        focusEdge, setFocusEdge,
+        metadata,
+        schema,
+        data,
+        processedData,
+        isLoading,
+        isLoaded,
+        error,
+        focusNode,
+        setFocusNode,
+        focusEdge,
+        setFocusEdge,
         refetch,
-        addNode, addEdge, updateNode, updateEdge, removeNode, removeEdge,
-        availableProperties, displayProperty, setDisplayProperty,
+        addNode,
+        addEdge,
+        updateNode,
+        updateEdge,
+        removeNode,
+        removeEdge,
+        availableProperties,
+        displayProperty,
+        setDisplayProperty
       }}
     >
       {children}
@@ -219,6 +250,6 @@ export const GraphProvider = ({ graphId, children }: { graphId: string | null; c
 
 export const useGraph = () => {
   const context = useContext(GraphContext);
-  if (!context) throw new Error("useGraph must be used within a GraphProvider");
+  if (!context) { throw new Error("useGraph must be used within a GraphProvider"); }
   return context;
 };

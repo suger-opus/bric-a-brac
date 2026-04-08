@@ -18,28 +18,6 @@ foundation — nothing else matters if the core loop is broken.
 - Question answering (retrieval + reasoning?)
 - Chunking (cross-chunk entities merge?)
 
-### 5. Dashboard cleanup
-The dashboard is the first thing a visitor sees.
-- close session (user sessions list)
-- After dead code removal: only "Your Graphs" card remains + "Create Graph" CTA
-- Replace `mx-40` with responsive padding (`max-w-5xl mx-auto px-4` or similar)
-- Clean layout that showcases the graph list
-
-### 6. Small screen gate
-The 3D graph doesn't work on phones/tablets. Instead of a broken experience, show a
-friendly message.
-- Detect viewport width (e.g. `< 1024px`)
-- Show a centered message: "Bric-à-brac is designed for desktop. Please use a larger
-  screen." with the logo
-- Apply to all pages, not just the graph
-
-### 7. Branding & navigation
-No header, no logo, no navigation. Feels like a dev build.
-- Add a minimal top bar: logo/name on the left, user avatar/email on the right (from
-  Gmail auth), breadcrumbs on graph pages
-- Pick a name treatment for "bric-a-brac" — simple text logo is fine
-- Set a favicon + proper `<title>` per page
-
 ### 9. Documentation
 Everything a reviewer or contributor needs to understand the project.
 

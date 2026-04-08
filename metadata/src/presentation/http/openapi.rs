@@ -11,14 +11,14 @@ use utoipa::OpenApi;
     paths(
         super::handlers::user_handler::create,
         super::handlers::user_handler::get_current,
-        super::handlers::graph_handler::get_all_metadata,
-        super::handlers::graph_handler::create_graph,
-        super::handlers::graph_handler::get_metadata,
+        super::handlers::graph_handler::list,
+        super::handlers::graph_handler::create,
+        super::handlers::graph_handler::get,
         super::handlers::graph_handler::get_schema,
         super::handlers::graph_handler::get_data,
         super::handlers::access_handler::create,
         super::handlers::session_handler::create,
-        super::handlers::session_handler::get,
+        super::handlers::session_handler::list,
         super::handlers::session_handler::close,
         super::handlers::session_handler::get_messages,
     )

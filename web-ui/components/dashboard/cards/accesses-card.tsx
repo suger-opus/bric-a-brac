@@ -6,7 +6,6 @@ import { columns } from "@/components/dashboard/tables/graph-cols";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -24,39 +23,20 @@ import {
 } from "@/components/ui/empty";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { graphService } from "@/lib/api/services/graph-service";
-import { scrollToElement } from "@/lib/utils";
 import { GraphMetadata } from "@/types";
-import { ExpandIcon, PlusIcon, ShrinkIcon, VectorSquareIcon } from "lucide-react";
+import { PlusIcon, VectorSquareIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
-type AccessesProps = {
-  is_expanded: boolean;
-  expand: () => void;
-  un_expand: () => void;
-};
-
-const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
+const AccessesCard = () => {
   const [accessedGraphs, setAccessedGraphs] = useState<GraphMetadata[]>([]);
   const [isAccessesLoading, setIsAccessesLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleExpand = () => {
-    if (is_expanded) {
-      un_expand();
-    } else {
-      expand();
-    }
-    setTimeout(() => {
-      scrollToElement("accesses-card");
-    }, 300);
-  };
-
   const getAccesses = async () => {
     try {
       setIsAccessesLoading(true);
-      const results = await graphService.getAllMetadata();
+      const results = await graphService.list();
       setAccessedGraphs(results);
     } catch (error) {
       console.error(error);
@@ -70,25 +50,10 @@ const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
   }, []);
 
   return (
-    <Card id="accesses-card" className="h-full">
+    <Card>
       <CardHeader>
         <CardTitle>Your Graphs ({accessedGraphs.length})</CardTitle>
         <CardDescription>List of the graphs you have access to</CardDescription>
-        <CardAction>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon-sm"
-                onClick={handleExpand}
-              >
-                {is_expanded ? <ShrinkIcon /> : <ExpandIcon />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {is_expanded ? "Collapse this view" : "Expand this view"}
-            </TooltipContent>
-          </Tooltip>
-        </CardAction>
       </CardHeader>
       <CardContent className="grow">
         {isAccessesLoading

@@ -19,5 +19,3 @@ export const scrollToElement = (element_id: string, offset: number = -16) => {
     }
   });
 };
-
-

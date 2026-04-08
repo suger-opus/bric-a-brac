@@ -12,7 +12,7 @@ import type {
   PropertiesDataDto,
   SessionDto,
   SessionMessageDto,
-  UserDto,
+  UserDto
 } from "@/lib/api/dtos";
 
 export { Role } from "@/lib/api/dtos";

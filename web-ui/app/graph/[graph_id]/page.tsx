@@ -18,7 +18,7 @@ const GraphPage = () => {
       if (containerRef.current) {
         setDimensions({
           width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight,
+          height: containerRef.current.offsetHeight
         });
       }
     };
@@ -35,7 +35,7 @@ const GraphPage = () => {
       className="w-screen h-screen"
       style={{
         "--sidebar-width": "30rem",
-        "--sidebar-width-mobile": "16rem",
+        "--sidebar-width-mobile": "16rem"
       } as React.CSSProperties}
     >
       <div className="w-full h-full relative overflow-hidden">

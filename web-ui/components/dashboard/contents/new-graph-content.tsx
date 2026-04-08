@@ -59,7 +59,7 @@ const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) 
       setValidationDescriptionError(null);
       const validation = v.safeParse(CreateGraphDto, { name, description, is_public: false });
       if (validation.success) {
-        const newGraph = await graphService.createGraph(validation.output);
+        const newGraph = await graphService.create(validation.output);
         onClose();
         router.push(`/graph/${newGraph.graph_id}`);
       } else {

@@ -6,7 +6,7 @@ export const SessionDto = v.object({
   status: v.string(),
   role: v.string(),
   created_at: v.pipe(v.string(), v.isoTimestamp()),
-  updated_at: v.pipe(v.string(), v.isoTimestamp()),
+  updated_at: v.pipe(v.string(), v.isoTimestamp())
 });
 
 export const SessionMessageDto = v.object({
@@ -17,5 +17,5 @@ export const SessionMessageDto = v.object({
   document_id: v.optional(v.nullable(v.string())),
   document_name: v.optional(v.nullable(v.string())),
   chunk_index: v.optional(v.nullable(v.number())),
-  created_at: v.pipe(v.string(), v.isoTimestamp()),
+  created_at: v.pipe(v.string(), v.isoTimestamp())
 });

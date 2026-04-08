@@ -8,5 +8,5 @@ export const NodeSchemaDto = v.object({
   color: v.string(),
   description: v.string(),
   created_at: v.pipe(v.string(), v.isoTimestamp()),
-  updated_at: v.pipe(v.string(), v.isoTimestamp()),
+  updated_at: v.pipe(v.string(), v.isoTimestamp())
 });

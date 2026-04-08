@@ -1,3 +1,4 @@
+import SmallScreenGate from "@/components/small-screen-gate";
 import { Toaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -14,8 +15,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Knowledge Graph",
-  description: "Interactive 3D knowledge graph visualization"
+  title: {
+    default: "Bric-à-brac",
+    template: "%s | Bric-à-brac"
+  },
+  description: "Interactive 3D knowledge graph visualization",
+  icons: {
+    icon: "/favicon.svg"
+  }
 };
 
 const RootLayout = ({ children }: Readonly<{ children: React.ReactNode; }>) => {
@@ -25,9 +32,11 @@ const RootLayout = ({ children }: Readonly<{ children: React.ReactNode; }>) => {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <main>
-          {children}
-        </main>
+        <SmallScreenGate>
+          <main>
+            {children}
+          </main>
+        </SmallScreenGate>
         <Toaster position="bottom-right" />
       </body>
     </html>

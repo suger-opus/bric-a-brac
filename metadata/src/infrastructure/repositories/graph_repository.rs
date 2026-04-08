@@ -19,11 +19,11 @@ impl GraphRepository {
 
     #[tracing::instrument(
         level = "debug",
-        name = "graph_repository.get_all_metadata",
+        name = "graph_repository.list",
         skip(self, connection, user_id),
         err
     )]
-    pub async fn get_all_metadata(
+    pub async fn list(
         &self,
         connection: &mut PgConnection,
         user_id: UserIdModel,
@@ -57,11 +57,11 @@ JOIN users u ON owner_access.user_id = u.user_id
 
     #[tracing::instrument(
         level = "debug",
-        name = "graph_repository.get_metadata",
+        name = "graph_repository.get",
         skip(self, connection, graph_id, user_id),
         err
     )]
-    pub async fn get_metadata(
+    pub async fn get(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
@@ -157,11 +157,11 @@ WHERE graph_id = $1
 
     #[tracing::instrument(
         level = "debug",
-        name = "graph_repository.create_graph",
+        name = "graph_repository.create",
         skip(self, connection, create_graph),
         err
     )]
-    pub async fn create_graph(
+    pub async fn create(
         &self,
         connection: &mut PgConnection,
         create_graph: CreateGraphModel,
@@ -188,11 +188,11 @@ RETURNING
 
     #[tracing::instrument(
         level = "debug",
-        name = "graph_repository.delete_graph",
+        name = "graph_repository.delete",
         skip(self, connection, graph_id),
         err
     )]
-    pub async fn delete_graph(
+    pub async fn delete(
         &self,
         connection: &mut PgConnection,
         graph_id: GraphIdModel,
