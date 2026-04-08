@@ -1,6 +1,6 @@
 services:
   knowledge-server:
-    profiles: ["knowledge"]
+    profiles: ["knowledge", "knowledge-server"]
     build:
       context: ..
       dockerfile: knowledge/Dockerfile

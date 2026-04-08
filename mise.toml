@@ -71,14 +71,14 @@
 # NEXT_PUBLIC_USER_ID="019d1f20-d9a3-7ff3-836f-9c6b24e5baaf"
 
 [tasks.up]
-description = "Start services. Usage: mise run up -- <profiles...> (knowledge, metadata, ai, web-ui, knowledge-db, metadata-db, all)"
+description = "Start services. Usage: mise run up -- <profiles...> (web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all)"
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
 
 if [ $# -eq 0 ]; then
   echo "Usage: mise run up -- <profiles...>"
-  echo "Available profiles: knowledge, metadata, ai, knowledge-db, metadata-db, all"
+  echo "Available profiles: web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all"
   exit 1
 fi
 
@@ -96,14 +96,14 @@ docker compose $PROFILE_FLAGS up --build -d
 """
 
 [tasks.down]
-description = "Stop services. Usage: mise run down -- <profiles...> (knowledge, metadata, ai, web-ui, knowledge-db, metadata-db, all)"
+description = "Stop services. Usage: mise run down -- <profiles...> (web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all)"
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
 
 if [ $# -eq 0 ]; then
   echo "Usage: mise run down -- <profiles...>"
-  echo "Available profiles: knowledge, metadata, ai, knowledge-db, metadata-db, all"
+  echo "Available profiles: web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all"
   exit 1
 fi
 
@@ -125,14 +125,14 @@ description = "Show running containers"
 run = "docker compose ps"
 
 [tasks.config]
-description = "Show resolved compose config. Usage: mise run config -- <profiles...>"
+description = "Show resolved compose config. Usage: mise run config -- <profiles...> (web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all)"
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
 
 if [ $# -eq 0 ]; then
   echo "Usage: mise run config -- <profiles...>"
-  echo "Available profiles: knowledge, metadata, ai, web-ui, knowledge-db, metadata-db, all"
+  echo "Available profiles: web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all"
   exit 1
 fi
 

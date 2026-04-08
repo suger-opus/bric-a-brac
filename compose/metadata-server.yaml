@@ -1,6 +1,6 @@
 services:
   metadata-server:
-    profiles: ["metadata"]
+    profiles: ["metadata", "metadata-server"]
     build:
       context: ..
       dockerfile: metadata/Dockerfile

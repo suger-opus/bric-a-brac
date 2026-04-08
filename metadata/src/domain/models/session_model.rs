@@ -8,7 +8,7 @@ id!(SessionMessageIdModel);
 id!(SessionDocumentIdModel);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, sqlx::Type, derive_more::Display)]
-#[sqlx(type_name = "session_status_type")]
+#[sqlx(type_name = "session_status_type", rename_all = "lowercase")]
 pub enum SessionStatusModel {
     #[display("active")]
     Active,
@@ -19,7 +19,7 @@ pub enum SessionStatusModel {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, sqlx::Type, derive_more::Display)]
-#[sqlx(type_name = "session_message_role_type")]
+#[sqlx(type_name = "session_message_role_type", rename_all = "lowercase")]
 pub enum SessionMessageRoleModel {
     #[display("system")]
     System,
