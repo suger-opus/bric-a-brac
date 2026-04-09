@@ -1,3 +1,9 @@
+// Knowledge graph data plane service.
+//
+// Manages all graph data in Memgraph: nodes with vector embeddings, edges,
+// and vector indexes. Provides CRUD operations, vector similarity search,
+// graph traversal, and path finding.
+
 syntax = "proto3";
 
 package knowledge;
@@ -5,18 +11,45 @@ package knowledge;
 import "common.proto";
 
 service Knowledge {
+    // Load all nodes and edges for a graph.
     rpc LoadGraph(LoadGraphRequest) returns (common.GraphDataProto);
+
+    // Create vector indexes for the given node schema keys.
+    // Called when new node schemas are created in metadata.
     rpc InitializeSchema(InitializeSchemaRequest) returns (common.Empty);
+
+    // Insert a node with properties and embedding vector.
     rpc CreateNode(CreateNodeRequest) returns (common.NodeDataProto);
+
+    // Merge new properties into an existing node and recompute its embedding.
     rpc UpdateNode(UpdateNodeRequest) returns (common.NodeDataProto);
+
+    // Delete a node and all its connected edges (DETACH DELETE).
     rpc DeleteNode(DeleteNodeRequest) returns (common.Empty);
+
+    // Insert or upsert an edge (MERGE semantics: one edge per key between two nodes).
     rpc CreateEdge(CreateEdgeRequest) returns (common.EdgeDataProto);
+
+    // Merge new properties into an existing edge.
     rpc UpdateEdge(UpdateEdgeRequest) returns (common.EdgeDataProto);
+
+    // Delete a single edge by ID.
     rpc DeleteEdge(DeleteEdgeRequest) returns (common.Empty);
+
+    // Vector nearest-neighbor search using cosine similarity.
+    // Optionally scoped to a specific node schema key.
     rpc SearchNodes(SearchNodesRequest) returns (SearchNodesResponse);
+
+    // Fetch a single node with all its properties.
     rpc GetNode(GetNodeRequest) returns (common.NodeDataProto);
+
+    // Traverse the graph from a node, returning a subgraph up to a given depth.
     rpc GetNeighbors(GetNeighborsRequest) returns (common.GraphDataProto);
+
+    // Find shortest paths between two nodes.
     rpc FindPaths(FindPathsRequest) returns (FindPathsResponse);
+
+    // Delete all graph data (nodes, edges) and drop vector indexes.
     rpc DeleteGraph(DeleteGraphRequest) returns (common.Empty);
 }
 
@@ -26,8 +59,9 @@ message LoadGraphRequest {
 
 message InitializeSchemaRequest {
     string graph_id = 1;
-    repeated string node_keys = 2;
+    repeated string node_keys = 2; // 8-char schema keys to create vector indexes for
 }
+
 message CreateNodeRequest {
     string graph_id = 1;
     common.CreateNodeDataProto node = 2;
@@ -59,9 +93,9 @@ message DeleteEdgeRequest {
 
 message SearchNodesRequest {
     string graph_id = 1;
-    optional string node_key = 2;
-    repeated float query_embedding = 3;
-    int32 limit = 4;
+    optional string node_key = 2;          // Filter to a specific schema (omit to search all)
+    repeated float query_embedding = 3; // 1536-dim query vector
+    int32 limit = 4; // Max results to return
 }
 
 message SearchNodesResponse {
@@ -76,15 +110,15 @@ message GetNodeRequest {
 message GetNeighborsRequest {
     string graph_id = 1;
     string node_data_id = 2;
-    optional string edge_key = 3;
-    int32 depth = 4;
+    optional string edge_key = 3;   // Filter to a specific edge type (omit for all)
+    int32 depth = 4; // Traversal depth (1-10)
 }
 
 message FindPathsRequest {
     string graph_id = 1;
-    string from_node_data_id = 2;
-    string to_node_data_id = 3;
-    int32 max_depth = 4;
+    string from_node_data_id = 2; // Source node
+    string to_node_data_id = 3; // Target node
+    int32 max_depth = 4; // Max path length (1-10)
 }
 message FindPathsResponse {
     repeated common.GraphDataProto paths = 1;
@@ -92,5 +126,5 @@ message FindPathsResponse {
 
 message DeleteGraphRequest {
     string graph_id = 1;
-    repeated string node_keys = 2;
+    repeated string node_keys = 2; // Schema keys whose vector indexes should be dropped
 }

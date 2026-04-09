@@ -1,3 +1,8 @@
+// Shared types used across all services.
+//
+// Contains: role enum, graph schemas, graph data (nodes/edges/properties),
+// session types, and message types.
+
 syntax = "proto3";
 
 package common;
@@ -6,6 +11,8 @@ import "google/protobuf/timestamp.proto";
 
 message Empty {}
 
+// User role for graph access control.
+// Hierarchy: Owner > Admin > Editor > Viewer > None.
 enum RoleProto {
     ROLE_NONE = 0;
     ROLE_OWNER = 1;
@@ -14,22 +21,25 @@ enum RoleProto {
     ROLE_VIEWER = 4;
 }
 
+// All node and edge schemas for a graph.
 message GraphSchemaProto {
     repeated NodeSchemaProto nodes = 1;
     repeated EdgeSchemaProto edges = 2;
 }
 
+// A node type definition (e.g. "Person", "Company").
 message NodeSchemaProto {
     string node_schema_id = 1;
     string graph_id = 2;
-    string label = 3;
-    string key = 4;
-    string color = 5;
+    string label = 3; // Human-readable name
+    string key = 4; // Immutable 8-char alphanumeric key (Memgraph label)
+    string color = 5; // Hex color for UI rendering
     google.protobuf.Timestamp created_at = 6;
     google.protobuf.Timestamp updated_at = 7;
-    string description = 8;
+    string description = 8; // Guides the AI on what this type represents
 }
 
+// An edge type definition (e.g. "WorksAt", "RelatedTo").
 message EdgeSchemaProto {
     string edge_schema_id = 1;
     string graph_id = 2;
@@ -41,32 +51,37 @@ message EdgeSchemaProto {
     string description = 8;
 }
 
+// Complete graph data (all nodes + edges).
 message GraphDataProto {
   repeated NodeDataProto nodes = 1;
   repeated EdgeDataProto edges = 2;
 }
 
+// A node with its properties (embedding excluded from responses).
 message NodeDataProto {
-    string node_data_id = 2;
-    string key = 3;
-    map<string, PropertyValueProto> properties = 4;
+    string node_data_id = 2; // UUIDv7
+    string key = 3; // Schema key (Memgraph label)
+    map<string, PropertyValueProto> properties = 4; // Free-form key-value properties
 }
 
+// A node returned from vector search, with cosine distance.
 message NodeSearchProto {
     string node_data_id = 1;
     string key = 2;
     map<string, PropertyValueProto> properties = 3;
-    float distance = 4;
+    float distance = 4; // Cosine distance (lower = more similar)
 }
 
+// An edge between two nodes.
 message EdgeDataProto {
   string edge_data_id = 1;
-  string key = 2;
+  string key = 2; // Schema key (Memgraph relationship type)
   string from_node_data_id = 3;
   string to_node_data_id = 4;
   map<string, PropertyValueProto> properties = 5;
 }
 
+// A typed property value (string, number, or boolean).
 message PropertyValueProto {
     oneof value {
         string string_value = 1;
@@ -75,31 +90,36 @@ message PropertyValueProto {
     }
 }
 
+// Create a node with properties and its embedding vector.
 message CreateNodeDataProto {
-    string node_data_id = 1;
-    string key = 2;
+    string node_data_id = 1; // Pre-generated UUIDv7
+    string key = 2; // Node schema key
     map<string, PropertyValueProto> properties = 3;
-    repeated float embedding = 4;
+    repeated float embedding = 4; // 1536-dim embedding from text-embedding-3-small
 }
 
+// Create an edge. Uses MERGE semantics: one edge per (from, to, key) triple.
 message CreateEdgeDataProto {
     string from_node_data_id = 1;
     string to_node_data_id = 2;
-    string key = 3;
+    string key = 3; // Edge schema key
     map<string, PropertyValueProto> properties = 4;
 }
 
+// Update a node: merge properties (add new, override existing) + recompute embedding.
 message UpdateNodeDataProto {
     string node_data_id = 1;
-    map<string, PropertyValueProto> properties = 2;
-    repeated float embedding = 3;
+    map<string, PropertyValueProto> properties = 2; // Properties to merge
+    repeated float embedding = 3; // Recomputed embedding
 }
 
+// Update an edge: merge properties (add new, override existing).
 message UpdateEdgeDataProto {
     string edge_data_id = 1;
     map<string, PropertyValueProto> properties = 2;
 }
 
+// A persistent conversation between a user and the AI agent on a graph.
 message SessionProto {
     string session_id = 1;
     string graph_id = 2;
@@ -107,23 +127,25 @@ message SessionProto {
     SessionStatusProto status = 4;
     google.protobuf.Timestamp created_at = 5;
     google.protobuf.Timestamp updated_at = 6;
-    RoleProto role = 7;
+    RoleProto role = 7; // User's role on this graph (derived from accesses table)
 }
 
+// A single message in a session's conversation history.
 message SessionMessageProto {
     string message_id = 1;
     string session_id = 2;
-    int32 position = 3;
+    int32 position = 3; // Ordered position within the session
     SessionMessageRoleProto role = 4;
     string content = 5;
-    optional string tool_calls = 6;
-    optional string tool_call_id = 7;
+    optional string tool_calls = 6;           // JSON-encoded tool calls (assistant messages)
+    optional string tool_call_id = 7;         // Tool call ID (tool result messages)
     google.protobuf.Timestamp created_at = 8;
-    optional string document_id = 9;
-    optional string document_name = 10;
-    optional int32 chunk_index = 11;
+    optional string document_id = 9;          // FK to session_documents (if file attached)
+    optional string document_name = 10;       // Original filename (derived via JOIN)
+    optional int32 chunk_index = 11;          // Chunk number for chunked documents
 }
 
+// A message to be persisted (position auto-incremented).
 message CreateSessionMessageProto {
     SessionMessageRoleProto role = 1;
     string content = 2;
@@ -134,24 +156,25 @@ message CreateSessionMessageProto {
     optional int32 chunk_index = 7;
 }
 
+// An uploaded document stored alongside a session.
 message SessionDocumentProto {
     string document_id = 1;
     string session_id = 2;
-    string filename = 3;
-    string content_hash = 4;
-    string content = 5;
+    string filename = 3; // Original filename (e.g. "report.pdf")
+    string content_hash = 4; // SHA-256 of raw file bytes (deduplication)
+    string content = 5; // Extracted text content
     google.protobuf.Timestamp created_at = 6;
 }
 
 enum SessionStatusProto {
-    SESSION_STATUS_ACTIVE = 0;
-    SESSION_STATUS_COMPLETED = 1;
-    SESSION_STATUS_ERROR = 2;
+    SESSION_STATUS_ACTIVE = 0; // Currently in use
+    SESSION_STATUS_COMPLETED = 1; // Closed normally
+    SESSION_STATUS_ERROR = 2; // Closed due to error
 }
 
 enum SessionMessageRoleProto {
-    SESSION_MESSAGE_ROLE_SYSTEM = 0;
-    SESSION_MESSAGE_ROLE_USER = 1;
-    SESSION_MESSAGE_ROLE_ASSISTANT = 2;
-    SESSION_MESSAGE_ROLE_TOOL = 3;
+    SESSION_MESSAGE_ROLE_SYSTEM = 0; // System prompt
+    SESSION_MESSAGE_ROLE_USER = 1; // User message or document chunk
+    SESSION_MESSAGE_ROLE_ASSISTANT = 2; // LLM response (text or tool calls)
+    SESSION_MESSAGE_ROLE_TOOL = 3; // Tool execution result
 }

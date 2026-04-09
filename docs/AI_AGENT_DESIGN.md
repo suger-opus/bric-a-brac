@@ -1,5 +1,13 @@
 # AI Agent Design
 
+> **TL;DR** — Bric-a-brac is a conversational AI that builds knowledge graphs from
+> documents and questions. The user chats, the AI extracts entities into a graph (Memgraph
+> with vector embeddings), resolves duplicates via similarity search + neighbor context,
+> and answers questions by traversing the graph. Three Rust microservices (metadata, knowledge,
+> AI agent) communicate over gRPC. The agent has 15 tools, a 5-phase extraction workflow,
+> and streams every action to a 3D graph UI in real time. Security: no LLM-generated queries,
+> role-based tool filtering with defense-in-depth, graph-level isolation.
+
 ## Product Vision
 
 The product is a conversational AI memory system. Users give data to the AI — documents,

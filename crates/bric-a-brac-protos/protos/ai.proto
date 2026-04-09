@@ -1,3 +1,9 @@
+// AI agent streaming service.
+//
+// Provides the agent loop interface: the metadata service sends a user message
+// and receives a stream of events as the agent processes it (LLM tokens, tool
+// calls, tool results, completion, or errors).
+
 syntax = "proto3";
 
 package ai;
@@ -5,49 +11,53 @@ package ai;
 import "common.proto";
 
 service Ai {
+    // Process a user message within an existing session.
+    // Returns a server-side stream of agent events (tokens, tool calls, etc.).
+    // The stream always terminates with either a Done or Error event.
     rpc SendMessage(SendMessageRequest) returns (stream AgentEventProto);
 }
 
 message SendMessageRequest {
-    string session_id = 1;
-    string content = 2;
-    optional string document_id = 3;
+    string session_id = 1; // Active session ID (must exist in metadata)
+    string content = 2; // User's text message
+    optional string document_id = 3;    // Optional: uploaded document to process
 }
 
+// A single event in the agent's response stream.
 message AgentEventProto {
     oneof event {
-        AgentTextProto text = 1;
-        AgentToolCallProto tool_call = 2;
-        AgentToolResultProto tool_result = 3;
-        AgentDoneProto done = 4;
-        AgentErrorProto error = 5;
-        AgentProgressProto progress = 6;
+        AgentTextProto text = 1; // Streamed LLM tokens
+        AgentToolCallProto tool_call = 2; // Agent is calling a tool
+        AgentToolResultProto tool_result = 3; // Tool execution result
+        AgentDoneProto done = 4; // Agent finished successfully
+        AgentErrorProto error = 5; // Agent encountered an error
+        AgentProgressProto progress = 6; // Progress update (e.g. chunk N/M)
     }
 }
 
 message AgentTextProto {
-    string content = 1;
+    string content = 1; // Incremental text token from the LLM
 }
 
 message AgentToolCallProto {
-    string tool_call_id = 1;
-    string name = 2;
-    string arguments = 3;
+    string tool_call_id = 1; // Unique ID for this tool invocation
+    string name = 2; // Tool name (e.g. "create_node", "search_nodes")
+    string arguments = 3; // JSON-encoded tool arguments
 }
 
 message AgentToolResultProto {
-    string tool_call_id = 1;
-    string content = 2;
+    string tool_call_id = 1; // Matches the tool_call_id from AgentToolCallProto
+    string content = 2; // JSON-encoded tool result
 }
 
 message AgentDoneProto {
-    string summary = 1;
+    string summary = 1; // Brief summary of what the agent accomplished
 }
 
 message AgentErrorProto {
-    string message = 1;
+    string message = 1; // Error description
 }
 
 message AgentProgressProto {
-    string content = 1;
+    string content = 1; // Progress message (e.g. "Processing chunk 3/8")
 }
