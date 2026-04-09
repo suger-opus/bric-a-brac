@@ -1,23 +1,25 @@
-use lazy_static::lazy_static;
 use rand::RngExt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 use utoipa::{PartialSchema, ToSchema};
 use validator::Validate;
 
 const LETTERS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const BASE62: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-lazy_static! {
-    static ref COLOR_REGEX: Regex = Regex::new(r"^#[0-9A-Fa-f]{6}$").unwrap();
-    static ref KEY_REGEX: Regex = Regex::new(r"^[a-zA-Z][a-zA-Z0-9]{7}$").unwrap();
-}
+#[allow(clippy::expect_used)]
+static COLOR_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^#[0-9A-Fa-f]{6}$").expect("Invalid color regex"));
+#[allow(clippy::expect_used)]
+static KEY_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9]{7}$").expect("Invalid key regex"));
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display)]
 #[display("{value}")]
 #[serde(transparent)]
 pub struct LabelDto {
-    #[validate(length(min = 1, max = 25))]
+    #[validate(length(min = 3, max = 25))]
     value: String,
 }
 
@@ -46,6 +48,14 @@ impl ToSchema for LabelDto {
     }
 }
 
+impl From<&str> for LabelDto {
+    fn from(s: &str) -> Self {
+        Self {
+            value: s.to_owned(),
+        }
+    }
+}
+
 impl From<String> for LabelDto {
     fn from(s: String) -> Self {
         Self { value: s }
@@ -61,12 +71,77 @@ impl From<LabelDto> for String {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display)]
 #[display("{value}")]
 #[serde(transparent)]
+pub struct DescriptionDto {
+    #[validate(length(max = 1_000))]
+    value: String,
+}
+
+impl DescriptionDto {
+    pub fn as_str(&self) -> &str {
+        &self.value
+    }
+}
+
+impl PartialSchema for DescriptionDto {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        utoipa::openapi::schema::ObjectBuilder::new()
+            .schema_type(utoipa::openapi::schema::SchemaType::new(
+                utoipa::openapi::schema::Type::String,
+            ))
+            .max_length(Some(1_000))
+            .build()
+            .into()
+    }
+}
+
+impl ToSchema for DescriptionDto {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("DescriptionDto")
+    }
+}
+
+impl From<&str> for DescriptionDto {
+    fn from(s: &str) -> Self {
+        Self {
+            value: s.to_owned(),
+        }
+    }
+}
+
+impl From<String> for DescriptionDto {
+    fn from(s: String) -> Self {
+        Self { value: s }
+    }
+}
+
+impl From<DescriptionDto> for String {
+    fn from(s: DescriptionDto) -> Self {
+        s.value
+    }
+}
+
+#[derive(
+    Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, Validate, derive_more::Display,
+)]
+#[display("{value}")]
+#[serde(transparent)]
 pub struct ColorDto {
     #[validate(regex(path = "*COLOR_REGEX"))]
     value: String,
 }
 
 impl ColorDto {
+    pub fn new() -> Self {
+        let mut rng = rand::rng();
+        let color = format!(
+            "#{:02X}{:02X}{:02X}",
+            rng.random_range(0..=255),
+            rng.random_range(0..=255),
+            rng.random_range(0..=255)
+        );
+        Self { value: color }
+    }
+
     pub fn as_str(&self) -> &str {
         &self.value
     }
@@ -104,6 +179,7 @@ impl From<ColorDto> for String {
 
 #[derive(
     Debug,
+    Default,
     Clone,
     Serialize,
     Deserialize,
@@ -125,12 +201,12 @@ pub struct KeyDto {
 impl KeyDto {
     pub fn new() -> Self {
         let mut rng = rand::rng();
-        let first = LETTERS[rng.random_range(0..52)] as char;
+        let first = *LETTERS.get(rng.random_range(0..52)).unwrap_or(&b'a') as char;
         let rest: String = (0..7)
-            .map(|_| BASE62[rng.random_range(0..62)] as char)
+            .map(|_| *BASE62.get(rng.random_range(0..62)).unwrap_or(&b'0') as char)
             .collect();
         Self {
-            value: format!("{}{}", first, rest),
+            value: format!("{first}{rest}"),
         }
     }
 
@@ -187,7 +263,10 @@ mod tests {
         use std::collections::HashSet;
         let mut set = HashSet::new();
         for _ in 0..1000 {
-            assert!(set.insert(KeyDto::new().to_string()), "Duplicate key generated");
+            assert!(
+                set.insert(KeyDto::new().to_string()),
+                "Duplicate key generated"
+            );
         }
     }
 }

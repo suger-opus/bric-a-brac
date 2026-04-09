@@ -1,201 +1,97 @@
 "use client";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { graphService } from "@/lib/api/services/graph-service";
 import { GraphMetadata, Role } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpRightIcon, BanIcon, BookmarkCheckIcon, HandHeartIcon } from "lucide-react";
-import Link from "next/link";
+import { Trash2Icon } from "lucide-react";
+import { toast } from "sonner";
 
-export const columns: ColumnDef<GraphMetadata>[] = [
+export const columns = (onRefresh: () => void): ColumnDef<GraphMetadata>[] => [
   {
     accessorKey: "name",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            Name
-          </TooltipTrigger>
-          <TooltipContent>
-            Name of the graph
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
-    cell: ({ row }) => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            <div className="text-ellipsis overflow-hidden whitespace-nowrap max-w-40">
-              {row.original.name}
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            {row.original.name}
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
+    header: "Name",
+    cell: ({ row }) => (
+      <span className="truncate max-w-48 block font-medium">
+        {row.original.name}
+      </span>
+    )
   },
   {
     accessorKey: "is_public",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            Status
-          </TooltipTrigger>
-          <TooltipContent>
-            Whether the graph is public or private
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
-    cell: ({ row }) => {
-      return row.original.is_public
-        ? <Badge variant="default">public</Badge>
-        : <Badge variant="outline">private</Badge>;
-    }
+    header: "Visibility",
+    cell: ({ row }) =>
+      row.original.is_public
+        ? <Badge variant="default">Public</Badge>
+        : <Badge variant="outline">Private</Badge>
   },
   {
     accessorKey: "user_access",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            Role
-          </TooltipTrigger>
-          <TooltipContent>
-            Your role on the graph (admin, writer, reader)
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
-    cell: ({ row }) => {
-      if (row.original.user_role === Role.ADMIN || row.original.user_role === Role.OWNER) {
-        return (
-          <Badge variant="secondary" className="bg-gray-300 text-black">
-            {row.original.user_role}
-          </Badge>
-        );
-      }
-      if (row.original.user_role === Role.EDITOR) {
-        return (
-          <Badge variant="secondary" className="bg-gray-200 text-black">
-            {row.original.user_role}
-          </Badge>
-        );
-      }
-      if (row.original.user_role === Role.VIEWER) {
-        return (
-          <Badge variant="secondary" className="bg-gray-100 text-black">
-            {row.original.user_role}
-          </Badge>
-        );
-      }
-    }
-  },
-  {
-    accessorKey: "nb_data_nodes",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            Nodes
-          </TooltipTrigger>
-          <TooltipContent>
-            Number of nodes in the graph
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-  },
-  {
-    accessorKey: "nb_data_edges",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            Edges
-          </TooltipTrigger>
-          <TooltipContent>
-            Number of edges in the graph
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-  },
-  {
-    accessorKey: "nb_bookmarks",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            <BookmarkCheckIcon size={16} />
-          </TooltipTrigger>
-          <TooltipContent>
-            Number of bookmarks of the graph
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
-    cell: ({ row }) => {
-      return row.original.is_public ? row.original.nb_bookmarks : (
-        <Tooltip>
-          <TooltipTrigger>
-            <BanIcon size={12} />
-          </TooltipTrigger>
-          <TooltipContent>
-            A private graph can&apos;t have bookmarks
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-  },
-  {
-    accessorKey: "nb_cheers",
-    header: () => {
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            <HandHeartIcon size={16} />
-          </TooltipTrigger>
-          <TooltipContent>
-            Number of cheers of the graph
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
-    cell: ({ row }) => {
-      return row.original.is_public ? row.original.nb_cheers : (
-        <Tooltip>
-          <TooltipTrigger>
-            <BanIcon size={12} />
-          </TooltipTrigger>
-          <TooltipContent>
-            A private graph can&apos;t have cheers
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
+    header: "Role",
+    cell: ({ row }) => <Badge variant="secondary">{row.original.user_role}</Badge>
   },
   {
     id: "actions",
     cell: ({ row }) => {
+      if (row.original.user_role !== Role.OWNER) { return null; }
       return (
-        <Link
-          href={`/graph/${row.original.graph_id}`}
-          className="flex items-center justify-center"
-        >
-          <Tooltip>
-            <TooltipTrigger className="cursor-pointer">
-              <ArrowUpRightIcon size={14} />
-            </TooltipTrigger>
-            <TooltipContent>
-              Manage graph {row.original.graph_id}
-            </TooltipContent>
-          </Tooltip>
-        </Link>
+        <div className="flex justify-end w-full" onClick={(e) => e.stopPropagation()}>
+          <AlertDialog>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2Icon className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Delete graph</TooltipContent>
+            </Tooltip>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete &ldquo;{row.original.name}&rdquo;?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the graph and all its data. This action cannot be
+                  undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={async () => {
+                    try {
+                      await graphService.delete(row.original.graph_id);
+                      toast.success("Graph deleted");
+                      onRefresh();
+                    } catch {
+                      toast.error("Could not delete graph");
+                    }
+                  }}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       );
     }
   }

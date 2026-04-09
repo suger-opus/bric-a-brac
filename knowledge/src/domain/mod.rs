@@ -1,2 +1,3 @@
-pub mod models;
-pub mod utils;
+mod models;
+
+pub use models::*;

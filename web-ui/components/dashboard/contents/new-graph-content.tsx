@@ -19,10 +19,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { CreateGraphDto } from "@/lib/api/dtos";
-import { ApiProvider } from "@/lib/api/provider";
+import { graphService } from "@/lib/api/services/graph-service";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useState } from "react";
+import { toast } from "sonner";
 import * as v from "valibot";
 
 type NewGraphDialogContentProps = {
@@ -31,7 +32,6 @@ type NewGraphDialogContentProps = {
 };
 
 const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) => {
-  const { graphService } = ApiProvider;
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -60,7 +60,7 @@ const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) 
       setValidationDescriptionError(null);
       const validation = v.safeParse(CreateGraphDto, { name, description, is_public: false });
       if (validation.success) {
-        const newGraph = await graphService.createGraph(validation.output);
+        const newGraph = await graphService.create(validation.output);
         onClose();
         router.push(`/graph/${newGraph.graph_id}`);
       } else {
@@ -74,8 +74,8 @@ const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) 
             || null
         );
       }
-    } catch (error) {
-      console.error("Error during createGraph:", error);
+    } catch {
+      toast.error("Could not create graph");
     } finally {
       setIsCreateLoading(false);
     }
@@ -86,7 +86,7 @@ const NewGraphDialogContent = ({ isOpen, onClose }: NewGraphDialogContentProps) 
       <DialogHeader>
         <DialogTitle>Create a New Graph</DialogTitle>
         <DialogDescription>
-          This is the creation of a new graph.
+          Give your graph a name and an optional description to get started.
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-2">

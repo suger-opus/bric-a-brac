@@ -1,2 +1,6 @@
-pub mod dtos;
-pub mod services;
+mod dtos;
+mod error;
+mod services;
+
+pub use error::AppError;
+pub use services::{MutateService, QueryService};

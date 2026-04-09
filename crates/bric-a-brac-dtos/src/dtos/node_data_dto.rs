@@ -1,10 +1,13 @@
 use super::{KeyDto, PropertiesDataDto};
 use crate::DtosConversionError;
 use bric_a_brac_id::id;
-use bric_a_brac_protos::common::{CreateNodeDataProto, NodeDataProto};
+use bric_a_brac_protos::common::{
+    CreateNodeDataProto, NodeDataProto, NodeSearchProto, UpdateNodeDataProto,
+};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use utoipa::ToSchema;
+use validator::Validate;
 
 id!(NodeDataIdDto);
 
@@ -12,7 +15,7 @@ impl TryFrom<String> for NodeDataIdDto {
     type Error = DtosConversionError;
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        Ok(NodeDataIdDto::from_str(&s)?)
+        Ok(Self::from_str(&s)?)
     }
 }
 
@@ -45,11 +48,46 @@ impl From<NodeDataDto> for NodeDataProto {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, validator::Validate)]
-pub struct CreateNodeDataDto {
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct NodeSearchDto {
     pub node_data_id: NodeDataIdDto,
     pub key: KeyDto,
     pub properties: PropertiesDataDto,
+    pub distance: f32,
+}
+
+impl TryFrom<NodeSearchProto> for NodeSearchDto {
+    type Error = DtosConversionError;
+
+    fn try_from(proto: NodeSearchProto) -> Result<Self, Self::Error> {
+        Ok(Self {
+            node_data_id: proto.node_data_id.try_into()?,
+            key: proto.key.into(),
+            properties: proto.properties.try_into()?,
+            distance: proto.distance,
+        })
+    }
+}
+
+impl From<NodeSearchDto> for NodeSearchProto {
+    fn from(dto: NodeSearchDto) -> Self {
+        Self {
+            node_data_id: dto.node_data_id.to_string(),
+            key: dto.key.into(),
+            properties: dto.properties.into(),
+            distance: dto.distance,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+pub struct CreateNodeDataDto {
+    pub node_data_id: NodeDataIdDto,
+    #[validate(nested)]
+    pub key: KeyDto,
+    #[validate(nested)]
+    pub properties: PropertiesDataDto,
+    pub embedding: Vec<f32>,
 }
 
 impl TryFrom<CreateNodeDataProto> for CreateNodeDataDto {
@@ -60,20 +98,8 @@ impl TryFrom<CreateNodeDataProto> for CreateNodeDataDto {
             node_data_id: proto.node_data_id.try_into()?,
             key: proto.key.into(),
             properties: proto.properties.try_into()?,
+            embedding: proto.embedding,
         })
-    }
-}
-
-impl TryFrom<Option<CreateNodeDataProto>> for CreateNodeDataDto {
-    type Error = DtosConversionError;
-
-    fn try_from(proto: Option<CreateNodeDataProto>) -> Result<Self, Self::Error> {
-        match proto {
-            Some(p) => Self::try_from(p),
-            None => Err(DtosConversionError::NoField {
-                field_name: "CreateNodeDataProto".to_string(),
-            }),
-        }
     }
 }
 
@@ -83,6 +109,37 @@ impl From<CreateNodeDataDto> for CreateNodeDataProto {
             node_data_id: dto.node_data_id.to_string(),
             key: dto.key.into(),
             properties: dto.properties.into(),
+            embedding: dto.embedding,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+pub struct UpdateNodeDataDto {
+    pub node_data_id: NodeDataIdDto,
+    #[validate(nested)]
+    pub properties: PropertiesDataDto,
+    pub embedding: Vec<f32>,
+}
+
+impl TryFrom<UpdateNodeDataProto> for UpdateNodeDataDto {
+    type Error = DtosConversionError;
+
+    fn try_from(proto: UpdateNodeDataProto) -> Result<Self, Self::Error> {
+        Ok(Self {
+            node_data_id: proto.node_data_id.try_into()?,
+            properties: proto.properties.try_into()?,
+            embedding: proto.embedding,
+        })
+    }
+}
+
+impl From<UpdateNodeDataDto> for UpdateNodeDataProto {
+    fn from(dto: UpdateNodeDataDto) -> Self {
+        Self {
+            node_data_id: dto.node_data_id.to_string(),
+            properties: dto.properties.into(),
+            embedding: dto.embedding,
         }
     }
 }

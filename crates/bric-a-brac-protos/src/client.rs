@@ -1,90 +1,41 @@
-use crate::error::{BaseGrpcClientError, GrpcServiceKind};
-use http::Uri;
-use std::sync::{Arc, Mutex};
+use crate::error::GrpcRequestError;
+use std::time::Duration;
 
-#[tonic::async_trait]
-pub trait GrpcClient {
-    type Client: Clone;
+const MAX_RETRIES: u32 = 2;
+const BASE_DELAY_MS: u64 = 100;
 
-    fn client(&self) -> &Arc<Mutex<Option<Self::Client>>>;
-    fn service_kind(&self) -> GrpcServiceKind;
-    fn url(&self) -> &Uri;
-    async fn connect(&self) -> Result<Self::Client, tonic::transport::Error>;
-
-    #[tracing::instrument(level = "trace", skip(self))]
-    fn reset_connection(&self) {
-        if let Ok(mut client_lock) = self.client().lock() {
-            *client_lock = None;
-            tracing::warn!("Reset {} service connection", self.service_kind());
-        }
-    }
-
-    #[tracing::instrument(level = "trace", skip(self))]
-    async fn ensure_connection(&self) -> Result<(), BaseGrpcClientError> {
-        {
-            let client_lock = self.acquire_client()?;
-            if client_lock.is_some() {
-                return Ok(());
-            }
-        } // Lock dropped here - Holding mutex guards across .await is an anti-pattern
-        tracing::info!(url = %self.url(), "Connection to {} service not yet established, connecting...", self.service_kind());
-
-        let client = self.connect().await.map_err(|err| {
-            tracing::error!(
-                error = ?err,
-                "Failed to connect to {} service",
-                self.service_kind()
-            );
-            BaseGrpcClientError::Inaccessible {
-                service: self.service_kind(),
-                source: err,
-            }
-        })?;
-        {
-            let mut client_lock = self.acquire_client()?;
-            *client_lock = Some(client);
-        }
-
-        tracing::info!(
-            url = %self.url(),
-            "Successfully connected to {} service",
-            self.service_kind()
-        );
-
-        Ok(())
-    }
-
-    #[tracing::instrument(level = "trace", skip(self))]
-    fn clone_client(&self) -> Result<Self::Client, BaseGrpcClientError> {
-        let client_lock = self.acquire_client()?;
-
-        client_lock
-            .as_ref()
-            .ok_or_else(|| {
-                tracing::warn!(
-                    "Attempted to clone {} client but connection is not established",
-                    self.service_kind()
+/// Retry a gRPC call on transient errors (`Unavailable`, `DeadlineExceeded`).
+///
+/// Attempts up to `MAX_RETRIES` + 1 times with exponential backoff.
+/// The closure must return a new future on each call (clone the client inside).
+pub async fn with_retry<F, Fut, T>(f: F) -> Result<T, GrpcRequestError>
+where
+    F: Fn() -> Fut,
+    Fut: std::future::Future<Output = Result<tonic::Response<T>, tonic::Status>>,
+{
+    for attempt in 0..=MAX_RETRIES {
+        match f().await {
+            Ok(response) => return Ok(response.into_inner()),
+            Err(status) => {
+                let retryable = matches!(
+                    status.code(),
+                    tonic::Code::Unavailable | tonic::Code::DeadlineExceeded
                 );
-                BaseGrpcClientError::Disconnected {
-                    service: self.service_kind(),
+
+                if !retryable || attempt == MAX_RETRIES {
+                    return Err(GrpcRequestError { source: status });
                 }
-            })
-            .map(|client| client.clone()) // Clone the client to avoid holding the lock across await
+
+                tracing::warn!(
+                    attempt = attempt + 1,
+                    code = ?status.code(),
+                    "gRPC request failed: transient error, retrying"
+                );
+
+                tokio::time::sleep(Duration::from_millis(BASE_DELAY_MS * 2u64.pow(attempt))).await;
+            }
+        }
     }
 
-    #[tracing::instrument(level = "trace", skip(self))]
-    fn acquire_client(
-        &self,
-    ) -> Result<std::sync::MutexGuard<'_, Option<Self::Client>>, BaseGrpcClientError> {
-        self.client().lock().map_err(|err| {
-            tracing::error!(error = ?err, "Failed to acquire {} client lock", self.service_kind());
-            BaseGrpcClientError::MutexPoisoned {
-                message: format!(
-                    "Failed to acquire {} client lock: {}",
-                    self.service_kind(),
-                    err
-                ),
-            }
-        })
-    }
+    unreachable!("loop always returns via Ok or Err")
 }

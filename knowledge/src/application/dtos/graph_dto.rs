@@ -1,4 +1,4 @@
-use crate::domain::models::GraphIdModel;
+use crate::domain::GraphIdModel;
 use bric_a_brac_dtos::GraphIdDto;
 
 impl From<GraphIdModel> for GraphIdDto {

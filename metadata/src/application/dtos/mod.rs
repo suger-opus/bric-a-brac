@@ -3,10 +3,10 @@ mod edge_schema_dto;
 mod graph_dto;
 mod graph_schema_dto;
 mod node_schema_dto;
-mod property_schema_dto;
+mod session_dto;
 mod user_dto;
 
-pub use access_dto::{AccessDto, CreateAccessDto, RoleDto};
+pub use access_dto::{AccessDto, CreateAccessDto};
 pub use graph_dto::{CreateGraphDto, GraphMetadataDto};
-use property_schema_dto::CreatePropertySchemaIntoDomain;
-pub use user_dto::{CreateUserDto, UserDto, UserIdDto};
+pub use session_dto::CreateSessionDocumentDto;
+pub use user_dto::{CreateUserDto, UserDto};

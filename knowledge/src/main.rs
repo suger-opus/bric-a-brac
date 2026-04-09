@@ -1,8 +1,4 @@
-use knowledge::{
-    infrastructure::config::Config, presentation::tracing::setup as setup_tracing, run,
-};
-
-// TODO: check for injection ?
+use knowledge::{run, setup_tracing, Config};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

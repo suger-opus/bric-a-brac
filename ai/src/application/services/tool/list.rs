@@ -1,0 +1,481 @@
+use crate::infrastructure::{FunctionDefinition, ToolDefinition};
+use serde_json::json;
+
+fn tool(name: &str, description: &str, parameters: serde_json::Value) -> ToolDefinition {
+    ToolDefinition {
+        type_: "function".to_owned(),
+        function: FunctionDefinition {
+            name: name.to_owned(),
+            description: description.to_owned(),
+            parameters,
+        },
+    }
+}
+
+pub fn read_tools() -> Vec<ToolDefinition> {
+    vec![
+        search_nodes_tool(),
+        get_node_tool(),
+        get_neighbors_tool(),
+        find_paths_tool(),
+        read_document_tool(),
+    ]
+}
+
+pub fn write_tools() -> Vec<ToolDefinition> {
+    vec![
+        create_schema_tool(),
+        create_edge_schema_tool(),
+        create_node_tool(),
+        create_edge_tool(),
+        create_nodes_tool(),
+        create_edges_tool(),
+        update_node_tool(),
+        update_edge_tool(),
+        delete_node_tool(),
+        delete_edge_tool(),
+    ]
+}
+
+pub fn session_tools() -> Vec<ToolDefinition> {
+    vec![done_tool()]
+}
+
+fn search_nodes_tool() -> ToolDefinition {
+    tool(
+        "search_nodes",
+        "Search for nodes by semantic similarity. Returns the most relevant nodes matching the query text.",
+        json!({
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query text to find semantically similar nodes"
+                },
+                "node_key": {
+                    "type": "string",
+                    "description": "Optional node schema key to filter search to a specific node type"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of results to return (default: 10)"
+                }
+            },
+            "required": ["query"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn get_node_tool() -> ToolDefinition {
+    tool(
+        "get_node",
+        "Retrieve a specific node by its ID. Returns all properties of the node.",
+        json!({
+            "type": "object",
+            "properties": {
+                "node_data_id": {
+                    "type": "string",
+                    "description": "The unique ID of the node to retrieve"
+                }
+            },
+            "required": ["node_data_id"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn get_neighbors_tool() -> ToolDefinition {
+    tool(
+        "get_neighbors",
+        "Get the neighboring nodes and edges connected to a specific node. Useful for exploring the graph structure around a node.",
+        json!({
+            "type": "object",
+            "properties": {
+                "node_data_id": {
+                    "type": "string",
+                    "description": "The ID of the node to get neighbors for"
+                },
+                "edge_key": {
+                    "type": "string",
+                    "description": "Optional edge schema key to filter by relationship type"
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "How many hops to traverse (default: 1)"
+                }
+            },
+            "required": ["node_data_id"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn find_paths_tool() -> ToolDefinition {
+    tool(
+        "find_paths",
+        "Find all paths between two nodes in the graph. Useful for discovering how two entities are connected.",
+        json!({
+            "type": "object",
+            "properties": {
+                "from_node_data_id": {
+                    "type": "string",
+                    "description": "The ID of the starting node"
+                },
+                "to_node_data_id": {
+                    "type": "string",
+                    "description": "The ID of the target node"
+                },
+                "max_depth": {
+                    "type": "integer",
+                    "description": "Maximum path length in hops (default: 5)"
+                }
+            },
+            "required": ["from_node_data_id", "to_node_data_id"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn read_document_tool() -> ToolDefinition {
+    tool(
+        "read_document",
+        "Retrieve the full text of a document previously uploaded to this session. \
+         Use this when you need to re-read a document whose content is no longer in the conversation history.",
+        json!({
+            "type": "object",
+            "properties": {
+                "document_id": {
+                    "type": "string",
+                    "description": "The unique ID of the document to retrieve"
+                }
+            },
+            "required": ["document_id"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn create_schema_tool() -> ToolDefinition {
+    tool(
+        "create_schema",
+        "Create a new node schema (type) in the graph. Use this when you need to store a new kind of entity that doesn't match any existing schema.",
+        json!({
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "description": "Human-readable name for the node schema (e.g. 'Person', 'Company', 'Event')"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "A brief description of what this node schema represents"
+                }
+            },
+            "required": ["label", "description"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn create_edge_schema_tool() -> ToolDefinition {
+    tool(
+        "create_edge_schema",
+        "Create a new edge schema (relationship type) in the graph. Use this when you need a new kind of relationship between nodes.",
+        json!({
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "description": "Human-readable name for the edge schema (e.g. 'WorksAt', 'Knows', 'LocatedIn')"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "A brief description of what this relationship represents"
+                }
+            },
+            "required": ["label", "description"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn create_node_tool() -> ToolDefinition {
+    tool(
+        "create_node",
+        "Create a new node in the graph. The system checks for similar existing nodes first. \
+         If duplicates are found, the node is NOT created — you get the candidates back and \
+         should use update_node to merge info into an existing node. Pass force=true to skip \
+         the check and create anyway.",
+        json!({
+            "type": "object",
+            "properties": {
+                "node_key": {
+                    "type": "string",
+                    "description": "The schema key identifying the node type (from the schema list)"
+                },
+                "properties": {
+                    "type": "object",
+                    "description": "Free-form properties for the node. Keys are property names, values are strings, numbers, or booleans.",
+                    "additionalProperties": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "number"},
+                            {"type": "boolean"}
+                        ]
+                    }
+                },
+                "force": {
+                    "type": "boolean",
+                    "description": "If true, skip the duplicate check and create the node even if similar nodes exist. Default: false."
+                }
+            },
+            "required": ["node_key", "properties"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn create_edge_tool() -> ToolDefinition {
+    tool(
+        "create_edge",
+        "Create or merge an edge (relationship) between two nodes. Edges are unique per (edge_key, source, target): if the same edge already exists, its properties are merged with the new ones instead of creating a duplicate. Use this both for new relationships and to add properties to existing ones.",
+        json!({
+            "type": "object",
+            "properties": {
+                "edge_key": {
+                    "type": "string",
+                    "description": "The schema key identifying the edge type (from the schema list)"
+                },
+                "from_node_data_id": {
+                    "type": "string",
+                    "description": "The ID of the source node"
+                },
+                "to_node_data_id": {
+                    "type": "string",
+                    "description": "The ID of the target node"
+                },
+                "properties": {
+                    "type": "object",
+                    "description": "Optional free-form properties for the edge.",
+                    "additionalProperties": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "number"},
+                            {"type": "boolean"}
+                        ]
+                    }
+                }
+            },
+            "required": ["edge_key", "from_node_data_id", "to_node_data_id"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn create_nodes_tool() -> ToolDefinition {
+    tool(
+        "create_nodes",
+        "Create multiple nodes in a single batch (up to 50). Embeddings are generated in one \
+         call and entity resolution runs for each node. Prefer this over repeated create_node \
+         calls when you have several entities to store.",
+        json!({
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "description": "Array of nodes to create (max 50).",
+                    "maxItems": 50,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "node_key": {
+                                "type": "string",
+                                "description": "The schema key identifying the node type"
+                            },
+                            "properties": {
+                                "type": "object",
+                                "description": "Free-form properties for the node.",
+                                "additionalProperties": {
+                                    "oneOf": [
+                                        {"type": "string"},
+                                        {"type": "number"},
+                                        {"type": "boolean"}
+                                    ]
+                                }
+                            },
+                            "force": {
+                                "type": "boolean",
+                                "description": "If true, skip duplicate check for this node. Default: false."
+                            }
+                        },
+                        "required": ["node_key", "properties"]
+                    }
+                }
+            },
+            "required": ["nodes"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn create_edges_tool() -> ToolDefinition {
+    tool(
+        "create_edges",
+        "Create multiple edges in a single batch (up to 50). Each edge is merged if it \
+         already exists. Prefer this over repeated create_edge calls.",
+        json!({
+            "type": "object",
+            "properties": {
+                "edges": {
+                    "type": "array",
+                    "description": "Array of edges to create (max 50).",
+                    "maxItems": 50,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "edge_key": {
+                                "type": "string",
+                                "description": "The schema key identifying the edge type"
+                            },
+                            "from_node_data_id": {
+                                "type": "string",
+                                "description": "The ID of the source node"
+                            },
+                            "to_node_data_id": {
+                                "type": "string",
+                                "description": "The ID of the target node"
+                            },
+                            "properties": {
+                                "type": "object",
+                                "description": "Optional free-form properties for the edge.",
+                                "additionalProperties": {
+                                    "oneOf": [
+                                        {"type": "string"},
+                                        {"type": "number"},
+                                        {"type": "boolean"}
+                                    ]
+                                }
+                            }
+                        },
+                        "required": ["edge_key", "from_node_data_id", "to_node_data_id"]
+                    }
+                }
+            },
+            "required": ["edges"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn update_node_tool() -> ToolDefinition {
+    tool(
+        "update_node",
+        "Update the properties of an existing node. Replaces all properties with the new set. The embedding will be automatically updated.",
+        json!({
+            "type": "object",
+            "properties": {
+                "node_data_id": {
+                    "type": "string",
+                    "description": "The ID of the node to update"
+                },
+                "properties": {
+                    "type": "object",
+                    "description": "The complete set of properties for the node. Keys are property names, values are strings, numbers, or booleans.",
+                    "additionalProperties": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "number"},
+                            {"type": "boolean"}
+                        ]
+                    }
+                }
+            },
+            "required": ["node_data_id", "properties"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn update_edge_tool() -> ToolDefinition {
+    tool(
+        "update_edge",
+        "Update the properties of an existing edge (relationship). Merges with existing properties.",
+        json!({
+            "type": "object",
+            "properties": {
+                "edge_data_id": {
+                    "type": "string",
+                    "description": "The ID of the edge to update"
+                },
+                "properties": {
+                    "type": "object",
+                    "description": "The properties to set on the edge. Keys are property names, values are strings, numbers, or booleans.",
+                    "additionalProperties": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "number"},
+                            {"type": "boolean"}
+                        ]
+                    }
+                }
+            },
+            "required": ["edge_data_id", "properties"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn delete_node_tool() -> ToolDefinition {
+    tool(
+        "delete_node",
+        "Delete a node and all its edges from the graph. Use this during entity resolution: after merging properties into the surviving node via update_node, delete the duplicate.",
+        json!({
+            "type": "object",
+            "properties": {
+                "node_data_id": {
+                    "type": "string",
+                    "description": "The ID of the node to delete"
+                }
+            },
+            "required": ["node_data_id"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn delete_edge_tool() -> ToolDefinition {
+    tool(
+        "delete_edge",
+        "Delete a single edge (relationship) from the graph without affecting the connected nodes.",
+        json!({
+            "type": "object",
+            "properties": {
+                "edge_data_id": {
+                    "type": "string",
+                    "description": "The ID of the edge to delete"
+                }
+            },
+            "required": ["edge_data_id"],
+            "additionalProperties": false
+        }),
+    )
+}
+
+fn done_tool() -> ToolDefinition {
+    tool(
+        "done",
+        "Signal that you have completed the current task. Call this when you have finished processing the user's request and have no more actions to take.",
+        json!({
+            "type": "object",
+            "properties": {
+                "summary": {
+                    "type": "string",
+                    "description": "A brief summary of what was accomplished"
+                }
+            },
+            "required": ["summary"],
+            "additionalProperties": false
+        }),
+    )
+}

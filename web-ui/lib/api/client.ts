@@ -1,0 +1,65 @@
+import { config } from "@/lib/config";
+import { mande } from "mande";
+import type { GenericSchema, InferOutput } from "valibot";
+import { safeParse } from "valibot";
+
+const api = mande(config.env.API_URL);
+api.options.headers.user_id = config.env.USER_ID;
+
+function validate<T extends GenericSchema>(schema: T, data: unknown): InferOutput<T> {
+  const result = safeParse(schema, data);
+  if (!result.success) {
+    throw new Error("API response validation failed");
+  }
+  return result.output;
+}
+
+export async function get<T extends GenericSchema>(
+  path: string,
+  schema: T
+): Promise<InferOutput<T>> {
+  try {
+    const data = await api.get(path);
+    return validate(schema, data);
+  } catch (error) {
+    console.error(`GET ${path} failed`, error);
+    throw error;
+  }
+}
+
+export async function getOptional<T extends GenericSchema>(
+  path: string,
+  schema: T
+): Promise<InferOutput<T> | null> {
+  try {
+    const data = await api.get(path);
+    if (data == null) { return null; }
+    return validate(schema, data);
+  } catch (error) {
+    console.error(`GET ${path} failed`, error);
+    throw error;
+  }
+}
+
+export async function post<T extends GenericSchema>(
+  path: string,
+  body: unknown,
+  schema: T
+): Promise<InferOutput<T>> {
+  try {
+    const data = await api.post(path, body);
+    return validate(schema, data);
+  } catch (error) {
+    console.error(`POST ${path} failed`, error);
+    throw error;
+  }
+}
+
+export async function del(path: string): Promise<void> {
+  try {
+    await api.delete(path);
+  } catch (error) {
+    console.error(`DELETE ${path} failed`, error);
+    throw error;
+  }
+}

@@ -1,0 +1,153 @@
+[env]
+# ============================
+# Knowledge Database Configuration
+# ============================
+# KNOWLEDGE_DB_HOST="knowledge-db"
+# KNOWLEDGE_DB_PORT="7687"
+# KNOWLEDGE_DB_USER="user"
+# KNOWLEDGE_DB_PASSWORD="azertyuiop"
+# KNOWLEDGE_DB_NAME="memgraph"
+# KNOWLEDGE_DB_MAX_CONNECTIONS="10"
+# KNOWLEDGE_DB_FETCH_SIZE="10000"
+
+# ============================
+# Knowledge Server Configuration
+# ============================
+# KNOWLEDGE_SERVER_HOST="0.0.0.0"
+# KNOWLEDGE_GRPC_SERVER_PORT="50051"
+# KNOWLEDGE_GRPC_SERVER_URL="http://knowledge-server:{{env.KNOWLEDGE_GRPC_SERVER_PORT}}"
+
+# ============================
+# Metadata Database Configuration
+# ============================
+# METADATA_DB_HOST="metadata-db"
+# METADATA_DB_PORT="5432"
+# METADATA_DB_USER="user"
+# METADATA_DB_PASSWORD="password"
+# METADATA_DB_NAME="metadata"
+# METADATA_DB_URL="postgresql://{{env.METADATA_DB_USER}}:{{env.METADATA_DB_PASSWORD}}@{{env.METADATA_DB_HOST}}:{{env.METADATA_DB_PORT}}/{{env.METADATA_DB_NAME}}"
+# METADATA_DB_MAX_CONNECTIONS="10"
+# METADATA_DB_SKIP_MIGRATION="false"
+
+# ============================
+# Metadata Server Configuration
+# ============================
+# METADATA_SERVER_HOST="0.0.0.0"
+# METADATA_GRPC_SERVER_PORT="50052"
+# METADATA_HTTP_SERVER_PORT="8080"
+# METADATA_GRPC_SERVER_URL="http://metadata-server:{{env.METADATA_GRPC_SERVER_PORT}}"
+# METADATA_HTTP_SERVER_URL="http://metadata-server:{{env.METADATA_HTTP_SERVER_PORT}}"
+
+# ============================
+# AI Server Configuration
+# ============================
+# AI_SERVER_HOST="0.0.0.0"
+# AI_GRPC_SERVER_PORT="50053"
+# AI_GRPC_SERVER_URL="http://ai-server:{{env.AI_GRPC_SERVER_PORT}}"
+# OPENROUTER_API_KEY=""
+# OPENROUTER_DEFAULT_MODEL="openai/gpt-4.1"
+# OPENROUTER_EMBEDDING_MODEL="openai/text-embedding-3-small"
+
+# ============================
+# SQLX
+# ============================
+# SQLX_OFFLINE="true"
+
+# ============================
+# Internal Services Authentication
+# ============================
+# INTERNAL_SERVICES_AUTH_TOKEN="secret-internal-token"
+
+# ============================
+# LOGS
+# ============================
+# RUST_LOG="warn,ai=trace,knowledge=trace,metadata=trace,bric_a_brac_protos=info"
+
+# ============================
+# Web UI Configuration
+# ============================
+# WEB_UI_PORT="3000"
+# NEXT_PUBLIC_API_URL="http://localhost:{{env.METADATA_HTTP_SERVER_PORT}}"
+# NEXT_PUBLIC_USER_ID="019d1f20-d9a3-7ff3-836f-9c6b24e5baaf"
+
+[tasks.up]
+description = "Start services. Usage: mise run up -- <profiles...> (web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -eq 0 ]; then
+  echo "Usage: mise run up -- <profiles...>"
+  echo "Available profiles: web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all"
+  exit 1
+fi
+
+PROFILE_FLAGS=""
+for arg in "$@"; do
+  if [ "$arg" = "all" ]; then
+    PROFILE_FLAGS="--profile knowledge --profile metadata --profile ai --profile web-ui"
+    break
+  fi
+  PROFILE_FLAGS="$PROFILE_FLAGS --profile $arg"
+done
+
+echo "Starting services with profiles: $@"
+docker compose $PROFILE_FLAGS up --build -d
+"""
+
+[tasks.down]
+description = "Stop services. Usage: mise run down -- <profiles...> (web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -eq 0 ]; then
+  echo "Usage: mise run down -- <profiles...>"
+  echo "Available profiles: web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all"
+  exit 1
+fi
+
+PROFILE_FLAGS=""
+for arg in "$@"; do
+  if [ "$arg" = "all" ]; then
+    PROFILE_FLAGS="--profile knowledge --profile metadata --profile ai --profile web-ui"
+    break
+  fi
+  PROFILE_FLAGS="$PROFILE_FLAGS --profile $arg"
+done
+
+echo "Stopping services with profiles: $@"
+docker compose $PROFILE_FLAGS down
+"""
+
+[tasks.status]
+description = "Show running containers"
+run = "docker compose ps"
+
+[tasks.config]
+description = "Show resolved compose config. Usage: mise run config -- <profiles...> (web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -eq 0 ]; then
+  echo "Usage: mise run config -- <profiles...>"
+  echo "Available profiles: web-ui, knowledge, knowledge-server, knowledge-db, metadata, metadata-server, metadata-db, ai, all"
+  exit 1
+fi
+
+PROFILE_FLAGS=""
+for arg in "$@"; do
+  if [ "$arg" = "all" ]; then
+    PROFILE_FLAGS="--profile knowledge --profile metadata --profile ai --profile web-ui"
+    break
+  fi
+  PROFILE_FLAGS="$PROFILE_FLAGS --profile $arg"
+done
+
+docker compose $PROFILE_FLAGS config
+"""
+
+[tasks."dev:web-ui"]
+description = "Start all backend services (for local bun dev in web-ui/)"
+run = "docker compose --profile knowledge --profile metadata --profile ai up --build -d"

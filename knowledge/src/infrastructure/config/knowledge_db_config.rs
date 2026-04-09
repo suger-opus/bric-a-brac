@@ -1,4 +1,5 @@
 #[derive(Clone, clap::Args, derive_more::Debug)]
+#[allow(clippy::struct_field_names)]
 pub struct KnowledgeDatabaseConfig {
     /// Knowledge database host
     #[arg(long, env = "KNOWLEDGE_DB_HOST", required = true)]
@@ -49,11 +50,11 @@ impl KnowledgeDatabaseConfig {
         &self.knowledge_db_name
     }
 
-    pub fn max_connections(&self) -> usize {
+    pub const fn max_connections(&self) -> usize {
         self.knowledge_db_max_connections
     }
 
-    pub fn fetch_size(&self) -> usize {
+    pub const fn fetch_size(&self) -> usize {
         self.knowledge_db_fetch_size
     }
 }

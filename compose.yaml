@@ -1,0 +1,12 @@
+include:
+  - path: compose/knowledge-db.yaml
+  - path: compose/knowledge-server.yaml
+  - path: compose/metadata-db.yaml
+  - path: compose/metadata-server.yaml
+  - path: compose/ai-server.yaml
+  - path: compose/web-ui.yaml
+
+networks:
+  bric-a-brac-network:
+    name: bric-a-brac-network
+    driver: bridge

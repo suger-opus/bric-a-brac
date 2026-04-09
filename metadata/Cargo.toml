@@ -10,20 +10,21 @@ bric-a-brac-protos = { workspace = true }
 bric-a-brac-dtos = { workspace = true }
 
 anyhow = { workspace = true }
-axum = { workspace = true }
+axum = { workspace = true, features = ["multipart"] }
 chrono = { workspace = true, features = ["serde"] }
 clap = { workspace = true, features = ["derive", "env"] }
-csv = { workspace = true }
 derive_more = { workspace = true, features = ["debug", "display"] }
 futures-util = { workspace = true }
-lazy_static = { workspace = true }
 multer = { workspace = true }
+pdf-extract = { workspace = true }
 prost = { workspace = true }
+prost-types = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
 secrecy = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

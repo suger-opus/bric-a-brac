@@ -1,4 +1,4 @@
-use ai::{infrastructure::config::Config, presentation::tracing::setup as setup_tracing, run};
+use ai::{run, setup_tracing, Config};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

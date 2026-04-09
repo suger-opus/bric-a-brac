@@ -1,3 +1,10 @@
-pub mod config;
+mod config;
 pub mod database;
-pub mod repositories;
+mod error;
+mod repositories;
+
+pub use config::Config;
+pub use error::DatabaseError;
+pub use repositories::{MutateRepository, QueryRepository};
+
+use config::KnowledgeDatabaseConfig;

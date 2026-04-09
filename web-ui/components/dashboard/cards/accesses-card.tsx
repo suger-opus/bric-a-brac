@@ -6,7 +6,6 @@ import { columns } from "@/components/dashboard/tables/graph-cols";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -22,45 +21,27 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@/components/ui/empty";
-import { Separator } from "@/components/ui/separator";
-import { Spinner } from "@/components/ui/spinner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api/provider";
-import { scrollToElement } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { graphService } from "@/lib/api/services/graph-service";
 import { GraphMetadata } from "@/types";
-import { ExpandIcon, PlusIcon, ShrinkIcon, VectorSquareIcon } from "lucide-react";
+import { PlusIcon, VectorSquareIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
-type AccessesProps = {
-  is_expanded: boolean;
-  expand: () => void;
-  un_expand: () => void;
-};
-
-const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
-  const { graphService } = ApiProvider;
+const AccessesCard = () => {
+  const router = useRouter();
   const [accessedGraphs, setAccessedGraphs] = useState<GraphMetadata[]>([]);
   const [isAccessesLoading, setIsAccessesLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleExpand = () => {
-    if (is_expanded) {
-      un_expand();
-    } else {
-      expand();
-    }
-    setTimeout(() => {
-      scrollToElement("accesses-card");
-    }, 300);
-  };
-
   const getAccesses = async () => {
     try {
       setIsAccessesLoading(true);
-      const results = await graphService.getAllMetadata();
+      const results = await graphService.list();
       setAccessedGraphs(results);
-    } catch (error) {
-      console.error(error);
+    } catch {
+      toast.error("Could not load your graphs");
     } finally {
       setIsAccessesLoading(false);
     }
@@ -71,31 +52,19 @@ const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
   }, []);
 
   return (
-    <Card id="accesses-card" className="h-full">
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>Your Graphs ({accessedGraphs.length})</CardTitle>
         <CardDescription>List of the graphs you have access to</CardDescription>
-        <CardAction>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon-sm"
-                onClick={handleExpand}
-              >
-                {is_expanded ? <ShrinkIcon /> : <ExpandIcon />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {is_expanded ? "Collapse this view" : "Expand this view"}
-            </TooltipContent>
-          </Tooltip>
-        </CardAction>
       </CardHeader>
       <CardContent className="grow">
         {isAccessesLoading
           ? (
-            <div className="h-full flex items-center justify-center">
-              <Spinner />
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-3/4" />
             </div>
           )
           : accessedGraphs.length === 0
@@ -115,12 +84,21 @@ const AccessesCard = ({ is_expanded, expand, un_expand }: AccessesProps) => {
               </EmptyContent>
             </Empty>
           )
-          : <DataTable columns={columns} data={accessedGraphs} />}
+          : (
+            <DataTable
+              columns={columns(getAccesses)}
+              data={accessedGraphs}
+              onRowClick={(graph) => router.push(`/graph/${graph.graph_id}`)}
+            />
+          )}
       </CardContent>
       {accessedGraphs.length > 0 && (
-        <CardFooter className="flex flex-col items-start space-y-4">
-          <Separator />
-          <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(true)}>
+        <CardFooter>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsDialogOpen(true)}
+          >
             <PlusIcon /> Create a new graph
           </Button>
         </CardFooter>

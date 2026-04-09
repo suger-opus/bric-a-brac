@@ -1,11 +1,12 @@
 "use client";
 
+import ChatPanel from "@/components/graph/chat-panel";
 import EdgeSchemaItem from "@/components/graph/items/edge-schema-item";
 import NodeSchemaItem from "@/components/graph/items/node-schema-item";
+import SessionsPanel from "@/components/graph/sessions-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Kbd } from "@/components/ui/kbd";
 import {
   Sidebar,
   SidebarContent,
@@ -16,27 +17,16 @@ import {
   SidebarHeader
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Toggle } from "@/components/ui/toggle";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGraph } from "@/contexts/graph-context";
-import { Role } from "@/types";
-import {
-  BookmarkIcon,
-  ChevronDown,
-  HandHeartIcon,
-  HomeIcon,
-  PackageIcon,
-  SplineIcon
-} from "lucide-react";
+import { BotIcon, ChevronDown, HistoryIcon, HomeIcon, ListTreeIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-type GraphSidebarProps = {
-  openCommand: () => void;
-};
-
-const GraphSidebar = ({ openCommand }: GraphSidebarProps) => {
+const GraphSidebar = () => {
   const router = useRouter();
   const { metadata, isLoaded, schema } = useGraph();
+  const [activeTab, setActiveTab] = useState("chat");
 
   return (
     <Sidebar side="right">
@@ -52,156 +42,106 @@ const GraphSidebar = ({ openCommand }: GraphSidebarProps) => {
           : (
             <div className="space-y-2">
               <div className="space-y-1">
-                <p className="text-xl font-bold">
-                  {metadata!.name}
-                </p>
-                <div className="border-l-2 border-black/80 pl-2 text-black/80 text-xs">
+                <p className="text-xl font-bold">{metadata!.name}</p>
+                <div className="border-l-2 border-muted-foreground/40 pl-2 text-muted-foreground text-xs space-y-0.5">
                   <p>
-                    <i>by</i>{" "}
-                    <b>
-                      <u>{metadata!.owner_username}</u>
-                    </b>{" "}
-                    <i>on {new Date(metadata!.created_at).toLocaleDateString()}</i>
+                    by{" "}
+                    <span className="font-semibold text-foreground">
+                      {metadata!.owner_username}
+                    </span>{" "}
+                    on {new Date(metadata!.created_at).toLocaleDateString()}
                   </p>
-                  <p>
-                    <i>last edited: {new Date(metadata!.updated_at).toLocaleDateString()}</i>
-                  </p>
+                  <p>Last edited: {new Date(metadata!.updated_at).toLocaleDateString()}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-1">
-                <Badge className="font-bold text-[9px] h-5">
-                  {metadata!.is_public ? "PUBLIC" : "PRIVATE"}
-                </Badge>
-                {metadata!.user_role !== Role.NONE && (
-                  <Badge className="font-bold text-[9px] h-5">
-                    {metadata!.user_role.toUpperCase()}
-                  </Badge>
-                )}
-                {metadata!.is_public && (
-                  <>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="outline" className="h-5">
-                          <Toggle
-                            aria-label="Toggle bookmark"
-                            variant="default"
-                            pressed={metadata!.is_cheered_by_user}
-                            className="h-5 w-fit p-0 font-bold text-[11px] cursor-pointer data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-black data-[state=on]:*:[svg]:stroke-black"
-                          >
-                            <HandHeartIcon />
-                            {metadata!.nb_cheers}
-                          </Toggle>
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {metadata!.is_cheered_by_user ? "Un-cheer this graph" : "Cheer this graph"}
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="outline" className="h-5">
-                          <Toggle
-                            aria-label="Toggle bookmark"
-                            variant="default"
-                            pressed={metadata!.is_bookmarked_by_user}
-                            className="h-5 w-fit p-0 font-bold text-[11px] cursor-pointer data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-black data-[state=on]:*:[svg]:stroke-black"
-                          >
-                            <BookmarkIcon />
-                            {metadata!.nb_bookmarks}
-                          </Toggle>
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {metadata!.is_bookmarked_by_user
-                          ? "Un-bookmark this graph"
-                          : "Bookmark this graph"}
-                      </TooltipContent>
-                    </Tooltip>
-                  </>
-                )}
-                <Badge variant="outline" className="font-bold text-[11px] h-5">
-                  <PackageIcon />
-                  {metadata!.nb_data_nodes}
-                </Badge>
-                <Badge variant="outline" className="font-bold text-[11px] h-5">
-                  <SplineIcon />
-                  {metadata!.nb_data_edges}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">{metadata!.description}</p>
+              <Badge className="font-bold text-[9px] h-5">
+                {metadata!.is_public ? "PUBLIC" : "PRIVATE"}
+              </Badge>
+              {metadata!.description && (
+                <p className="text-sm text-muted-foreground">{metadata!.description}</p>
+              )}
             </div>
           )}
-        <Button onClick={openCommand} variant="outline" size="sm" className="w-full mt-2">
-          Open Command Menu<Kbd>Ctrl + M</Kbd>
-        </Button>
       </SidebarHeader>
-      <SidebarContent className="gap-0">
-        <Collapsible defaultOpen className="group/collapsible-nodes">
-          <SidebarGroup>
-            <SidebarGroupLabel asChild>
-              <CollapsibleTrigger className="cursor-pointer">
-                Nodes
-                <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible-nodes:rotate-180" />
-              </CollapsibleTrigger>
-            </SidebarGroupLabel>
-            <CollapsibleContent>
-              <SidebarGroupContent className="space-y-1">
-                {!isLoaded
-                  ? (
-                    <>
-                      <Skeleton className="h-8" />
-                      <Skeleton className="h-8" />
-                      <Skeleton className="h-8" />
-                    </>
-                  )
-                  : (
-                    <>
-                      {schema!.nodes.map((node, index) => (
-                        <NodeSchemaItem key={index} schema={node} />
-                      ))}
-                    </>
-                  )}
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
-        <Collapsible defaultOpen className="group/collapsible-edges">
-          <SidebarGroup>
-            <SidebarGroupLabel asChild>
-              <CollapsibleTrigger className="cursor-pointer">
-                Edges
-                <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible-edges:rotate-180" />
-              </CollapsibleTrigger>
-            </SidebarGroupLabel>
-            <CollapsibleContent>
-              <SidebarGroupContent className="space-y-1">
-                {!isLoaded
-                  ? (
-                    <>
-                      <Skeleton className="h-8" />
-                      <Skeleton className="h-8" />
-                      <Skeleton className="h-8" />
-                    </>
-                  )
-                  : (
-                    <>
-                      {schema!.edges.map((edge, index) => (
-                        <EdgeSchemaItem key={index} schema={edge} />
-                      ))}
-                    </>
-                  )}
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
-      </SidebarContent>
-      <SidebarFooter className="flex flex-row items-center">
-        <Button
-          className="ml-auto"
-          size="sm"
-          onClick={() =>
-            router.push("/")}
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
+        <div className="px-3">
+          <TabsList className="w-full">
+            <TabsTrigger value="chat" className="flex-1 gap-1">
+              <BotIcon className="h-3.5 w-3.5" />Chat
+            </TabsTrigger>
+            <TabsTrigger value="sessions" className="flex-1 gap-1">
+              <HistoryIcon className="h-3.5 w-3.5" />Sessions
+            </TabsTrigger>
+            <TabsTrigger value="schema" className="flex-1 gap-1">
+              <ListTreeIcon className="h-3.5 w-3.5" />Schema
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent
+          value="chat"
+          forceMount
+          className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden"
         >
+          <ChatPanel />
+        </TabsContent>
+
+        <TabsContent
+          value="sessions"
+          forceMount
+          className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden"
+        >
+          <SessionsPanel onSwitchToChat={() => setActiveTab("chat")} />
+        </TabsContent>
+
+        <TabsContent value="schema" className="flex-1 min-h-0 mt-0 overflow-y-auto">
+          <SidebarContent className="gap-0">
+            <Collapsible defaultOpen className="group/collapsible-nodes">
+              <SidebarGroup>
+                <SidebarGroupLabel asChild>
+                  <CollapsibleTrigger className="cursor-pointer">
+                    Nodes
+                    <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible-nodes:rotate-180" />
+                  </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent>
+                  <SidebarGroupContent className="space-y-1">
+                    {!isLoaded
+                      ? <>{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8" />)}</>
+                      : schema!.nodes.map((node) => (
+                        <NodeSchemaItem key={node.node_schema_id} schema={node} />
+                      ))}
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+
+            <Collapsible defaultOpen className="group/collapsible-edges">
+              <SidebarGroup>
+                <SidebarGroupLabel asChild>
+                  <CollapsibleTrigger className="cursor-pointer">
+                    Edges
+                    <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible-edges:rotate-180" />
+                  </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent>
+                  <SidebarGroupContent className="space-y-1">
+                    {!isLoaded
+                      ? <>{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8" />)}</>
+                      : schema!.edges.map((edge) => (
+                        <EdgeSchemaItem key={edge.edge_schema_id} schema={edge} />
+                      ))}
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+          </SidebarContent>
+        </TabsContent>
+      </Tabs>
+
+      <SidebarFooter className="flex flex-row items-center">
+        <Button className="ml-auto" size="sm" onClick={() => router.push("/")}>
           <HomeIcon />Exit to Home
         </Button>
       </SidebarFooter>

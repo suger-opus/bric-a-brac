@@ -1,0 +1,74 @@
+// Metadata control plane service (internal gRPC API).
+//
+// Called by the AI service during agent execution to manage sessions,
+// persist messages, create schemas, and load graph metadata.
+// Not exposed to the frontend — the web UI uses the HTTP API.
+
+syntax = "proto3";
+
+package metadata;
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+service Metadata {
+    // Load a session with its user role (from the accesses table).
+    rpc GetSession(GetSessionRequest) returns (common.SessionProto);
+
+    // Load all messages for a session (ordered by position).
+    rpc GetSessionMessages(GetSessionMessagesRequest) returns (GetSessionMessagesResponse);
+
+    // Load a document's full text content by ID.
+    rpc GetSessionDocument(GetSessionDocumentRequest) returns (common.SessionDocumentProto);
+
+    // Persist new messages (user, assistant, tool) to a session.
+    // Position is auto-incremented.
+    rpc AppendSessionMessages(AppendSessionMessagesRequest) returns (common.Empty);
+
+    // Create a new node schema. Generates an 8-char key and notifies
+    // the knowledge service to create vector indexes.
+    rpc CreateNodeSchema(CreateNodeSchemaRequest) returns (common.NodeSchemaProto);
+
+    // Create a new edge schema. Generates an 8-char key.
+    rpc CreateEdgeSchema(CreateEdgeSchemaRequest) returns (common.EdgeSchemaProto);
+
+    // Load all node and edge schemas for a graph.
+    rpc GetSchema(GetSchemaRequest) returns (common.GraphSchemaProto);
+}
+
+message GetSessionRequest {
+    string session_id = 1;
+}
+
+message GetSessionMessagesRequest {
+    string session_id = 1;
+}
+
+message GetSessionMessagesResponse {
+    repeated common.SessionMessageProto messages = 1;
+}
+
+message AppendSessionMessagesRequest {
+    string session_id = 1;
+    repeated common.CreateSessionMessageProto messages = 2;
+}
+
+message GetSessionDocumentRequest {
+    string document_id = 1;
+}
+
+message CreateNodeSchemaRequest {
+    string graph_id = 1;
+    string label = 2;
+    string description = 3;
+}
+
+message CreateEdgeSchemaRequest {
+    string graph_id = 1;
+    string label = 2;
+    string description = 3;
+}
+
+message GetSchemaRequest {
+    string graph_id = 1;
+}

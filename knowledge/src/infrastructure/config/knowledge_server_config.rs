@@ -6,13 +6,13 @@ pub struct KnowledgeServerConfig {
     #[arg(long, env = "KNOWLEDGE_SERVER_HOST", required = true)]
     knowledge_server_host: IpAddr,
 
-    /// Knowledge server port
-    #[arg(long, env = "KNOWLEDGE_SERVER_PORT", required = true)]
-    knowledge_server_port: u16,
+    /// Knowledge gRPC server port
+    #[arg(long, env = "KNOWLEDGE_GRPC_SERVER_PORT", required = true)]
+    knowledge_grpc_server_port: u16,
 }
 
 impl KnowledgeServerConfig {
     pub fn url(&self) -> SocketAddr {
-        (self.knowledge_server_host, self.knowledge_server_port).into()
+        (self.knowledge_server_host, self.knowledge_grpc_server_port).into()
     }
 }

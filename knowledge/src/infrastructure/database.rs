@@ -1,4 +1,4 @@
-use super::config::KnowledgeDatabaseConfig;
+use super::KnowledgeDatabaseConfig;
 use neo4rs::{ConfigBuilder, Graph};
 use std::sync::Arc;
 
@@ -26,10 +26,12 @@ async fn test_connection(graph: &Graph) -> anyhow::Result<()> {
         graph.run(neo4rs::query("RETURN 1")),
     )
     .await
-    .map_err(|_| {
-        anyhow::anyhow!("Knowledge database connection timeout - check credentials and network")
+    .map_err(|err| {
+        anyhow::anyhow!(
+            "Knowledge database connection timeout - check credentials and network: {err}"
+        )
     })?
-    .map_err(|e| anyhow::anyhow!("Failed to verify knowledge database connection: {}", e))?;
+    .map_err(|err| anyhow::anyhow!("Failed to verify knowledge database connection: {err}"))?;
 
     Ok(())
 }

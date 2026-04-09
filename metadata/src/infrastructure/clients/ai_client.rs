@@ -1,183 +1,52 @@
-use crate::{infrastructure::config::AiServerConfig, presentation::errors::GrpcClientError};
-use axum::http::Uri;
-use bric_a_brac_dtos::{CreateGraphDataDto, CreateGraphSchemaDto, GraphSchemaDto};
+use crate::infrastructure::{AiServerConfig, InfraError};
+use bric_a_brac_dtos::{AgentEventDto, SessionDocumentIdDto, SessionIdDto};
 use bric_a_brac_protos::{
-    ai::{
-        ai_client::AiClient as AiGrpcClient, FileTypeProto, GenerateDataRequest,
-        GenerateSchemaRequest,
-    },
-    BaseGrpcClientError, GrpcClient, GrpcServiceKind,
+    ai::{ai_client::AiClient as AiGrpcClient, SendMessageRequest},
+    with_retry, AuthChannel, ServiceAuthInterceptor,
 };
-use std::sync::{Arc, Mutex};
+use futures_util::{Stream, StreamExt};
+use secrecy::SecretString;
+use tonic::Request;
 
 #[derive(Clone)]
 pub struct AiClient {
-    config: AiServerConfig,
-    client: Arc<Mutex<Option<AiGrpcClient<tonic::transport::Channel>>>>,
-}
-
-#[tonic::async_trait]
-impl GrpcClient for AiClient {
-    type Client = AiGrpcClient<tonic::transport::Channel>;
-
-    fn client(&self) -> &Arc<Mutex<Option<Self::Client>>> {
-        &self.client
-    }
-
-    fn service_kind(&self) -> GrpcServiceKind {
-        GrpcServiceKind::Ai
-    }
-
-    fn url(&self) -> &Uri {
-        self.config.url()
-    }
-
-    async fn connect(&self) -> Result<Self::Client, tonic::transport::Error> {
-        AiGrpcClient::connect(self.url().clone()).await
-    }
+    client: AiGrpcClient<AuthChannel>,
 }
 
 impl AiClient {
-    pub fn new(config: AiServerConfig) -> Self {
-        Self {
-            config,
-            client: Arc::new(Mutex::new(None)),
-        }
+    pub fn new(config: &AiServerConfig, auth_token: &SecretString) -> anyhow::Result<Self> {
+        let channel =
+            tonic::transport::Endpoint::from_shared(config.url().to_string())?.connect_lazy();
+        Ok(Self {
+            client: AiGrpcClient::with_interceptor(
+                channel,
+                ServiceAuthInterceptor::new(auth_token.clone()),
+            ),
+        })
     }
 
-    #[tracing::instrument(
-        level = "debug",
-        name = "ai_client.generate_schema",
-        skip(self, file_content, file_type)
-    )]
-    pub async fn generate_schema(
+    pub async fn send_message(
         &self,
-        file_content: Vec<u8>,
-        file_type: String,
-    ) -> Result<CreateGraphSchemaDto, GrpcClientError> {
-        tracing::debug!(file_content_size = file_content.len(), file_type = %file_type);
+        session_id: SessionIdDto,
+        content: String,
+        document_id: Option<SessionDocumentIdDto>,
+    ) -> Result<impl Stream<Item = AgentEventDto>, InfraError> {
+        let stream = with_retry(|| {
+            let mut c = self.client.clone();
+            let req = Request::new(SendMessageRequest {
+                session_id: session_id.to_string(),
+                content: content.clone(),
+                document_id: document_id.map(|id| id.to_string()),
+            });
+            async move { c.send_message(req).await }
+        })
+        .await?;
 
-        let schema = match self
-            .try_generate_schema(file_content.clone(), file_type.clone())
-            .await
-        {
-            Ok(schema) => Ok(schema),
-            Err(err) => {
-                if err.is_connection_error() {
-                    tracing::warn!(error = %err, "Connection error detected, reconnecting");
-                    self.reset_connection();
-                    self.try_generate_schema(file_content, file_type).await
-                } else {
-                    Err(err)
-                }
-            }
-        }?;
-
-        Ok(schema)
-    }
-
-    #[tracing::instrument(
-        level = "debug",
-        name = "ai_client.generate_data",
-        skip(self, schema, file_content, file_type)
-    )]
-    pub async fn generate_data(
-        &self,
-        schema: GraphSchemaDto,
-        file_content: Vec<u8>,
-        file_type: String,
-    ) -> Result<CreateGraphDataDto, GrpcClientError> {
-        tracing::debug!(file_content_size = file_content.len(), file_type = %file_type);
-
-        let schema = match self
-            .try_generate_data(schema.clone(), file_content.clone(), file_type.clone())
-            .await
-        {
-            Ok(schema) => Ok(schema),
-            Err(err) => {
-                if err.is_connection_error() {
-                    tracing::warn!(error = %err, "Connection error detected, reconnecting");
-                    self.reset_connection();
-                    self.try_generate_data(schema, file_content, file_type)
-                        .await
-                } else {
-                    Err(err)
-                }
-            }
-        }?;
-
-        Ok(schema)
-    }
-
-    #[tracing::instrument(
-        level = "trace",
-        name = "ai_client.try_generate_schema",
-        skip(self, file_content, file_type)
-    )]
-    async fn try_generate_schema(
-        &self,
-        file_content: Vec<u8>,
-        file_type: String,
-    ) -> Result<CreateGraphSchemaDto, GrpcClientError> {
-        self.ensure_connection().await?;
-        let mut client = self.clone_client()?;
-
-        let file_type = match file_type.to_lowercase().as_str() {
-            "csv" => FileTypeProto::Csv,
-            _ => FileTypeProto::Txt,
-        };
-
-        let request = GenerateSchemaRequest {
-            file_content,
-            file_type: file_type as i32,
-        };
-        let response =
-            client
-                .generate_schema(request)
-                .await
-                .map_err(|err| BaseGrpcClientError::Request {
-                    service: GrpcServiceKind::Ai,
-                    message: "Failed to generate schema using AI service".to_string(),
-                    source: err,
-                })?;
-
-        Ok(response.into_inner().try_into()?)
-    }
-
-    #[tracing::instrument(
-        level = "trace",
-        name = "ai_client.try_generate_data",
-        skip(self, schema, file_content, file_type)
-    )]
-    async fn try_generate_data(
-        &self,
-        schema: GraphSchemaDto,
-        file_content: Vec<u8>,
-        file_type: String,
-    ) -> Result<CreateGraphDataDto, GrpcClientError> {
-        self.ensure_connection().await?;
-        let mut client = self.clone_client()?;
-
-        let file_type = match file_type.to_lowercase().as_str() {
-            "csv" => FileTypeProto::Csv,
-            _ => FileTypeProto::Txt,
-        };
-
-        let request = GenerateDataRequest {
-            file_content,
-            file_type: file_type as i32,
-            schema: Some(schema.into()),
-        };
-        let response =
-            client
-                .generate_data(request)
-                .await
-                .map_err(|err| BaseGrpcClientError::Request {
-                    service: GrpcServiceKind::Ai,
-                    message: "Failed to generate data using AI service".to_string(),
-                    source: err,
-                })?;
-
-        Ok(response.into_inner().try_into()?)
+        Ok(stream.map(|result| match result {
+            Ok(event) => AgentEventDto::from(event.event),
+            Err(status) => AgentEventDto::Error {
+                message: status.message().to_owned(),
+            },
+        }))
     }
 }

@@ -1,27 +1,14 @@
-"use client";
-
-import { useGraph } from "@/contexts/graph-context";
-import { EdgeSchema } from "@/types";
+import type { EdgeSchema } from "@/types";
 import ElementSchemaItem from "./element-schema-item";
 
-type EdgeSchemaItemProps = {
-  schema: EdgeSchema;
-};
-
-const EdgeSchemaItem = ({ schema }: EdgeSchemaItemProps) => {
-  const { displayedEdgeProperties, updateDisplayedEdgeProperty } = useGraph();
-
-  return (
-    <ElementSchemaItem
-      kind="edge"
-      label={schema.label}
-      color={schema.color}
-      properties={schema.properties}
-      displayedProperty={displayedEdgeProperties[schema.key]}
-      updateDisplayedProperty={(property_key: string | undefined) =>
-        updateDisplayedEdgeProperty(schema.key, property_key)}
-    />
-  );
-};
+const EdgeSchemaItem = ({ schema }: { schema: EdgeSchema; }) => (
+  <ElementSchemaItem
+    kind="edge"
+    schemaKey={schema.key}
+    label={schema.label}
+    color={schema.color}
+    description={schema.description}
+  />
+);
 
 export default EdgeSchemaItem;

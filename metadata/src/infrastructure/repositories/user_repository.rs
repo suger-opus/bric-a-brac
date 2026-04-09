@@ -1,27 +1,28 @@
 use crate::{
-    domain::models::{CreateUserModel, UserIdModel, UserModel},
-    presentation::errors::DatabaseError,
+    domain::{CreateUserModel, UserIdModel, UserModel},
+    infrastructure::InfraError,
 };
 use sqlx::PgConnection;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct UserRepository;
 
 impl UserRepository {
-    pub fn new() -> Self {
-        UserRepository
+    pub const fn new() -> Self {
+        Self
     }
 
     #[tracing::instrument(
         level = "debug",
         name = "user_repository.create",
-        skip(self, connection, create_user)
+        skip(self, connection, create_user),
+        err
     )]
     pub async fn create(
         &self,
         connection: &mut PgConnection,
         create_user: CreateUserModel,
-    ) -> Result<UserModel, DatabaseError> {
+    ) -> Result<UserModel, InfraError> {
         tracing::debug!(user_id = ?create_user.user_id);
 
         let user = sqlx::query_as!(
@@ -49,13 +50,14 @@ RETURNING
     #[tracing::instrument(
         level = "debug",
         name = "user_repository.get",
-        skip(self, connection, user_id)
+        skip(self, connection, user_id),
+        err
     )]
     pub async fn get(
         &self,
         connection: &mut PgConnection,
         user_id: UserIdModel,
-    ) -> Result<UserModel, DatabaseError> {
+    ) -> Result<UserModel, InfraError> {
         tracing::debug!(user_id = ?user_id);
 
         let user = sqlx::query_as!(

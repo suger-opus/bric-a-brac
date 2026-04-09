@@ -1,27 +1,57 @@
 use crate::{
-    domain::models::{AccessModel, CreateAccessModel},
-    presentation::errors::DatabaseError,
+    domain::{AccessModel, CreateAccessModel, GraphIdModel, RoleModel, UserIdModel},
+    infrastructure::InfraError,
 };
 use sqlx::PgConnection;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct AccessRepository;
 
 impl AccessRepository {
-    pub fn new() -> Self {
-        AccessRepository
+    pub const fn new() -> Self {
+        Self
+    }
+
+    #[tracing::instrument(
+        level = "debug",
+        name = "access_repository.get_role",
+        skip(self, connection, graph_id, user_id),
+        err
+    )]
+    pub async fn get_role(
+        &self,
+        connection: &mut PgConnection,
+        graph_id: GraphIdModel,
+        user_id: UserIdModel,
+    ) -> Result<RoleModel, InfraError> {
+        tracing::debug!(graph_id = ?graph_id, user_id = ?user_id);
+
+        let row: Option<RoleModel> = sqlx::query_scalar!(
+            r#"
+SELECT COALESCE(role, 'none'::role_type) AS "role!:RoleModel"
+FROM accesses
+WHERE graph_id = $1 AND user_id = $2
+            "#,
+            graph_id as _,
+            user_id as _,
+        )
+        .fetch_optional(connection)
+        .await?;
+
+        Ok(row.unwrap_or(RoleModel::None))
     }
 
     #[tracing::instrument(
         level = "debug",
         name = "access_repository.create",
-        skip(self, connection, create_access)
+        skip(self, connection, create_access),
+        err
     )]
     pub async fn create(
         &self,
         connection: &mut PgConnection,
         create_access: CreateAccessModel,
-    ) -> Result<AccessModel, DatabaseError> {
+    ) -> Result<AccessModel, InfraError> {
         tracing::debug!(graph_id = ?create_access.graph_id, user_id = ?create_access.user_id, role = ?create_access.role);
 
         let access = sqlx::query_as!(

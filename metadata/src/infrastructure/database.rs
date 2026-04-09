@@ -8,29 +8,12 @@ pub async fn connect(config: &MetadataDatabaseConfig) -> anyhow::Result<PgPool> 
 
     let pool = PgPoolOptions::new()
         .max_connections(config.max_connections())
-        .connect(&config.url().expose_secret())
+        .connect(config.url().expose_secret())
         .await
         .context("Failed to connect to metadata database")?;
 
     tracing::debug!("Database connection established");
     Ok(pool)
-}
-
-pub async fn reset(pool: &PgPool) -> anyhow::Result<()> {
-    tracing::warn!("Resetting database schema");
-
-    sqlx::query("DROP SCHEMA public CASCADE")
-        .execute(pool)
-        .await
-        .context("Failed to drop schema")?;
-
-    sqlx::query("CREATE SCHEMA public")
-        .execute(pool)
-        .await
-        .context("Failed to create schema")?;
-
-    tracing::warn!("Database schema reset");
-    Ok(())
 }
 
 pub async fn migrate(config: &MetadataDatabaseConfig, db_pool: &PgPool) -> anyhow::Result<()> {

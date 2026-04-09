@@ -1,6 +1,5 @@
-use super::CreatePropertySchemaIntoDomain;
-use crate::domain::models::{CreateEdgeSchemaModel, EdgeSchemaIdModel, EdgeSchemaModel};
-use bric_a_brac_dtos::{CreateEdgeSchemaDto, EdgeSchemaDto, EdgeSchemaIdDto, KeyDto};
+use crate::domain::{EdgeSchemaIdModel, EdgeSchemaModel};
+use bric_a_brac_dtos::{EdgeSchemaDto, EdgeSchemaIdDto};
 
 impl From<EdgeSchemaIdModel> for EdgeSchemaIdDto {
     fn from(graph_id: EdgeSchemaIdModel) -> Self {
@@ -22,27 +21,9 @@ impl From<EdgeSchemaModel> for EdgeSchemaDto {
             label: model.label.into(),
             key: model.key.into(),
             color: model.color.into(),
+            description: model.description.into(),
             created_at: model.created_at,
             updated_at: model.updated_at,
-            properties: model.properties.into_iter().map(From::from).collect(),
-        }
-    }
-}
-
-impl From<CreateEdgeSchemaDto> for CreateEdgeSchemaModel {
-    fn from(dto: CreateEdgeSchemaDto) -> Self {
-        let edge_schema_id = EdgeSchemaIdModel::new();
-
-        Self {
-            edge_schema_id,
-            label: dto.label.into(),
-            key: KeyDto::new().into(),
-            color: dto.color.into(),
-            properties: dto
-                .properties
-                .into_iter()
-                .map(|prop| prop.into_domain(None, Some(edge_schema_id)))
-                .collect(),
         }
     }
 }

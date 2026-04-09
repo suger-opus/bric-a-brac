@@ -1,51 +1,35 @@
-use serde::Serialize;
-
-#[derive(Debug, Clone, Copy, Serialize, derive_more::Display)]
-pub enum GrpcServiceKind {
-    Ai,
-    Knowledge,
-    Metadata,
-}
+use axum::{
+    response::{IntoResponse, Response},
+    Json,
+};
+use serde_json::json;
 
 #[derive(Debug, thiserror::Error)]
-pub enum BaseGrpcClientError {
-    #[error("gRPC service {service}: disconnected")]
-    Disconnected { service: GrpcServiceKind },
-
-    #[error("Mutex lock poisoned")]
-    MutexPoisoned { message: String },
-
-    #[error("gRPC service {service}: inaccessible")]
-    Inaccessible {
-        service: GrpcServiceKind,
-        #[source]
-        source: tonic::transport::Error,
-    },
-
-    #[error("gRPC service {service}: request failed - {message}")]
-    Request {
-        service: GrpcServiceKind,
-        message: String,
-        #[source]
-        source: tonic::Status,
-    },
+#[error("gRPC request failed")]
+pub struct GrpcRequestError {
+    #[source]
+    pub source: tonic::Status,
 }
 
-impl BaseGrpcClientError {
-    pub fn is_connection_error(&self) -> bool {
-        match self {
-            BaseGrpcClientError::Inaccessible { .. } => true,
-            BaseGrpcClientError::Disconnected { .. } => true,
-            BaseGrpcClientError::Request { source, .. } => {
-                return matches!(
-                    source.code(),
-                    tonic::Code::Unavailable
-                        | tonic::Code::DeadlineExceeded
-                        | tonic::Code::Cancelled
-                        | tonic::Code::Unknown
-                );
+impl IntoResponse for GrpcRequestError {
+    fn into_response(self) -> Response {
+        tracing::error!(error = ?self.source);
+        (
+            http::StatusCode::BAD_GATEWAY,
+            Json(json!({ "error": "External service request failed" })),
+        )
+            .into_response()
+    }
+}
+
+impl From<GrpcRequestError> for tonic::Status {
+    fn from(err: GrpcRequestError) -> Self {
+        tracing::error!(error = ?err);
+        match err.source.code() {
+            tonic::Code::Unavailable | tonic::Code::DeadlineExceeded => {
+                Self::unavailable("A downstream service is temporarily unavailable")
             }
-            _ => false,
+            _ => Self::internal("Internal server error"),
         }
     }
 }

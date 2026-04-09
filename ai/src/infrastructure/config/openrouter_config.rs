@@ -1,8 +1,9 @@
 use secrecy::SecretString;
 
 #[derive(Clone, clap::Args, derive_more::Debug)]
+#[allow(clippy::struct_field_names)]
 pub struct OpenRouterConfig {
-    /// OpenRouter API key
+    /// `OpenRouter` API key
     #[arg(long, env = "OPENROUTER_API_KEY", required = true)]
     openrouter_api_key: SecretString,
 
@@ -10,17 +11,29 @@ pub struct OpenRouterConfig {
     #[arg(
         long,
         env = "OPENROUTER_DEFAULT_MODEL",
-        default_value = "qwen/qwen-2.5-72b-instruct"
+        default_value = "openai/gpt-4.1"
     )]
     openrouter_default_model: String,
+
+    /// Model to use for embedding requests
+    #[arg(
+        long,
+        env = "OPENROUTER_EMBEDDING_MODEL",
+        default_value = "openai/text-embedding-3-small"
+    )]
+    openrouter_embedding_model: String,
 }
 
 impl OpenRouterConfig {
-    pub fn api_key(&self) -> &SecretString {
+    pub const fn api_key(&self) -> &SecretString {
         &self.openrouter_api_key
     }
 
     pub fn default_model(&self) -> &str {
         &self.openrouter_default_model
+    }
+
+    pub fn embedding_model(&self) -> &str {
+        &self.openrouter_embedding_model
     }
 }

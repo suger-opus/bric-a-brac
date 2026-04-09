@@ -1,39 +1,31 @@
 "use client";
 
 import { useGraph } from "@/contexts/graph-context";
-import { EdgeSchema, ProcessedEdgeData } from "@/types";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useMemo } from "react";
 import GraphElementItem from "./element-data-item";
 
 const GraphEdgeItem = () => {
-  const { metadata, schema, processedData, focusEdge } = useGraph();
-  const [edgeData, setEdgeData] = useState<ProcessedEdgeData | null>(null);
-  const [edgeSchema, setEdgeSchema] = useState<EdgeSchema | null>(null);
+  const { schema, processedData, focusEdge } = useGraph();
 
-  const findEdge = useEffectEvent(() => {
-    const foundData = processedData?.links.find((l) => l.id === focusEdge);
-    const foundSchema = schema?.edges.find((n) => n.key === foundData?.key);
-    setEdgeData(foundData || null);
-    setEdgeSchema(foundSchema || null);
-  });
+  const match = useMemo(() => {
+    if (!focusEdge || !processedData || !schema) { return null; }
+    const edge = processedData.links.find((l) => l.id === focusEdge);
+    if (!edge) { return null; }
+    const edgeSchema = schema.edges.find((e) => e.key === edge.key);
+    return edgeSchema ? { edge, schema: edgeSchema } : null;
+  }, [focusEdge, processedData, schema]);
 
-  useEffect(() => {
-    findEdge();
-  }, [focusEdge]);
+  if (!match) { return null; }
 
-  return (edgeData && edgeSchema)
-    ? (
-      <GraphElementItem
-        kind="edge"
-        id={focusEdge!}
-        label={edgeSchema.label}
-        color={edgeSchema.color}
-        schemaProperties={edgeSchema.properties}
-        dataProperties={edgeData.properties}
-        role={metadata!.user_role}
-      />
-    )
-    : null;
+  return (
+    <GraphElementItem
+      kind="edge"
+      id={match.edge.id}
+      label={match.schema.label}
+      color={match.schema.color}
+      properties={match.edge.properties}
+    />
+  );
 };
 
 export default GraphEdgeItem;

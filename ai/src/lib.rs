@@ -1,23 +1,40 @@
-pub mod application;
-pub mod infrastructure;
-pub mod presentation;
+mod application;
+mod infrastructure;
+mod presentation;
+
+pub use infrastructure::Config;
+pub use presentation::setup_tracing;
 
 use crate::{
-    application::services::{DataService, SchemaService},
-    infrastructure::{clients::OpenRouterClient, config::Config},
-    presentation::grpc::AiService,
+    application::{AgentService, ToolService},
+    infrastructure::{EmbeddingClient, KnowledgeClient, MetadataClient, OpenRouterClient},
+    presentation::AiService,
 };
 use bric_a_brac_protos::{ai::ai_server::AiServer, build_grpc_server};
 
 pub async fn run(config: Config) -> anyhow::Result<()> {
     let openrouter_client = OpenRouterClient::new(config.openrouter());
-    let schema_service = SchemaService::new(openrouter_client.clone());
-    let data_service = DataService::new(openrouter_client);
-    let ai_service = AiService::new(schema_service, data_service);
+    let embedding_client = EmbeddingClient::new(config.openrouter());
+    let knowledge_client = KnowledgeClient::new(
+        config.knowledge_server(),
+        config.internal_services_auth_token(),
+    )?;
+    let metadata_client = MetadataClient::new(
+        config.metadata_server(),
+        config.internal_services_auth_token(),
+    )?;
+    let tool_service =
+        ToolService::new(knowledge_client, metadata_client.clone(), embedding_client);
+    let agent_service = AgentService::new(openrouter_client, metadata_client, tool_service);
+    let ai_service = AiService::new(agent_service);
     let grpc_addr = config.ai_server().url();
     tracing::info!(grpc_addr = %grpc_addr, "AI gRPC server starting");
 
-    build_grpc_server(AiServer::new(ai_service), grpc_addr).await?;
-
+    build_grpc_server(
+        AiServer::new(ai_service),
+        grpc_addr,
+        config.internal_services_auth_token(),
+    )
+    .await?;
     Ok(())
 }

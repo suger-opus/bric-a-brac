@@ -1,8 +1,8 @@
 mod dtos;
 mod error;
-mod openapi;
-mod utils;
+pub mod utils;
+
+// Carefully remove what is not inside protobuf (graph_schema ?)
 
 pub use dtos::*;
 pub use error::DtosConversionError;
-pub use openapi::generate_graph_schema_doc;

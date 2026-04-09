@@ -1,6 +1,7 @@
 use secrecy::SecretString;
 
 #[derive(clap::Args, derive_more::Debug)]
+#[allow(clippy::struct_field_names)]
 pub struct MetadataDatabaseConfig {
     /// Metadata database URL
     #[arg(long, env = "METADATA_DB_URL", required = true)]
@@ -16,15 +17,15 @@ pub struct MetadataDatabaseConfig {
 }
 
 impl MetadataDatabaseConfig {
-    pub fn url(&self) -> &SecretString {
+    pub const fn url(&self) -> &SecretString {
         &self.metadata_db_url
     }
 
-    pub fn max_connections(&self) -> u32 {
+    pub const fn max_connections(&self) -> u32 {
         self.metadata_db_max_connections
     }
 
-    pub fn skip_migration(&self) -> bool {
+    pub const fn skip_migration(&self) -> bool {
         self.metadata_db_skip_migration
     }
 }

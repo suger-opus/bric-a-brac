@@ -1,6 +1,9 @@
-use super::super::dtos::{AccessDto, CreateAccessDto};
-use crate::{infrastructure::repositories::AccessRepository, presentation::errors::AppError};
-use bric_a_brac_dtos::GraphIdDto;
+use crate::{
+    application::{AccessDto, AppError, CreateAccessDto},
+    domain::{CreateAccessModel, RoleModel},
+    infrastructure::AccessRepository,
+};
+use bric_a_brac_dtos::{GraphIdDto, UserIdDto};
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -10,24 +13,43 @@ pub struct AccessService {
 }
 
 impl AccessService {
-    pub fn new(pool: PgPool, repository: AccessRepository) -> Self {
-        AccessService { pool, repository }
+    pub const fn new(pool: PgPool, repository: AccessRepository) -> Self {
+        Self { pool, repository }
     }
 
     #[tracing::instrument(
         level = "trace",
         name = "access_service.create",
-        skip(self, graph_id, create_access_dto)
+        skip(self, graph_id, user_id, create_access_dto),
+        err
     )]
     pub async fn create(
         &self,
         graph_id: GraphIdDto,
+        user_id: UserIdDto,
         create_access_dto: CreateAccessDto,
     ) -> Result<AccessDto, AppError> {
         let mut txn = self.pool.begin().await?;
+
+        // Only owners and admins can grant access
+        let role = self
+            .repository
+            .get_role(&mut txn, graph_id.into(), user_id.into())
+            .await?;
+        if !role.has_at_least(&RoleModel::Admin) {
+            return Err(AppError::Forbidden);
+        }
+
         let access = self
             .repository
-            .create(&mut txn, create_access_dto.into_domain(graph_id.into()))
+            .create(
+                &mut txn,
+                CreateAccessModel {
+                    graph_id: graph_id.into(),
+                    user_id: create_access_dto.user_id.into(),
+                    role: create_access_dto.role.into(),
+                },
+            )
             .await?;
         txn.commit().await?;
 

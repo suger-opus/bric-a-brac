@@ -11,12 +11,20 @@ pub mod knowledge {
     tonic::include_proto!("knowledge");
 }
 
+pub mod metadata {
+    tonic::include_proto!("metadata");
+}
+
 // Base trait & error
+mod auth;
 mod client;
 mod error;
-mod tracing;
 mod server;
+mod tracing;
 
+pub use auth::{AuthChannel, ServiceAuthInterceptor};
+pub use client::with_retry;
+pub use error::GrpcRequestError;
 pub use server::build_grpc_server;
-pub use client::GrpcClient;
-pub use error::{BaseGrpcClientError, GrpcServiceKind};
+
+use auth::ServiceAuthLayer;
